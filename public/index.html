@@ -405,8 +405,7 @@ function renderNav(){
 function renderWho(){
   if(S.dbState==='loading'){return}
   const nm=(S.me&&S.me.name)||'Você';
-  $('#who').innerHTML=`<div class="row">${S.me&&S.me.avatarUrl?`<img src="${esc(S.me.avatarUrl)}" alt="">`:''}<div><div style="font-weight:600">${esc(nm)}</div><div class="muted" style="font-size:12px">Perfil: ${esc(S.role||'—')}</div></div></div>
-  <details><summary>Como funcionam os perfis</summary><p>${S.me&&S.me.modoLogin==='local'?'O Admin define o perfil de cada pessoa em Usuários.':'O perfil vem do login corporativo (Microsoft Entra ID).'} <b>Admin</b>: tudo, inclusive exclusões. <b>Analista</b>: cadastra e edita. <b>Leitura</b>: apenas consulta.</p></details>
+  $('#who').innerHTML=`<div class="row">${S.me&&S.me.avatarUrl?`<img src="${esc(S.me.avatarUrl)}" alt="">`:''}<div><div style="font-weight:600">${esc(nm)}</div></div></div>
   <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px">${S.me&&S.me.modoLogin==='local'?`${S.isAdmin?'<a href="/usuarios" class="muted">Usuários</a>':''}<a href="/conta/senha" class="muted">Trocar senha</a>`:''}<a href="/auth/logout" class="muted">Sair</a></div>`;
 }
 
@@ -529,10 +528,21 @@ async function saveCfg(){const t=parseInt(val('cfgTri'),10),a=parseInt(val('cfgA
 /* ---------- Normas ---------- */
 function filtNormas(){const f=S.nf,q=norm(f.q);return S.normas.filter(n=>(!f.orgao||n.orgao===f.orgao)&&(!f.status||(n.status||'Nova')===f.status)&&(!f.crit||n.criticidade===f.crit)&&(!q||norm([cite(n),n.ementa,n.tema,n.responsavel,n.area,n.numero].join(' ')).includes(q)))
   .sort((a,b)=>(b.dataPublicacao||'')>(a.dataPublicacao||'')?1:(b.dataPublicacao||'')<(a.dataPublicacao||'')?-1:0)}
+const SEL=()=>S.sel||(S.sel=new Set());
+const SELTD='style="width:38px;text-align:center;cursor:pointer"';
+const CB=on=>`<input type="checkbox" tabindex="-1" aria-label="Selecionar"${on?' checked':''} style="pointer-events:none;width:16px;height:16px;accent-color:var(--accent)">`;
+async function bulkStatus(status){const vis=new Set(filtNormas().map(n=>n.id));const alvo=S.normas.filter(n=>SEL().has(n.id)&&vis.has(n.id));if(!alvo.length)return;
+  let ok=0,ign=0;
+  for(const old of alvo){const de=old.status||'Nova';if(de===status){ign++;continue}
+    const data={status};if(!old.triadaEm&&de==='Nova')data.triadaEm=today();if(DECIDIDO.includes(status)&&!old.analisadaEm&&!DECIDIDO.includes(de))data.analisadaEm=today();
+    try{await S.db.doc('normas/'+old.id).update({...data,...stamp(false)});await log('Alterou','Norma',cite(old),(diff(old,{...old,status},NL)||('Status: '+de+' → '+status))+' (alteração em massa)');ok++}
+    catch(e){onWriteErr(e);break}}
+  SEL().clear();render();
+  toast(ok+(ok===1?' norma marcada':' normas marcadas')+' como '+status+'.'+(ign?' '+ign+(ign===1?' já estava':' já estavam')+' com esse status.':''));}
 function vNormas(){
-  const list=filtNormas();const loading=!S.loaded.normas;
+  const list=filtNormas();const loading=!S.loaded.normas;const podeSel=!!(S.canWrite&&S.db);const sel=SEL();const nSel=list.filter(n=>sel.has(n.id)).length;const allSel=list.length>0&&nSel===list.length;
   const rows=list.map(n=>{const ac=S.acoes.filter(a=>a.normaId===n.id);const open=ac.filter(a=>!['Concluída','Cancelada'].includes(a.status)).length;const done=['Adequada','Não aplicável','Revogada'].includes(n.status);
-    return `<tr data-act="open-norma" data-id="${esc(n.id)}"><td>${og(n.orgao)}</td><td><div class="cite">${esc(cite(n))}</div><div class="sub num">${esc(fmtD(n.dataPublicacao))}${n.tema?' · '+esc(n.tema):''}</div></td><td><div class="clip">${esc(n.ementa)}</div></td><td>${stPill(n.status)}</td><td><span class="crit crit-${esc(n.criticidade||'Média')}">${esc(n.criticidade||'—')}</span></td><td>${esc(n.responsavel||'—')}${n.area?`<div class="sub">${esc(n.area)}</div>`:''}</td><td class="nowrap num">${prazoTxt(n.prazoAdequacao,done)}</td><td class="num nowrap">${ac.length?`${open} aberta${open===1?'':'s'}<div class="sub">${ac.length} no total</div>`:'<span class="muted">—</span>'}</td></tr>`}).join('');
+    return `<tr data-act="open-norma" data-id="${esc(n.id)}">${podeSel?`<td ${SELTD} data-act="sel-norma" data-id="${esc(n.id)}">${CB(sel.has(n.id))}</td>`:''}<td>${og(n.orgao)}</td><td><div class="cite">${esc(cite(n))}</div><div class="sub num">${esc(fmtD(n.dataPublicacao))}${n.tema?' · '+esc(n.tema):''}</div></td><td><div class="clip">${esc(n.ementa)}</div></td><td>${stPill(n.status)}</td><td><span class="crit crit-${esc(n.criticidade||'Média')}">${esc(n.criticidade||'—')}</span></td><td>${esc(n.responsavel||'—')}${n.area?`<div class="sub">${esc(n.area)}</div>`:''}</td><td class="nowrap num">${prazoTxt(n.prazoAdequacao,done)}</td><td class="num nowrap">${ac.length?`${open} aberta${open===1?'':'s'}<div class="sub">${ac.length} no total</div>`:'<span class="muted">—</span>'}</td></tr>`}).join('');
   const f=S.nf;
   return `<div class="head"><div><h1>Normas</h1><p>Normativos do Bacen, CMN, CVM e ANBIMA acompanhados pela área, com triagem, aplicabilidade e prazo de adequação.</p></div>
     <div class="actions">${S.downloads&&window.XLSX?`<button class="btn" data-act="export-normas">Exportar Excel</button>`:''}${S.canWrite&&S.db?`<button class="btn" data-act="import">Importar planilha</button><button class="btn pri" data-act="new-norma">Nova norma</button>`:''}</div></div>
@@ -541,8 +551,9 @@ function vNormas(){
     <select id="ns" aria-label="Status">${opts(ST_NORMA,f.status,'Todos os status')}</select>
     <select id="nc" aria-label="Criticidade">${opts(CRIT,f.crit,'Qualquer criticidade')}</select>
     ${f.q||f.orgao||f.status||f.crit?`<button class="btn sm" data-act="clear-nf">Limpar filtros</button>`:''}</div>
+  ${podeSel&&nSel?`<div role="region" aria-label="Ações em massa" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;margin:4px 0 8px;border:1px solid var(--line);border-radius:10px"><b style="margin-right:4px">${nSel} selecionada${nSel===1?'':'s'}</b><button class="btn sm" data-act="bulk-status" data-status="Aplicável">Marcar como Aplicável</button><button class="btn sm" data-act="bulk-status" data-status="Não aplicável">Marcar como Não aplicável</button><button class="btn sm" data-act="sel-clear">Limpar seleção</button></div>`:''}
   <div class="chips muted">Fontes oficiais: ${FONTES.map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${t}</a>`).join(' · ')}</div>
-  ${list.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th>Órgão</th><th>Norma</th><th>Ementa</th><th>Status</th><th>Criticidade</th><th>Responsável</th><th>Prazo adequação</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table></div>
+  ${list.length?`<div class="tblwrap"><table class="tbl"><thead><tr>${podeSel?`<th ${SELTD} data-act="sel-all" title="Selecionar todas as normas filtradas">${CB(allSel)}</th>`:''}<th>Órgão</th><th>Norma</th><th>Ementa</th><th>Status</th><th>Criticidade</th><th>Responsável</th><th>Prazo adequação</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="muted" style="font-size:13px">${list.length} de ${S.normas.length} normas</div>`
   :`<div class="panel"><div class="empty">${loading?'Carregando normas…':S.normas.length?'Nenhuma norma corresponde aos filtros.':'Nenhuma norma cadastrada ainda. Cadastre a primeira ou importe a planilha que a equipe já usa.'}${!loading&&!S.normas.length&&S.canWrite&&S.db?`<div class="actions"><button class="btn pri" data-act="new-norma">Cadastrar norma</button><button class="btn" data-act="import">Importar planilha</button></div>`:''}</div></div>`}`;
 }
@@ -755,6 +766,10 @@ function template(){saveXlsx([{'Órgão':'CVM','Tipo':'Resolução','Número':'5
 
 /* ---------- Eventos ---------- */
 function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
+  if(act==='sel-norma'){const s=SEL();s.has(id)?s.delete(id):s.add(id);return render()}
+  if(act==='sel-all'){const s=SEL(),ids=filtNormas().map(n=>n.id),all=ids.length>0&&ids.every(x=>s.has(x));ids.forEach(x=>all?s.delete(x):s.add(x));return render()}
+  if(act==='sel-clear'){SEL().clear();return render()}
+  if(act==='bulk-status'){t.disabled=true;return bulkStatus(t.dataset.status)}
   if(act==='save-cfg')return saveCfg();
   if(act==='run-captura'){t.disabled=true;window.CN_executarCaptura().then(r=>toast(r.mensagem||'Atualização iniciada.')).catch(e=>toast(errMsg(e),'crit'));return}
   if(act==='export-planos')return exportPlanos();
