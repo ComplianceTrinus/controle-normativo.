@@ -181,3 +181,10 @@ ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS prazo date;
 ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS resposta text;
 ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS respondido_em timestamptz;
 ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS respondido_por text;
+
+-- Critérios marcados na matriz de classificação de risco jurídico-regulatório (ids separados por ;)
+ALTER TABLE normas ADD COLUMN IF NOT EXISTS criterios_risco text;
+-- Retorno estruturado da área: aplicável ou não, plano de ação e data sugeridos
+ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS aplicavel boolean;
+ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS plano_sugerido text;
+ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS data_sugerida date;
