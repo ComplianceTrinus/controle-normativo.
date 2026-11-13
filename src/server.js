@@ -122,6 +122,18 @@ const escrita = auth.exigirPerfil('Admin', 'Analista');
 const admin = auth.exigirPerfil('Admin');
 // Comentar e anexar evidência: também a Área responsável (que não altera normas, ações nem obrigações)
 const colaboracao = auth.exigirPerfil('Admin', 'Analista', 'Área responsável');
+
+// ---- Escopo da Área responsável: só ações e obrigações das suas áreas (e as normas ligadas a elas) ----
+function escopoArea(req) {
+  const u = usuario(req);
+  if (!u || u.perfil !== 'Área responsável') return null;
+  return new Set((u.areas || []).map(dados.normArea).filter(Boolean));
+}
+async function visiveis(esc) {
+  const ac = (await dados.listar('acoes')).filter(a => esc.has(dados.normArea(a.area)));
+  const ob = (await dados.listar('obrigacoes')).filter(o => esc.has(dados.normArea(o.area)));
+  return { ac, ob, acIds: new Set(ac.map(a => a.id)), nIds: new Set([...ac, ...ob].map(x => x.normaId).filter(Boolean)) };
+}
 const COLS = ['normas', 'acoes', 'obrigacoes'];
 
 function tratarErro(res, err) {
@@ -150,8 +162,21 @@ app.post('/api/c/auditoria', escrita, async (req, res) => {
 });
 
 app.get('/api/c/:col', async (req, res) => {
-  if (!COLS.includes(req.params.col)) return res.status(404).json({ erro: 'Coleção desconhecida.' });
-  try { res.json(await dados.listar(req.params.col)); } catch (e) { tratarErro(res, e); }
+  const col = req.params.col;
+  if (!COLS.includes(col)) return res.status(404).json({ erro: 'Coleção desconhecida.' });
+  try {
+    const esc = escopoArea(req);
+    if (!esc) return res.json(await dados.listar(col));
+    const v = await visiveis(esc);
+    if (col === 'acoes') return res.json(v.ac);
+    if (col === 'obrigacoes') return res.json(v.ob);
+    res.json((await dados.listar('normas')).filter(n => v.nIds.has(n.id)));
+  } catch (e) { tratarErro(res, e); }
+});
+
+// Lista de áreas (escolha nas ações e obrigações)
+app.get('/api/areas', async (req, res) => {
+  try { res.json(await dados.listarAreas()); } catch (e) { tratarErro(res, e); }
 });
 app.put('/api/c/:col/:id', escrita, async (req, res) => {
   try { await dados.gravar(req.params.col, req.params.id, req.body || {}, usuario(req)); res.json({ ok: true }); } catch (e) { tratarErro(res, e); }
@@ -267,8 +292,10 @@ app.delete('/api/evidencias/:id', admin, async (req, res) => {
   res.json({ deleted: r.rowCount > 0 });
 });
 app.get('/_blob/:id', async (req, res) => {
-  const r = await q('SELECT nome, tipo, conteudo FROM evidencias WHERE id = $1', [req.params.id]);
+  const r = await q('SELECT nome, tipo, conteudo, acao_id, enviado_por FROM evidencias WHERE id = $1', [req.params.id]);
   const ev = r.rows[0];
+  const esc = ev && escopoArea(req);
+  if (esc && ev.enviado_por !== usuario(req).id && !(await visiveis(esc)).acIds.has(ev.acao_id)) return res.status(404).send('Evidência não encontrada.');
   const arquivo = path.join(config.uploadDir, path.basename(req.params.id));
   if (!ev || (!ev.conteudo && !fs.existsSync(arquivo))) return res.status(404).send('Evidência não encontrada.');
   res.setHeader('Content-Type', ev.tipo);
@@ -287,6 +314,8 @@ app.post('/api/acoes/:id/evidencias', colaboracao, async (req, res) => {
     if (!ids.length) return res.status(400).json({ erro: 'Nenhuma evidência informada.' });
     const a = (await q('SELECT id, descricao FROM acoes WHERE id = $1', [req.params.id])).rows[0];
     if (!a) return res.status(404).json({ erro: 'Ação não encontrada. Ela pode ter sido excluída.' });
+    const esc = escopoArea(req);
+    if (esc && !(await visiveis(esc)).acIds.has(a.id)) return res.status(403).json({ erro: 'Esta ação não é da sua área.' });
     const r = await q('UPDATE evidencias SET acao_id = $1 WHERE id = ANY($2) AND acao_id IS NULL AND enviado_por = $3 RETURNING nome', [a.id, ids, usuario(req).id]);
     if (!r.rowCount) return res.status(400).json({ erro: 'Nenhuma evidência pôde ser vinculada.' });
     await q('UPDATE acoes SET atualizado_em = now(), atualizado_por = $2 WHERE id = $1', [a.id, usuario(req).id]);
@@ -300,6 +329,11 @@ app.get('/api/comentarios', async (req, res) => {
   const normaId = String(req.query.normaId || ''), acaoId = String(req.query.acaoId || '');
   if (!normaId && !acaoId) return res.status(400).json({ erro: 'Informe a norma ou a ação.' });
   try {
+    const esc = escopoArea(req);
+    if (esc) {
+      const v = await visiveis(esc);
+      if (normaId ? !v.nIds.has(normaId) : !v.acIds.has(acaoId)) return res.status(403).json({ erro: 'Item fora da sua área.' });
+    }
     const r = normaId
       ? await q('SELECT id, norma_id, acao_id, texto, por, em FROM comentarios WHERE norma_id = $1 ORDER BY em', [normaId])
       : await q('SELECT id, norma_id, acao_id, texto, por, em FROM comentarios WHERE acao_id = $1 ORDER BY em', [acaoId]);
@@ -314,6 +348,11 @@ app.post('/api/comentarios', colaboracao, async (req, res) => {
     if (!normaId && !acaoId) return res.status(400).json({ erro: 'Informe a norma ou a ação.' });
     if (!texto) return res.status(400).json({ erro: 'Escreva o comentário.' });
     if (texto.length > 4000) return res.status(400).json({ erro: 'Comentário muito longo (máximo de 4.000 caracteres).' });
+    const esc = escopoArea(req);
+    if (esc) {
+      const v = await visiveis(esc);
+      if (normaId ? !v.nIds.has(normaId) : !v.acIds.has(acaoId)) return res.status(403).json({ erro: 'Item fora da sua área.' });
+    }
     let ref = '';
     if (normaId) {
       const n = (await q('SELECT tipo, orgao, numero FROM normas WHERE id = $1', [normaId])).rows[0];
