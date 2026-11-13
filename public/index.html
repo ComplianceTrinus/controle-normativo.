@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <script src="/vendor/xlsx.full.min.js"></script>
-<script src="/js/api.js?v=20261113b"></script>
+<script src="/js/api.js?v=20261113c"></script>
 <style>
 /* Layout: padrão trinus.co — trilho lateral azul com logo e menu, área clara com cards brancos e tabelas */
 :root{
@@ -419,9 +419,9 @@ const ST_BAR={'Nova':'var(--info)','Em análise':'var(--warn)','Aplicável':'var
 const CRIT=['Alta','Média','Baixa'];
 const ST_ACAO=['Aberta','Em andamento','Concluída','Cancelada'];
 const PERIOD={Mensal:1,Bimestral:2,Trimestral:3,Semestral:6,Anual:12,Eventual:0};
-const ROUTES={painel:'Painel',indicadores:'Indicadores',normas:'Normas',acoes:'Planos de ação',obrigacoes:'Obrigações',envios:'Envio Diário'};
+const ROUTES={recebidas:'Normas recebidas',painel:'Painel',indicadores:'Indicadores',normas:'Normas',acoes:'Planos de ação',obrigacoes:'Obrigações',envios:'Envio Diário'};
 const ADMIN_ROUTES=['envios'];
-const AREA_ROUTES=['acoes','indicadores','obrigacoes']; // Área responsável não vê Painel nem Normas
+const AREA_ROUTES=['recebidas','acoes','indicadores','obrigacoes']; // Área responsável não vê Painel nem Normas
 const FONTES=[
   ['Busca de normas do Banco Central','https://www.bcb.gov.br/estabilidadefinanceira/buscanormas'],
   ['Resoluções CVM','https://conteudo.cvm.gov.br/legislacao/resolucoes.html'],
@@ -479,8 +479,8 @@ function onWriteErr(e){if(e&&e.code==='invalid_argument'&&S.canWriteSource!=='pl
 function strip(o){const r={};for(const k in o)if(o[k]!==undefined)r[k]=o[k];return r}
 function diff(a,b,labels){const out=[];for(const k in labels){const x=a[k]??'',y=b[k]??'';if(String(x)!==String(y)){const f=v=>/^\d{4}-\d{2}-\d{2}$/.test(v)?fmtD(v):(String(v).length>40?String(v).slice(0,40)+'…':v);out.push(`${labels[k]}: ${f(x)||'—'} → ${f(y)||'—'}`)}}return out.join('; ')}
 async function log(acao,tipo,ref,detalhe){if(!S.db)return;try{await S.db.collection('auditoria').add({em:new Date().toISOString(),por:S.meId||null,acao,tipo,ref:String(ref||'').slice(0,200),detalhe:String(detalhe||'').slice(0,600)})}catch{}}
-const routeOk=h=>!!ROUTES[h]&&(!ADMIN_ROUTES.includes(h)||S.isAdmin)&&(!S.isArea||AREA_ROUTES.includes(h));
-const route=()=>{const h=location.hash.slice(1);return routeOk(h)?h:(S.isArea?'acoes':'painel')};
+const routeOk=h=>!!ROUTES[h]&&(!ADMIN_ROUTES.includes(h)||S.isAdmin)&&(!S.isArea||AREA_ROUTES.includes(h))&&(h!=='recebidas'||S.isArea)&&(h!=='obrigacoes'||!S.isArea||!!(S.me&&S.me.verObrigacoes));
+const route=()=>{const h=location.hash.slice(1);return routeOk(h)?h:(S.isArea?'recebidas':'painel')};
 
 /* ---------- Render ---------- */
 let raf=0;function render(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;doRender()})}
@@ -488,7 +488,7 @@ function doRender(){
   const a=document.activeElement;const fid=a&&a.id&&main.contains(a)?a.id:null;let ss=null;try{ss=fid?a.selectionStart:null}catch{}
   renderNav();renderWho();
   const r=route();
-  const views={painel:vPainel,indicadores:vIndic,normas:vNormas,acoes:vAcoes,obrigacoes:vObrig,envios:vEnvios};
+  const views={recebidas:vRecebidas,painel:vPainel,indicadores:vIndic,normas:vNormas,acoes:vAcoes,obrigacoes:vObrig,envios:vEnvios};
   main.innerHTML=`<div class="wrap">${banner()}${r==='painel'||r==='normas'?capTxt():''}${views[r]()}</div>`;
   if(fid){const el=document.getElementById(fid);if(el){el.focus();try{if(ss!=null)el.setSelectionRange(ss,ss)}catch{}}}
   refreshDialog();
@@ -497,7 +497,7 @@ function capTxt(){const c=S.captura;if(!c||!c.ultimaExecucao)return '';const ok=
   return `<div class="cap"><span class="dot ${ok?'ok':'bad'}"></span><span><b>Atualização automática diária</b> · última execução ${esc(fmtDT(c.ultimaExecucao))}${c.novas!=null?` · ${c.novas} ${c.novas===1?'norma nova':'normas novas'}`:''}${c.fontes?` · ${esc(c.fontes)}`:''}${c.detalhe?`<span class="muted"> · ${esc(c.detalhe)}</span>`:''}</span>${c.novas?`<a href="#normas" data-act="goto" data-go="normas:Nova">Ver para triagem</a>`:''}${S.isAdmin&&window.CN_SERVIDOR?`<button class="btn sm" data-act="run-captura">Atualizar agora</button>`:''}</div>`}
 function banner(){
   if(S.dbState==='off')return `<div class="banner warn"><div><b>Banco de dados indisponível nesta visualização.</b> Não foi possível conectar ao servidor. Recarregue a página; se continuar, avise o suporte de TI.</div></div>`;
-  if(S.dbState==='ready'&&S.isArea){const ar=(S.me&&S.me.areas)||[];return ar.length?`<div class="banner"><div><b>Área: ${esc(ar.join(', '))}.</b> Você vê os planos de ação e as obrigações da sua área, pode comentar e anexar evidências nas ações. Alterações são feitas pelo Compliance.</div></div>`:`<div class="banner warn"><div><b>Nenhuma área definida para o seu acesso.</b> Peça ao administrador para indicar a sua área na tela de Usuários.</div></div>`}
+  if(S.dbState==='ready'&&S.isArea){const ar=(S.me&&S.me.areas)||[];return ar.length?`<div class="banner"><div><b>Área: ${esc(ar.join(', '))}.</b> Aqui estão as normas encaminhadas pelo Compliance e os planos de ação da sua área. Você pode comentar e anexar evidências nas ações; alterações são feitas pelo Compliance.</div></div>`:`<div class="banner warn"><div><b>Nenhuma área definida para o seu acesso.</b> Peça ao administrador para indicar a sua área na tela de Usuários.</div></div>`}
   if(S.dbState==='ready'&&!S.canWrite)return `<div class="banner"><div><b>Acesso somente leitura.</b> Você pode consultar normas, planos e obrigações. Para editar, peça ao administrador o perfil Analista.</div></div>`;
   return '';
 }
@@ -505,6 +505,7 @@ function renderNav(){
   const r=route();const late=S.acoes.filter(a=>acaoStatus(a)==='Atrasada').length+S.obrig.filter(o=>obStatus(o)[0]==='Atrasada').length;
   const triage=S.normas.filter(n=>(n.status||'Nova')==='Nova').length;
   const cnt={normas:triage?`<span class="cnt" title="Para triagem">${triage}</span>`:'',acoes:'',obrigacoes:''};
+  const pend=(S.enc||[]).filter(e=>!e.resposta).length;if(S.isArea&&pend)cnt.recebidas=`<span class="cnt${(S.enc||[]).some(e=>!e.resposta&&days(e.prazo)!=null&&days(e.prazo)<0)?' alert':''}" title="Aguardando retorno">${pend}</span>`;
   const la=S.acoes.filter(a=>acaoStatus(a)==='Atrasada').length,lo=S.obrig.filter(o=>obStatus(o)[0]==='Atrasada').length;
   if(la)cnt.acoes=`<span class="cnt alert" title="Atrasadas">${la}</span>`;if(lo)cnt.obrigacoes=`<span class="cnt alert" title="Atrasadas">${lo}</span>`;
   $('#nav').innerHTML=Object.entries(ROUTES).filter(([k])=>routeOk(k)).map(([k,v])=>`<a href="#${k}"${k===r?' aria-current="page"':''}><span>${v}</span>${cnt[k]||''}</a>`).join('');
@@ -598,7 +599,33 @@ function planos(){return S.normas.map(n=>{const ac=S.acoes.filter(a=>a.normaId==
   const sit=done===ac.length?'Concluído':late?'Com atraso':'Em dia';
   return{n,ac,done,late,prox,ev,sit}}).filter(Boolean).sort((a,b)=>{const r={'Com atraso':0,'Em dia':1,'Concluído':2};return r[a.sit]-r[b.sit]||((a.prox||'9')<(b.prox||'9')?-1:1)})}
 const SIT_C={'Concluído':'ok','Em dia':'acc','Com atraso':'crit'};
-function vIndicArea(){const loading=!S.loaded.acoes||!S.loaded.obrig;const ac=S.acoes;
+/* ---------- Normas encaminhadas para as áreas ---------- */
+async function loadEnc(){try{S.enc=await apiJson('/api/encaminhamentos')}catch{S.enc=S.enc||[]}render();const el=$('#encList');if(el&&S.dlg&&S.dlg.type==='norma')el.innerHTML=encHist(S.dlg.id)}
+function encStatus(e){if(e.resposta)return['Respondida','ok'];const d=days(e.prazo);if(d==null)return['Aguardando retorno','info'];if(d<0)return[`Atrasada ${-d}d`,'crit'];if(d===0)return['Vence hoje','warn'];if(d<=3)return[`Vence em ${d}d`,'warn'];return['Aguardando retorno','info']}
+function vRecebidas(){const loading=S.enc===undefined;const l=S.enc||[];ensureNames(l.map(e=>e.por));
+  const rows=l.map(e=>{const n=S.normas.find(x=>x.id===e.normaId);if(!n)return '';return `<tr data-act="open-norma" data-id="${esc(n.id)}"><td class="nowrap num">${esc(fmtDT(e.em))}</td><td>${og(n.orgao)}</td><td><div class="cite">${esc(cite(n))}</div><div class="sub">${esc(e.area)}</div></td><td><div class="clip">${esc(n.ementa)}</div></td><td><div class="clip">${esc(e.mensagem||'—')}</div><div class="sub">por ${esc(nameOf(e.por))}</div></td><td class="nowrap">${e.prazo?`<div class="num">${esc(fmtD(e.prazo))}</div>`:''}${pill(...encStatus(e))}</td></tr>`}).join('');
+  return `<div class="head"><div><h1>Normas recebidas</h1><p>Normas que o Compliance encaminhou para a sua área. Você tem 10 dias corridos para avaliar: abra a norma, leia e envie o retorno da área.</p></div></div>
+  ${rows?`<div class="tblwrap"><table class="tbl"><thead><tr><th>Recebida em</th><th>Órgão</th><th>Norma</th><th>Ementa</th><th>Orientação do Compliance</th><th>Prazo de retorno</th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="panel"><div class="empty">${loading||!S.loaded.normas?'Carregando…':'Nenhuma norma encaminhada para a sua área ainda.'}</div></div>`}`}
+function encHist(id){const l=(S.enc||[]).filter(e=>e.normaId===id);if(!l.length)return '<div class="pad">Ainda não encaminhada.</div>';ensureNames(l.map(e=>e.por));
+  ensureNames(l.map(e=>e.respondidoPor));
+  return l.map(e=>`<div class="it" style="cursor:default"><div class="top"><b>${esc(e.area)}</b>${pill(...encStatus(e))}</div>
+    <div class="meta">Encaminhada em ${esc(fmtDT(e.em))} por ${esc(nameOf(e.por))}${e.prazo?` · prazo ${esc(fmtD(e.prazo))}`:''}</div>
+    ${e.mensagem?`<div style="font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere"><b>Orientação:</b> ${esc(e.mensagem)}</div>`:''}
+    ${e.resposta?`<div style="font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--ok-soft);border-radius:8px;padding:8px 10px"><b>Retorno da área</b> (${esc(nameOf(e.respondidoPor))}, ${esc(fmtDT(e.respondidoEm))}):<br>${esc(e.resposta)}</div>`
+      :S.isArea?`<div style="display:flex;flex-direction:column;gap:6px;margin-top:4px"><textarea id="resp-${esc(e.id)}" class="field" rows="3" maxlength="4000" placeholder="Retorno da área: a norma se aplica? Quais impactos e providências?" aria-label="Retorno da área ${esc(e.area)}"></textarea><div><button type="button" class="btn sm pri" data-act="enc-resp" data-id="${esc(e.id)}">Enviar retorno</button></div></div>`:''}
+  </div>`).join('')}
+async function respEnc(t){const id=t.dataset.id;const el=$('#resp-'+id);const resposta=(el&&el.value||'').trim();if(!resposta){toast('Escreva o retorno da área.','crit');return}
+  t.disabled=true;try{await apiJson('/api/encaminhamentos/'+encodeURIComponent(id)+'/responder',{method:'POST',body:JSON.stringify({resposta})});await loadEnc();toast('Retorno enviado ao Compliance.')}catch(e){toast(e.message,'crit')}finally{t.disabled=false}}
+function encBox(id){const pode=!ro()&&!S.isArea;if(S.isArea&&!(S.enc||[]).some(e=>e.normaId===id))return '';
+  return `<div class="box"><header><h3>${S.isArea?'Encaminhada para a sua área':'Encaminhar para área'}</h3></header><div class="list" id="encList">${encHist(id)}</div>${pode?`<div class="pad" style="display:flex;flex-direction:column;gap:8px;color:var(--ink)"><div style="display:flex;flex-wrap:wrap;gap:4px 12px" role="group" aria-label="Áreas">${(S.areas||[]).map(a=>`<label style="display:inline-flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" class="encArea" value="${esc(a)}">${esc(a)}</label>`).join('')}</div><textarea id="encMsg" class="field" rows="2" maxlength="2000" placeholder="O que a área precisa avaliar (opcional)" aria-label="Orientação para a área"></textarea><div><button type="button" class="btn sm pri" data-act="enc-send" data-id="${esc(id)}">Encaminhar e avisar por e-mail</button></div></div>`:''}</div>`}
+async function sendEnc(t){const id=t.dataset.id;const areas=[...document.querySelectorAll('.encArea:checked')].map(x=>x.value);if(!areas.length){toast('Escolha pelo menos uma área.','crit');return}
+  const msgEl=$('#encMsg');const mensagem=(msgEl&&msgEl.value||'').trim();t.disabled=true;
+  try{const r=await apiJson('/api/normas/'+encodeURIComponent(id)+'/encaminhar',{method:'POST',body:JSON.stringify({areas,mensagem})});
+    document.querySelectorAll('.encArea:checked').forEach(x=>{x.checked=false});if(msgEl)msgEl.value='';await loadEnc();
+    toast(`Norma encaminhada para ${r.areas.join(', ')}, com prazo até ${fmtD(r.prazo)}.`+(r.avisados.length?` E-mail enviado para ${r.avisados.length} pessoa${r.avisados.length>1?'s':''}.`:'')+(r.semDestinatario?' Ninguém dessa área está cadastrado para receber o e-mail.':''));
+    if(r.falhas&&r.falhas.length)toast(`O e-mail não chegou a ${r.falhas.length} pessoa${r.falhas.length>1?'s':''}: ${r.falhas[0].erro}`,'crit')}
+  catch(e){toast(e.message,'crit')}finally{t.disabled=false}}
+function vIndicArea(){const vo=!!(S.me&&S.me.verObrigacoes);const loading=!S.loaded.acoes||(vo&&!S.loaded.obrig);const ac=S.acoes;
   const num=(label,v,sub)=>`<div class="stat"><div class="l">${label}</div><div class="v">${loading?'–':v}</div><div class="s">${sub}</div></div>`;
   const atr=ac.filter(a=>acaoStatus(a)==='Atrasada').length,ab=ac.filter(a=>a.status==='Aberta'||a.status==='Em andamento').length,conc=ac.filter(a=>a.status==='Concluída').length;
   const ob=S.obrig.filter(o=>!o.concluida),obAtr=ob.filter(o=>obStatus(o)[0]==='Atrasada').length,ob30=ob.filter(o=>{const d=days(o.proximoVencimento);return d!=null&&d>=0&&d<=30}).length;
@@ -609,12 +636,12 @@ function vIndicArea(){const loading=!S.loaded.acoes||!S.loaded.obrig;const ac=S.
   <div class="stats">
     ${num('Ações em aberto',ab,`${conc} concluídas no total`)}
     ${num('Ações atrasadas',atr,atr?'<span class="late-txt">prazo vencido</span>':'nenhuma com prazo vencido')}
-    ${num('Obrigações em até 30 dias',ob30,`${ob.length} em acompanhamento`)}
-    ${num('Obrigações atrasadas',obAtr,obAtr?'<span class="late-txt">vencimento passou</span>':'nenhuma atrasada')}
+    ${vo?num('Obrigações em até 30 dias',ob30,`${ob.length} em acompanhamento`):''}
+    ${vo?num('Obrigações atrasadas',obAtr,obAtr?'<span class="late-txt">vencimento passou</span>':'nenhuma atrasada'):''}
   </div>
   <div class="cols">
     <section class="panel"><header><h2>Ações por prazo</h2><span class="muted">${ac.filter(a=>a.status!=='Cancelada').length} ações</span></header><div class="body">${ac.length?hbars(acItems):'<div class="muted" style="font-size:14px">Nenhuma ação da sua área ainda.</div>'}</div></section>
-    <section class="panel"><header><h2>Obrigações</h2><span class="muted">${S.obrig.length} obrigações</span></header><div class="body">${S.obrig.length?hbars(obItems):'<div class="muted" style="font-size:14px">Nenhuma obrigação da sua área.</div>'}</div></section>
+    ${vo?`<section class="panel"><header><h2>Obrigações</h2><span class="muted">${S.obrig.length} obrigações</span></header><div class="body">${S.obrig.length?hbars(obItems):'<div class="muted" style="font-size:14px">Nenhuma obrigação da sua área.</div>'}</div></section>`:''}
   </div>`}
 function vIndic(){
   if(S.isArea)return vIndicArea();
@@ -777,6 +804,7 @@ function dNorma(d){const n=d.id?S.normas.find(x=>x.id===d.id)||{}:{orgao:'BACEN'
     <label>Análise de aplicabilidade e observações<textarea id="nObs" rows="5" placeholder="Por que a norma se aplica (ou não), impactos, revogações relacionadas">${esc(n.observacoes)}</textarea></label>
   </fieldset></div>
   <div class="side-col">${d.id?`<div class="box"><header><h3>Plano de ação</h3>${!ro()?`<button type="button" class="btn sm" data-act="new-acao" data-norma="${esc(d.id)}">Nova ação</button>`:''}</header><div class="list" id="dlgAcoes">${normaAcoes(d.id)}</div></div>
+    ${encBox(d.id)}
     ${comBox('n',d.id)}
     ${n.link?`<a class="btn" href="${esc(n.link)}" target="_blank" rel="noopener">Abrir texto oficial</a>`:''}${facts(n)}`
     :`<div class="box"><div class="pad">Depois de salvar, registre aqui o plano de ação da norma.</div></div><div class="chips muted">Consultar: ${FONTES.map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${t}</a>`).join(' · ')}</div>`}</div></div>
@@ -966,6 +994,8 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
   if(act==='clear-nf'){S.nf={q:'',orgao:'',status:'',crit:''};return render()}
   if(act==='clear-af'){S.af={q:'',status:''};return render()}
   if(act==='com-add')return addCom(t);
+  if(act==='enc-send')return sendEnc(t);
+  if(act==='enc-resp')return respEnc(t);
   if(act==='close')return closeDlg();
   if(act==='back'){const n=S.dlg&&S.dlg.from;if(n)openDlg({type:'norma',id:n});return}
   if(act==='del'){if(!t.classList.contains('armed')){t.classList.add('armed');const kind=t.dataset.kind;const n=kind==='norma'?S.acoes.filter(a=>a.normaId===S.dlg.id).length:0;t.textContent=n?`Confirmar: excluir norma e ${n} ação(ões)`:'Confirmar exclusão';setTimeout(()=>{if(t.isConnected){t.classList.remove('armed');t.textContent='Excluir'}},5000);return}return doDelete(t.dataset.kind)}
@@ -999,6 +1029,7 @@ render();
   S.role=S.isAdmin?'Admin':S.isArea?'Área responsável':S.canWrite?'Analista':'Leitura';
   if(!db){S.dbState='off';S.canWrite=false;S.role=S.role||'—';render();return}
   S.dbState='ready';
+  loadEnc();if(S.isArea)setInterval(loadEnc,60000);
   apiJson('/api/areas').then(l=>{S.areas=Array.isArray(l)?l:[];if(S.dlg)drawDlgKeep()}).catch(()=>{S.areas=[]});
   const sub=(q,key)=>q.onSnapshot(snap=>{S[key]=snap.docs.map(d=>({id:d.id,...d.data()}));S.loaded[key]=true;render()},err=>{S.loaded[key]=true;toast('Não foi possível carregar os dados ('+key+'). Recarregue a página.','crit');render()});
   sub(db.collection('normas'),'normas');sub(db.collection('acoes'),'acoes');sub(db.collection('obrigacoes'),'obrig');
