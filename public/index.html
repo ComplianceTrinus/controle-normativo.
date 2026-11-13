@@ -374,7 +374,7 @@ function onWriteErr(e){if(e&&e.code==='invalid_argument'&&S.canWriteSource!=='pl
 function strip(o){const r={};for(const k in o)if(o[k]!==undefined)r[k]=o[k];return r}
 function diff(a,b,labels){const out=[];for(const k in labels){const x=a[k]??'',y=b[k]??'';if(String(x)!==String(y)){const f=v=>/^\d{4}-\d{2}-\d{2}$/.test(v)?fmtD(v):(String(v).length>40?String(v).slice(0,40)+'…':v);out.push(`${labels[k]}: ${f(x)||'—'} → ${f(y)||'—'}`)}}return out.join('; ')}
 async function log(acao,tipo,ref,detalhe){if(!S.db)return;try{await S.db.collection('auditoria').add({em:new Date().toISOString(),por:S.meId||null,acao,tipo,ref:String(ref||'').slice(0,200),detalhe:String(detalhe||'').slice(0,600)})}catch{}}
-const route=()=>{const h=location.hash.slice(1);return ROUTES[h]?h:'painel'};
+const route=()=>{const h=location.hash.slice(1);return ROUTES[h]&&(h!=='auditoria'||S.isAdmin)?h:'painel'};
 
 /* ---------- Render ---------- */
 let raf=0;function render(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;doRender()})}
@@ -400,7 +400,7 @@ function renderNav(){
   const cnt={normas:triage?`<span class="cnt" title="Para triagem">${triage}</span>`:'',acoes:'',obrigacoes:''};
   const la=S.acoes.filter(a=>acaoStatus(a)==='Atrasada').length,lo=S.obrig.filter(o=>obStatus(o)[0]==='Atrasada').length;
   if(la)cnt.acoes=`<span class="cnt alert" title="Atrasadas">${la}</span>`;if(lo)cnt.obrigacoes=`<span class="cnt alert" title="Atrasadas">${lo}</span>`;
-  $('#nav').innerHTML=Object.entries(ROUTES).map(([k,v])=>`<a href="#${k}"${k===r?' aria-current="page"':''}><span>${v}</span>${cnt[k]||''}</a>`).join('');
+  $('#nav').innerHTML=Object.entries(ROUTES).filter(([k])=>k!=='auditoria'||S.isAdmin).map(([k,v])=>`<a href="#${k}"${k===r?' aria-current="page"':''}><span>${v}</span>${cnt[k]||''}</a>`).join('');
 }
 function renderWho(){
   if(S.dbState==='loading'){return}
@@ -820,7 +820,7 @@ render();
   S.dbState='ready';
   const sub=(q,key)=>q.onSnapshot(snap=>{S[key]=snap.docs.map(d=>({id:d.id,...d.data()}));S.loaded[key]=true;render()},err=>{S.loaded[key]=true;toast('Não foi possível carregar os dados ('+key+'). Recarregue a página.','crit');render()});
   sub(db.collection('normas'),'normas');sub(db.collection('acoes'),'acoes');sub(db.collection('obrigacoes'),'obrig');
-  sub(db.collection('auditoria').orderBy('em','desc').limit(300),'audit');
+  if(S.isAdmin)sub(db.collection('auditoria').orderBy('em','desc').limit(300),'audit');
   db.doc('sistema/captura').onSnapshot(s=>{S.captura=s.exists?s.data():null;render()},()=>{});
   db.doc('sistema/config').onSnapshot(s=>{S.cfg=s.exists?s.data():null;render()},()=>{});
   render();
