@@ -630,6 +630,24 @@ async function sendEnc(t){const id=t.dataset.id;const areas=[...document.querySe
     toast(`Norma encaminhada para ${r.areas.join(', ')}, com prazo até ${fmtD(r.prazo)}.`+(r.avisados.length?` E-mail enviado para ${r.avisados.length} pessoa${r.avisados.length>1?'s':''}.`:'')+(r.semDestinatario?' Ninguém dessa área está cadastrado para receber o e-mail.':''));
     if(r.falhas&&r.falhas.length)toast(`O e-mail não chegou a ${r.falhas.length} pessoa${r.falhas.length>1?'s':''}: ${r.falhas[0].erro}`,'crit')}
   catch(e){toast(e.message,'crit')}finally{t.disabled=false}}
+/* ---------- Indicadores por área: normas encaminhadas e planos de ação ---------- */
+const diaBRT=iso=>{try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date(iso))}catch{return ''}};
+function porArea(){
+  const lista=[...(S.areas||[])];const add=a=>{if(a&&!lista.some(x=>norm(x)===norm(a)))lista.push(a)};
+  (S.enc||[]).forEach(e=>add(e.area));S.acoes.forEach(a=>add(a.area));
+  const k=a=>norm(a||'');
+  const en=lista.map(ar=>{const l=(S.enc||[]).filter(e=>k(e.area)===k(ar));const resp=l.filter(e=>e.resposta);
+    const late=l.filter(e=>!e.resposta&&days(e.prazo)!=null&&days(e.prazo)<0).length;
+    return{ar,tot:l.length,pend:l.length-resp.length-late,late,conc:resp.length,noPrazo:resp.filter(e=>!e.prazo||diaBRT(e.respondidoEm)<=e.prazo).length}}).filter(r=>r.tot);
+  const grupos=[...lista.map(ar=>({ar,l:S.acoes.filter(a=>k(a.area)===k(ar))})),{ar:'Sem área definida',l:S.acoes.filter(a=>!k(a.area))}];
+  const ac=grupos.map(({ar,l})=>{l=l.filter(a=>a.status!=='Cancelada');const conc=l.filter(a=>a.status==='Concluída');
+    return{ar,tot:l.length,pend:l.filter(a=>acaoStatus(a)==='Aberta').length,and:l.filter(a=>acaoStatus(a)==='Em andamento').length,late:l.filter(a=>acaoStatus(a)==='Atrasada').length,conc:conc.length,noPrazo:conc.filter(a=>!a.prazo||!a.concluidaEm||a.concluidaEm.slice(0,10)<=a.prazo).length}}).filter(r=>r.tot);
+  const n=(v,cls)=>`<td class="num"${v&&cls?` style="color:var(--${cls});font-weight:700"`:''}>${v}</td>`;
+  const pct=(a,b)=>b?`${a} <span class="muted">(${Math.round(a*100/b)}%)</span>`:'—';
+  const tN=en.length?`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Área</th><th>Encaminhadas</th><th>Pendentes</th><th>Atrasadas</th><th>Concluídas</th><th>Concluídas no prazo</th></tr></thead><tbody>${en.map(r=>`<tr style="cursor:default"><td><b>${esc(r.ar)}</b></td>${n(r.tot)}${n(r.pend,'warn')}${n(r.late,'crit')}${n(r.conc,'ok')}<td class="num">${pct(r.noPrazo,r.conc)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nenhuma norma encaminhada para as áreas ainda.</div>';
+  const tA=ac.length?`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Área</th><th>Ações</th><th>Pendentes</th><th>Em andamento</th><th>Atrasadas</th><th>Concluídas</th><th>Concluídas no prazo</th></tr></thead><tbody>${ac.map(r=>`<tr style="cursor:default"><td><b>${esc(r.ar)}</b></td>${n(r.tot)}${n(r.pend)}${n(r.and)}${n(r.late,'crit')}${n(r.conc,'ok')}<td class="num">${pct(r.noPrazo,r.conc)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nenhuma ação registrada ainda.</div>';
+  return `<section class="panel"><header><h2>Normas analisadas por área</h2><span class="muted">Encaminhadas pelo Compliance · prazo de 10 dias corridos</span></header>${tN}</section>
+  <section class="panel"><header><h2>Planos de ação por área</h2><span class="muted">Pendente = aberta, ainda não iniciada</span></header>${tA}</section>`}
 function vIndicArea(){const vo=!!(S.me&&S.me.verObrigacoes);const loading=!S.loaded.acoes||(vo&&!S.loaded.obrig);const ac=S.acoes;
   const num=(label,v,sub)=>`<div class="stat"><div class="l">${label}</div><div class="v">${loading?'–':v}</div><div class="s">${sub}</div></div>`;
   const atr=ac.filter(a=>acaoStatus(a)==='Atrasada').length,ab=ac.filter(a=>a.status==='Aberta'||a.status==='Em andamento').length,conc=ac.filter(a=>a.status==='Concluída').length;
@@ -647,7 +665,8 @@ function vIndicArea(){const vo=!!(S.me&&S.me.verObrigacoes);const loading=!S.loa
   <div class="cols">
     <section class="panel"><header><h2>Ações por prazo</h2><span class="muted">${ac.filter(a=>a.status!=='Cancelada').length} ações</span></header><div class="body">${ac.length?hbars(acItems):'<div class="muted" style="font-size:14px">Nenhuma ação da sua área ainda.</div>'}</div></section>
     ${vo?`<section class="panel"><header><h2>Obrigações</h2><span class="muted">${S.obrig.length} obrigações</span></header><div class="body">${S.obrig.length?hbars(obItems):'<div class="muted" style="font-size:14px">Nenhuma obrigação da sua área.</div>'}</div></section>`:''}
-  </div>`}
+  </div>
+  ${porArea()}`}
 function vIndic(){
   if(S.isArea)return vIndicArea();
   const loading=!S.loaded.normas||!S.loaded.acoes;const ns=S.normas;
@@ -676,6 +695,7 @@ function vIndic(){
     <section class="panel"><header><h2>Situação das normas</h2><span class="muted">${ns.length} normas</span></header><div class="body">${hbars(stItems)}</div></section>
     <section class="panel"><header><h2>Ações por prazo</h2><span class="muted">${S.acoes.filter(a=>a.status!=='Cancelada').length} ações</span></header><div class="body">${S.acoes.length?hbars(acItems):'<div class="muted" style="font-size:14px">Nenhuma ação registrada ainda.</div>'}</div></section>
   </div>
+  ${porArea()}
   <section class="panel"><header><h2>Normas por órgão</h2><span class="muted">Clique para ver as normas do órgão</span></header>
     ${org.length?`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Órgão</th><th>Total</th><th>Para triagem</th><th>Em análise</th><th>Aplicáveis</th><th>Com plano de ação</th><th>Não aplicáveis</th></tr></thead><tbody>${org.map(r=>`<tr data-act="goto" data-go="normas:" data-orgao="${esc(r.o)}"><td>${og(r.o)}</td><td class="num"><b>${r.tot}</b></td><td class="num">${r.nova}</td><td class="num">${r.an}</td><td class="num">${r.apl}</td><td class="num">${r.plano}</td><td class="num">${r.na}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Sem normas cadastradas.</div>'}</section>
   <section class="panel"><header><h2>Normas com plano de ação</h2><div class="toolbar"><select id="pf" aria-label="Situação do plano">${opts(['Com atraso','Em dia','Concluído'],S.pf||'','Todas as situações')}</select></div></header>
