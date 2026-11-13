@@ -16,6 +16,7 @@ const contas = require('./contas');
 const { importarBackup } = require('./importacao');
 const dados = require('./colecoes');
 const { executarCaptura } = require('./captura');
+const { enviarResumo, statusEnvio } = require('./email');
 
 validar();
 if (config.armazenamento === 'disco') fs.mkdirSync(config.uploadDir, { recursive: true });
@@ -89,6 +90,18 @@ app.get('/api/cron/captura', async (req, res) => {
     const r = await rodarCaptura('agendada (Vercel Cron)');
     res.json({ ok: true, ...r });
   } catch (err) { console.error('[captura]', err); res.status(500).json({ ok: false, erro: err.message }); }
+});
+
+// Resumo diário de normas por e-mail (Vercel Cron, dias úteis às 08:xx de Brasília)
+app.get('/api/cron/email', async (req, res) => {
+  const segredo = config.captura.cronSecret;
+  const recebido = Buffer.from(req.get('authorization') || '');
+  const esperado = Buffer.from('Bearer ' + segredo);
+  if (!segredo || recebido.length !== esperado.length || !crypto.timingSafeEqual(recebido, esperado)) {
+    return res.status(401).json({ erro: 'Não autorizado.' });
+  }
+  try { res.json({ ok: true, ...(await enviarResumo({ origem: 'agendado (Vercel Cron)' })) }); }
+  catch (err) { console.error('[email]', err); res.status(err.status || 500).json({ erro: err.message }); }
 });
 
 app.use(contas.router);
@@ -166,7 +179,7 @@ async function lerDestinatarios() {
   return { lista: config.local.adminEmail ? [{ email: config.local.adminEmail, ativo: true }] : [], atualizadoEm: null };
 }
 app.get('/api/admin/destinatarios', admin, async (req, res) => {
-  try { res.json(await lerDestinatarios()); } catch (e) { tratarErro(res, e); }
+  try { res.json({ ...(await lerDestinatarios()), envio: await statusEnvio() }); } catch (e) { tratarErro(res, e); }
 });
 app.put('/api/admin/destinatarios', admin, async (req, res) => {
   try {
@@ -189,6 +202,11 @@ app.put('/api/admin/destinatarios', admin, async (req, res) => {
     await dados.registrarAuditoria({ acao: 'Alterou', tipo: 'Configuração', ref: 'Destinatários do e-mail de normas', detalhe: fmt(antes.lista) + ' → ' + fmt(lista) }, usuario(req).id);
     res.json({ ok: true, lista });
   } catch (e) { tratarErro(res, e); }
+});
+
+app.post('/api/admin/email/teste', admin, async (req, res) => {
+  try { res.json(await enviarResumo({ origem: 'teste manual', teste: true, usuarioId: usuario(req).id })); }
+  catch (err) { console.error('[email]', err); res.status(err.status || 500).json({ erro: err.message }); }
 });
 
 let capturaRodando = false;
