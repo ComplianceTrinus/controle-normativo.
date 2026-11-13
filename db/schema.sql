@@ -162,3 +162,17 @@ CREATE INDEX IF NOT EXISTS comentarios_acao_idx ON comentarios (acao_id, em);
 
 -- Áreas de cada usuário do perfil "Área responsável" (vê só ações e obrigações dessas áreas)
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS areas text[] NOT NULL DEFAULT '{}';
+
+-- Acesso às obrigações regulatórias (perfil Área responsável): só quem o Admin marcar
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ver_obrigacoes boolean NOT NULL DEFAULT false;
+
+-- Normas encaminhadas pelo Compliance para as áreas (aviso por e-mail; a área vê em "Normas recebidas")
+CREATE TABLE IF NOT EXISTS encaminhamentos (
+  id        text PRIMARY KEY,
+  norma_id  text NOT NULL REFERENCES normas(id) ON DELETE CASCADE,
+  area      text NOT NULL,
+  mensagem  text,
+  por       text,
+  em        timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS encaminhamentos_norma_idx ON encaminhamentos (norma_id, em DESC);
