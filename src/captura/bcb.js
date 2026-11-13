@@ -10,6 +10,11 @@ const MAPA = {
   'Instrução Normativa BCB': { orgao: 'BACEN', tipo: 'Instrução Normativa', sigla: 'bcb-in' },
   'Circular': { orgao: 'BACEN', tipo: 'Circular', sigla: 'bcb-circ' },
   'Carta Circular': { orgao: 'BACEN', tipo: 'Carta Circular', sigla: 'bcb-cc' },
+  // Atos conjuntos com outros órgãos (incluídos em 13/11/2026)
+  'Instrução Normativa Conjunta': { orgao: 'BACEN', tipo: 'Instrução Normativa Conjunta', sigla: 'bcb-inc' },
+  'Ato Normativo Conjunto': { orgao: 'BACEN', tipo: 'Ato Normativo Conjunto', sigla: 'bcb-anc' },
+  'Decisão Conjunta': { orgao: 'BACEN', tipo: 'Decisão Conjunta', sigla: 'bcb-dc' },
+  'Portaria Conjunta': { orgao: 'BACEN', tipo: 'Portaria Conjunta', sigla: 'bcb-pc' },
 };
 
 function urlBusca(desde) {
