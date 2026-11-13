@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -557,7 +557,7 @@ async function bulkStatus(status){const vis=new Set(filtNormas().map(n=>n.id));c
   SEL().clear();render();
   toast(ok+(ok===1?' norma marcada':' normas marcadas')+' como '+status+'.'+(ign?' '+ign+(ign===1?' já estava':' já estavam')+' com esse status.':''));}
 async function apiJson(url,opt={}){const r=await fetch(url,{credentials:'same-origin',...opt,headers:{'Content-Type':'application/json','X-Requested-With':'fetch'}});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.erro||('Erro '+r.status));return j}
-function carregarDest(){if(S.destCarregando)return;S.destCarregando=true;apiJson('/api/admin/destinatarios').then(j=>{S.dest=j.lista||[];S.destErro=''}).catch(e=>{S.destErro=e.message}).finally(()=>{S.destCarregando=false;render()})}
+function carregarDest(){if(S.destCarregando)return;S.destCarregando=true;apiJson('/api/admin/destinatarios').then(j=>{S.dest=j.lista||[];S.destEnvio=j.envio||null;S.destErro=''}).catch(e=>{S.destErro=e.message}).finally(()=>{S.destCarregando=false;render()})}
 async function salvarDest(lista){try{const j=await apiJson('/api/admin/destinatarios',{method:'PUT',body:JSON.stringify({lista})});S.dest=j.lista||[];toast('Destinatários salvos.');return true}catch(e){toast(e.message,'crit');return false}finally{render()}}
 function vEnvios(){
   if(!S.isAdmin)return '';
@@ -568,7 +568,8 @@ function vEnvios(){
   <div class="panel" style="padding:16px">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><input type="email" id="destNovo" value="${esc(S.destNovo||'')}" placeholder="nome@empresa.com.br" aria-label="Novo destinatário" style="flex:1;min-width:240px"><button type="button" class="btn pri" data-act="dest-add">Adicionar</button></div>
     ${S.destErro?`<div class="empty">${esc(S.destErro)}</div>`:S.dest===undefined?'<div class="empty">Carregando…</div>':l.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th>E-mail</th><th>Situação</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Nenhum destinatário cadastrado.</div>'}
-    <p class="muted" style="font-size:13px;margin-top:12px">Envio previsto para os dias úteis às 08:30, depois das capturas, só quando houver norma nova. O envio automático começa quando o serviço de e-mail for configurado; até lá, esta lista fica guardada.</p>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px"><button type="button" class="btn" data-act="email-teste">Enviar e-mail de teste agora</button><span class="muted" style="font-size:13px">${S.destEnvio?(S.destEnvio.configurado?('Serviço de e-mail configurado.'+(S.destEnvio.ultimoEnvio?' Último envio: '+esc(new Date(S.destEnvio.ultimoEnvio).toLocaleString('pt-BR'))+'.':' Nenhum envio automático ainda.')):'Serviço de e-mail ainda não configurado (falta a chave do Resend no Vercel).'):''}</span></div>
+    <p class="muted" style="font-size:13px;margin-top:10px">Envio automático nos dias úteis por volta das 08:30, depois das capturas, só quando houver norma nova. O teste manda as normas dos últimos 7 dias, com o assunto marcado como [Teste].</p>
   </div>`}
 function vNormas(){
   const list=filtNormas();const loading=!S.loaded.normas;const podeSel=!!(S.canWrite&&S.db);const sel=SEL();const nSel=list.filter(n=>sel.has(n.id)).length;const allSel=list.length>0&&nSel===list.length;
@@ -798,6 +799,7 @@ function template(){saveXlsx([{'Órgão':'CVM','Tipo':'Resolução','Número':'5
 /* ---------- Eventos ---------- */
 function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
   if(act==='dest-add'){const v=String(S.destNovo||'').trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){toast('Informe um e-mail válido.','crit');return}if((S.dest||[]).some(d=>d.email===v)){toast('Esse e-mail já está na lista.','crit');return}salvarDest([...(S.dest||[]),{email:v,ativo:true}]).then(ok=>{if(ok){S.destNovo='';render()}});return}
+  if(act==='email-teste'){t.disabled=true;apiJson('/api/admin/email/teste',{method:'POST',body:'{}'}).then(r=>toast(r.enviado?('E-mail de teste enviado para '+r.para.join(', ')+' com '+r.normas+(r.normas===1?' norma.':' normas.')):(r.motivo||'Nada enviado.'))).catch(e=>toast(e.message,'crit')).finally(()=>{t.disabled=false});return}
   if(act==='dest-del'){const l=[...(S.dest||[])];if(!l[+id])return;l.splice(+id,1);return salvarDest(l)}
   if(act==='dest-toggle'){return salvarDest((S.dest||[]).map((d,i)=>i===+id?{...d,ativo:!d.ativo}:d))}
   if(act==='sel-norma'){const s=SEL();s.has(id)?s.delete(id):s.add(id);return render()}
