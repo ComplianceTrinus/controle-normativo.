@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <script src="/vendor/xlsx.full.min.js"></script>
-<script src="/js/api.js"></script>
+<script src="/js/api.js?v=20261113"></script>
 <style>
 /* Layout: padrão trinus.co — trilho lateral azul com logo e menu, área clara com cards brancos e tabelas */
 :root{
@@ -969,7 +969,7 @@ render();
   if(user){try{S.me=await user.me();S.meId=S.me.id;S.isAdmin=!!S.me.canEdit;const w=await user.can('data.write');
       if(w===true){S.canWrite=true;S.canWriteSource='platform'}else if(w===false&&!S.isAdmin){S.canWrite=false;S.canWriteSource='platform'}else{S.canWrite=true}
     }catch{}}
-  S.perfil=(S.me&&S.me.perfil)||'';S.isArea=S.perfil==='Área responsável';
+  S.perfil=(S.me&&S.me.perfil)||'';S.isArea=S.perfil==='Área responsável';if(S.isArea){S.canWrite=false;S.canWriteSource='perfil'}
   S.role=S.isAdmin?'Admin':S.isArea?'Área responsável':S.canWrite?'Analista':'Leitura';
   if(!db){S.dbState='off';S.canWrite=false;S.role=S.role||'—';render();return}
   S.dbState='ready';
