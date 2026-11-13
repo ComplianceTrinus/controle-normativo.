@@ -8,7 +8,7 @@ const { q } = require('./db');
 const { registrarAuditoria } = require('./colecoes');
 
 const scrypt = promisify(crypto.scrypt);
-const PERFIS = ['Admin', 'Analista', 'Leitura'];
+const PERFIS = ['Admin', 'Analista', 'Área responsável', 'Leitura'];
 const SENHA_MIN = 10;
 const MAX_TENTATIVAS = 5;
 const BLOQUEIO_MIN = 15;
@@ -310,7 +310,7 @@ async function telaUsuarios(req, res, msg) {
 <form method="post" action="/usuarios/${esc(u.id)}"><input type="hidden" name="_csrf" value="${csrf}"><input type="hidden" name="acao" value="${u.ativo ? 'desativar' : 'ativar'}"><button class="sec peq">${u.ativo ? 'Desativar' : 'Reativar'}</button></form></div>`}</td></tr>`;
   }).join('');
   res.send(pagina('Usuários', `<div class="linha" style="justify-content:space-between;margin-bottom:8px"><h1>Usuários</h1><a class="bt sec peq" href="/">Voltar ao sistema</a></div>
-<p class="mu">Admin: tudo, inclusive exclusões e usuários. Analista: cadastra e edita. Leitura: só consulta.</p>${aviso(msg)}
+<p class="mu">Admin: tudo, inclusive exclusões e usuários. Analista: cadastra e edita. Área responsável: comenta e anexa evidências, sem alterar normas e itens. Leitura: só consulta.</p>${aviso(msg)}
 <h2 style="font-size:16px;margin:18px 0 8px">Novo usuário</h2>
 <form method="post" action="/usuarios"><input type="hidden" name="_csrf" value="${csrf}"><div class="grid">
 <label>Nome<input name="nome" id="novoNome" required maxlength="120"></label>
