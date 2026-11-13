@@ -113,7 +113,7 @@
     canEdit: async function () { return (await eu()).perfil === 'Admin'; },
     can: async function (nome) {
       var m = await eu();
-      if (nome === 'data.write') return m.perfil !== 'Leitura';
+      if (nome === 'data.write') return m.perfil === 'Admin' || m.perfil === 'Analista';
       if (nome === 'assets.write') return m.perfil === 'Admin';
       return false;
     },
@@ -159,6 +159,7 @@
   };
 
   window.CN_SERVIDOR = true;
+  window.CN_atualizar = atualizarTudo;
   window.CN_executarCaptura = function () { return chamar('POST', '/api/captura/executar', {}); };
   window.claude = {
     use: async function (nome) {
