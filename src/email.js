@@ -149,4 +149,30 @@ async function enviarCodigoLogin(para, codigo, minutos) {
   return enviarResend([para], { assunto: 'Seu código de acesso ao Controle Normativo', html, texto });
 }
 
-module.exports = { enviarResumo, statusEnvio, montar, periodo, enviarCodigoLogin, ErroEmail };
+// Aviso de norma encaminhada pelo Compliance para uma ou mais áreas (um e-mail por pessoa)
+async function enviarEncaminhamento(para, { norma, areas, mensagem, por }) {
+  const link = config.baseUrl + '/#recebidas';
+  const titulo = `Norma para avaliação da área: ${cite(norma)}`;
+  const html = `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#F5F5F5;font-family:'Plus Jakarta Sans',Segoe UI,Arial,sans-serif;color:#191A1C">
+<div style="max-width:620px;margin:0 auto;padding:24px 16px">
+<div style="background:#2E4CFF;color:#fff;border-radius:16px 16px 0 0;padding:22px 24px">
+<div style="font-size:13px;opacity:.85">Trinus · Controle Normativo</div>
+<div style="font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:4px">Nova norma para a sua área</div>
+<div style="font-size:14px;opacity:.9;margin-top:4px">${esc(areas.join(', '))}</div></div>
+<div style="background:#fff;border-radius:0 0 16px 16px;padding:20px 24px 24px">
+<div style="font-weight:700;font-size:16px">${esc(cite(norma))}${norma.data_publicacao ? ` <span style="font-weight:400;color:#5F6673">· ${esc(br(norma.data_publicacao))}</span>` : ''}</div>
+<div style="margin:6px 0 12px;font-size:14px;line-height:1.5">${esc(norma.ementa)}</div>
+${mensagem ? `<div style="background:#E9EDFF;border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.5;margin-bottom:12px"><b>Orientação do Compliance${por ? ' (' + esc(por) + ')' : ''}:</b><br>${esc(mensagem).replace(/\n/g, '<br>')}</div>` : ''}
+${norma.link ? `<p style="margin:0 0 16px"><a href="${esc(norma.link)}" style="color:#2E4CFF;font-weight:600;font-size:14px">Abrir a norma no site oficial (texto e PDF)</a></p>` : ''}
+<a href="${esc(link)}" style="background:#2E4CFF;color:#fff;text-decoration:none;padding:11px 18px;border-radius:10px;font-weight:600;display:inline-block">Abrir no Controle Normativo</a>
+</div></div></body></html>`;
+  const texto = `Nova norma para a sua área (${areas.join(', ')})\n\n${cite(norma)}\n${norma.ementa}\n${mensagem ? '\nOrientação do Compliance: ' + mensagem + '\n' : ''}${norma.link ? '\nTexto oficial: ' + norma.link + '\n' : ''}\nAbrir no sistema: ${link}\n`;
+  const ok = [], falhas = [];
+  for (const email of para) {
+    try { await enviarResend([email], { assunto: titulo, html, texto }); ok.push(email); }
+    catch (e) { falhas.push({ email, erro: e.message }); }
+  }
+  return { ok, falhas };
+}
+
+module.exports = { enviarResumo, statusEnvio, montar, periodo, enviarCodigoLogin, enviarEncaminhamento, ErroEmail };
