@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   id             text PRIMARY KEY,              -- oid do Microsoft Entra ID
   nome           text NOT NULL,
   email          text,
-  perfil         text NOT NULL CHECK (perfil IN ('Admin','Analista','Leitura')),
+  perfil         text NOT NULL CHECK (perfil IN ('Admin','Analista','Leitura','Área responsável')),
   ultimo_acesso  timestamptz NOT NULL DEFAULT now()
 );
 
@@ -136,3 +136,26 @@ CREATE TABLE IF NOT EXISTS sistema (
   dados          jsonb NOT NULL DEFAULT '{}'::jsonb,
   atualizado_em  timestamptz NOT NULL DEFAULT now()
 );
+
+-- Perfil "Área responsável": comenta e anexa evidências, sem alterar normas e itens
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usuarios_perfil_check'
+                 AND pg_get_constraintdef(oid) LIKE '%Área responsável%') THEN
+    ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_perfil_check;
+    ALTER TABLE usuarios ADD CONSTRAINT usuarios_perfil_check
+      CHECK (perfil IN ('Admin','Analista','Leitura','Área responsável'));
+  END IF;
+END $$;
+
+-- Comentários em normas e ações: somente inclusão (não há edição nem exclusão pela tela)
+CREATE TABLE IF NOT EXISTS comentarios (
+  id        text PRIMARY KEY,
+  norma_id  text REFERENCES normas(id) ON DELETE CASCADE,
+  acao_id   text REFERENCES acoes(id) ON DELETE CASCADE,
+  texto     text NOT NULL,
+  por       text,
+  em        timestamptz NOT NULL DEFAULT now(),
+  CHECK (norma_id IS NOT NULL OR acao_id IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS comentarios_norma_idx ON comentarios (norma_id, em);
+CREATE INDEX IF NOT EXISTS comentarios_acao_idx ON comentarios (acao_id, em);
