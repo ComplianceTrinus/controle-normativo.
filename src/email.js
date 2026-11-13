@@ -30,7 +30,7 @@ async function destinatarios() {
 async function statusEnvio() {
   const e = (await lerSistema('email')) || {};
   const c = cfg();
-  return { configurado: !!c.chave, remetente: c.remetente, ultimoEnvio: e.ultimoEnvio || null, ultimaVerificacao: e.ultimaVerificacao || null, ultimoResultado: e.ultimoResultado || '' };
+  return { configurado: !!c.chave, remetente: c.remetente, ultimoEnvio: e.ultimoEnvio || null, ultimaVerificacao: e.ultimaVerificacao || null, ultimoResultado: e.ultimoResultado || '', formatoChave: c.chave ? `${c.chave.startsWith('re_') ? 'começa com re_' : 'NÃO começa com re_'}, ${c.chave.length} caracteres` : null };
 }
 
 function montar(normas, { teste = false } = {}) {
