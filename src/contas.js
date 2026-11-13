@@ -118,6 +118,96 @@ router.get('/login', (req, res) => {
   req.session.save(() => telaLogin(req, res, req.query.saiu ? { tipo: 'ok', texto: 'Você saiu do sistema.' } : null));
 });
 
+// ---- 2FA por e-mail ----
+// DOIS_FATORES=admin (só perfil Admin), todos, ou vazio/desligado (padrão). O código vale CODIGO_MIN minutos.
+const DOIS_FATORES = (process.env.DOIS_FATORES || '').trim().toLowerCase();
+const CODIGO_MIN = 10;
+const exige2fa = u => DOIS_FATORES === 'todos' || (DOIS_FATORES === 'admin' && u.perfil === 'Admin');
+const hashCodigo = (codigo, sal) => crypto.createHash('sha256').update(sal + ':' + codigo).digest('hex');
+
+function entrar(req, res, next, u) {
+  req.session.regenerate(err => {
+    if (err) return next(err);
+    req.session.usuario = { id: u.id, nome: u.nome, email: u.email, perfil: u.perfil, trocarSenha: u.trocar_senha };
+    req.session.save(() => res.redirect(u.trocar_senha ? '/conta/senha' : '/'));
+  });
+}
+
+function telaCodigo(req, res, msg) {
+  const p = req.session.pendente2fa;
+  if (!p) return res.redirect('/login');
+  const mascara = String(p.email).replace(/^(.{2})[^@]*(@.*)$/, '$1•••$2');
+  res.status(msg && msg.tipo === 'err' ? 401 : 200).send(pagina('Código de acesso', `<h1>Código de acesso</h1><p class="mu">Enviamos um código de 6 dígitos para <b>${esc(mascara)}</b>. Ele vale por ${CODIGO_MIN} minutos.</p>${aviso(msg)}
+<form method="post" action="/auth/codigo"><input type="hidden" name="_csrf" value="${tokenCsrf(req)}">
+<label>Código<input name="codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus></label>
+<button type="submit">Confirmar</button></form>
+<form method="post" action="/auth/codigo/reenviar" style="margin-top:10px"><input type="hidden" name="_csrf" value="${tokenCsrf(req)}"><button type="submit">Reenviar código</button></form>
+<p class="mu" style="margin-top:12px"><a href="/login">Voltar ao login</a></p>`));
+}
+
+async function enviarCodigo(req, u) {
+  const codigo = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+  const sal = crypto.randomBytes(16).toString('hex');
+  req.session.pendente2fa = { uid: u.id, email: u.email, sal, hash: hashCodigo(codigo, sal), expira: Date.now() + CODIGO_MIN * 60e3, tentativas: 0, enviadoEm: Date.now() };
+  await require('./email').enviarCodigoLogin(u.email, codigo, CODIGO_MIN);
+}
+
+function iniciar2fa(req, res, next, u) {
+  req.session.regenerate(async err => {
+    if (err) return next(err);
+    try { await enviarCodigo(req, u); } catch (e) {
+      console.error('[2fa]', e);
+      delete req.session.pendente2fa;
+      return telaLogin(req, res, { tipo: 'err', texto: 'Não foi possível enviar o código de acesso por e-mail. Tente de novo em instantes ou fale com o administrador.' }, u.email);
+    }
+    req.session.save(() => res.redirect('/auth/codigo'));
+  });
+}
+
+router.get('/auth/codigo', (req, res) => { req.session.save(() => telaCodigo(req, res)); });
+
+router.post('/auth/codigo', async (req, res, next) => {
+  try {
+    if (!conferirCsrf(req)) return telaCodigo(req, res, { tipo: 'err', texto: 'A página expirou. Tente de novo.' });
+    const p = req.session.pendente2fa;
+    if (!p) return res.redirect('/login');
+    if (!limiteIp(req.ip)) return telaCodigo(req, res, { tipo: 'err', texto: 'Muitas tentativas. Aguarde 15 minutos.' });
+    if (Date.now() > p.expira) {
+      delete req.session.pendente2fa;
+      return telaLogin(req, res, { tipo: 'err', texto: 'O código expirou. Entre de novo para receber outro.' }, p.email);
+    }
+    const codigo = String(req.body.codigo || '').replace(/\D/g, '');
+    const ok = codigo.length === 6 && crypto.timingSafeEqual(Buffer.from(hashCodigo(codigo, p.sal), 'hex'), Buffer.from(p.hash, 'hex'));
+    if (!ok) {
+      p.tentativas = (p.tentativas || 0) + 1;
+      if (p.tentativas >= MAX_TENTATIVAS) {
+        delete req.session.pendente2fa;
+        await registrarAuditoria({ acao: 'Bloqueou', tipo: 'Usuário', ref: p.email, detalhe: `${MAX_TENTATIVAS} códigos de acesso errados` }, null);
+        return telaLogin(req, res, { tipo: 'err', texto: 'Código errado muitas vezes. Entre de novo para receber outro.' }, p.email);
+      }
+      return req.session.save(() => telaCodigo(req, res, { tipo: 'err', texto: 'Código incorreto.' }));
+    }
+    const r = await q('SELECT * FROM usuarios WHERE id = $1', [p.uid]);
+    const u = r.rows[0];
+    delete req.session.pendente2fa;
+    if (!u || !u.ativo) return telaLogin(req, res, { tipo: 'err', texto: 'Usuário desativado. Fale com o administrador.' });
+    entrar(req, res, next, u);
+  } catch (e) { next(e); }
+});
+
+router.post('/auth/codigo/reenviar', async (req, res) => {
+  try {
+    if (!conferirCsrf(req)) return telaCodigo(req, res, { tipo: 'err', texto: 'A página expirou. Tente de novo.' });
+    const p = req.session.pendente2fa;
+    if (!p) return res.redirect('/login');
+    if (Date.now() - (p.enviadoEm || 0) < 60e3) return telaCodigo(req, res, { tipo: 'err', texto: 'Aguarde um minuto para pedir outro código.' });
+    const r = await q('SELECT * FROM usuarios WHERE id = $1', [p.uid]);
+    if (!r.rows[0]) return res.redirect('/login');
+    await enviarCodigo(req, r.rows[0]);
+    req.session.save(() => telaCodigo(req, res, { tipo: 'ok', texto: 'Enviamos um novo código.' }));
+  } catch (e) { console.error('[2fa]', e); telaCodigo(req, res, { tipo: 'err', texto: 'Não foi possível reenviar o código agora.' }); }
+});
+
 router.post('/auth/local', async (req, res, next) => {
   try {
     if (!conferirCsrf(req)) return telaLogin(req, res, { tipo: 'err', texto: 'A página expirou. Tente de novo.' });
@@ -140,11 +230,8 @@ router.post('/auth/local', async (req, res, next) => {
     }
     if (!u.ativo) return telaLogin(req, res, { tipo: 'err', texto: 'Usuário desativado. Fale com o administrador.' }, email);
     await q('UPDATE usuarios SET tentativas = 0, bloqueado_ate = NULL, ultimo_acesso = now() WHERE id = $1', [u.id]);
-    req.session.regenerate(err => {
-      if (err) return next(err);
-      req.session.usuario = { id: u.id, nome: u.nome, email: u.email, perfil: u.perfil, trocarSenha: u.trocar_senha };
-      req.session.save(() => res.redirect(u.trocar_senha ? '/conta/senha' : '/'));
-    });
+    if (exige2fa(u)) return iniciar2fa(req, res, next, u);
+    entrar(req, res, next, u);
   } catch (err) { next(err); }
 });
 
