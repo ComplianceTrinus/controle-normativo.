@@ -495,6 +495,7 @@ function capTxt(){const c=S.captura;if(!c||!c.ultimaExecucao)return '';const ok=
   return `<div class="cap"><span class="dot ${ok?'ok':'bad'}"></span><span><b>Atualização automática diária</b> · última execução ${esc(fmtDT(c.ultimaExecucao))}${c.novas!=null?` · ${c.novas} ${c.novas===1?'norma nova':'normas novas'}`:''}${c.fontes?` · ${esc(c.fontes)}`:''}${c.detalhe?`<span class="muted"> · ${esc(c.detalhe)}</span>`:''}</span>${c.novas?`<a href="#normas" data-act="goto" data-go="normas:Nova">Ver para triagem</a>`:''}${S.isAdmin&&window.CN_SERVIDOR?`<button class="btn sm" data-act="run-captura">Atualizar agora</button>`:''}</div>`}
 function banner(){
   if(S.dbState==='off')return `<div class="banner warn"><div><b>Banco de dados indisponível nesta visualização.</b> Não foi possível conectar ao servidor. Recarregue a página; se continuar, avise o suporte de TI.</div></div>`;
+  if(S.dbState==='ready'&&S.isArea)return `<div class="banner"><div><b>Acesso da área responsável.</b> Você pode comentar normas e ações e anexar evidências nos planos de ação. Alterações nas normas e nos itens são feitas pelo Compliance.</div></div>`;
   if(S.dbState==='ready'&&!S.canWrite)return `<div class="banner"><div><b>Acesso somente leitura.</b> Você pode consultar normas, planos e obrigações. Para editar, peça ao administrador o perfil Analista.</div></div>`;
   return '';
 }
@@ -662,7 +663,7 @@ function vEnvios(){
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><input type="email" id="destNovo" value="${esc(S.destNovo||'')}" placeholder="nome@empresa.com.br" class="field" aria-label="Novo destinatário" style="flex:1;min-width:240px"><button type="button" class="btn pri" data-act="dest-add">Adicionar</button></div>
     ${S.destErro?`<div class="empty">${esc(S.destErro)}</div>`:S.dest===undefined?'<div class="empty">Carregando…</div>':l.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th>E-mail</th><th>Situação</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Nenhum destinatário cadastrado.</div>'}
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px"><button type="button" class="btn" data-act="email-teste">Enviar e-mail de teste agora</button><span class="muted" style="font-size:13px">${S.destEnvio?(S.destEnvio.configurado?('Serviço de e-mail configurado.'+(S.destEnvio.ultimoEnvio?' Último envio: '+esc(new Date(S.destEnvio.ultimoEnvio).toLocaleString('pt-BR'))+'.':' Nenhum envio automático ainda.')):'Serviço de e-mail ainda não configurado (falta a chave do Resend no Vercel).'):''}</span></div>
-    <p class="muted" style="font-size:13px;margin-top:10px">Envio automático nos dias úteis por volta das 08:30, com o título "Normativos Divulgados" e a data do dia. Leva só os normativos publicados no dia anterior (na segunda-feira, os de sexta a domingo); se não houver nenhum, nada é enviado. O teste manda o mesmo conteúdo, com o assunto marcado como [Teste].</p>
+    <p class="muted" style="font-size:13px;margin-top:10px">Envio automático de segunda a sexta, por volta das 08:30, com o título "Normativos Divulgados" e a data do dia. Leva só os normativos publicados no dia anterior (na segunda-feira, os de sexta a domingo); se não houver nenhum, nada é enviado. O botão de teste manda o mesmo conteúdo na hora.</p>
   </div>`}
 function vNormas(){
   const list=filtNormas();const loading=!S.loaded.normas;const podeSel=!!(S.canWrite&&S.db);const sel=SEL();const nSel=list.filter(n=>sel.has(n.id)).length;const allSel=list.length>0&&nSel===list.length;
@@ -752,6 +753,7 @@ function dNorma(d){const n=d.id?S.normas.find(x=>x.id===d.id)||{}:{orgao:'BACEN'
     <label>Análise de aplicabilidade e observações<textarea id="nObs" rows="5" placeholder="Por que a norma se aplica (ou não), impactos, revogações relacionadas">${esc(n.observacoes)}</textarea></label>
   </fieldset></div>
   <div class="side-col">${d.id?`<div class="box"><header><h3>Plano de ação</h3>${!ro()?`<button type="button" class="btn sm" data-act="new-acao" data-norma="${esc(d.id)}">Nova ação</button>`:''}</header><div class="list" id="dlgAcoes">${normaAcoes(d.id)}</div></div>
+    ${comBox('n',d.id)}
     ${n.link?`<a class="btn" href="${esc(n.link)}" target="_blank" rel="noopener">Abrir texto oficial</a>`:''}${facts(n)}`
     :`<div class="box"><div class="pad">Depois de salvar, registre aqui o plano de ação da norma.</div></div><div class="chips muted">Consultar: ${FONTES.map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${t}</a>`).join(' · ')}</div>`}</div></div>
   <footer>${d.id?delBtn('norma'):'<span></span>'}<div class="r"><button type="button" class="btn" data-act="close">${ro()?'Fechar':'Cancelar'}</button>${ro()?'':`<button class="btn pri" type="submit">Salvar norma</button>`}</div></footer></form>`}
@@ -771,7 +773,8 @@ function dAcao(d){const a=d.id?S.acoes.find(x=>x.id===d.id)||{}:{status:'Aberta'
     <label>Comentários<textarea id="aObs" rows="3">${esc(a.observacoes)}</textarea></label>
   </fieldset></div>
   <div class="side-col"><div class="box"><header><h3>Evidências</h3></header><div class="list" id="evList">${evList(a)}</div></div>
-    ${d.id?(S.assets&&!ro()?`<label class="drop" for="evFile"><span>Anexar evidência</span><span style="font-size:12px">PDF, imagens, CSV ou TXT, até 20 MB. Converta Word e Excel para PDF.</span><input type="file" id="evFile" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.csv,.txt,.md,.json"></label>`:`<div class="muted" style="font-size:12.5px">${ro()?'':'O envio de arquivos não está disponível para o seu acesso. Peça a um administrador.'}</div>`):`<div class="muted" style="font-size:12.5px">Salve a ação para anexar evidências.</div>`}
+    ${d.id?(S.assets&&(!ro()||S.isArea)?`<label class="drop" for="evFile"><span>Anexar evidência</span><span style="font-size:12px">PDF, imagens, CSV ou TXT, até 20 MB. Converta Word e Excel para PDF.</span><input type="file" id="evFile" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.csv,.txt,.md,.json"></label>`:`<div class="muted" style="font-size:12.5px">${ro()?'':'O envio de arquivos não está disponível para o seu acesso. Peça a um administrador.'}</div>`):`<div class="muted" style="font-size:12.5px">Salve a ação para anexar evidências.</div>`}
+    ${d.id?comBox('a',d.id):''}
     ${d.id?facts(a):''}</div></div>
   <footer>${d.id?delBtn('acao'):'<span></span>'}<div class="r">${d.from?`<button type="button" class="btn" data-act="back">Voltar à norma</button>`:''}<button type="button" class="btn" data-act="close">${ro()?'Fechar':'Cancelar'}</button>${ro()?'':`<button class="btn pri" type="submit">Salvar ação</button>`}</div></footer></form>`}
 function evList(a){const ev=(a&&a.evidencias)||[];if(!ev.length)return `<div class="pad">Nenhuma evidência anexada.</div>`;
@@ -852,6 +855,24 @@ async function doDelete(kind){const d=S.dlg;if(!d||!d.id)return;
     if(kind==='obrig'){const o=S.obrig.find(x=>x.id===d.id);await S.db.doc('obrigacoes/'+d.id).delete();await log('Excluiu','Obrigação',o?o.titulo:d.id,'');toast('Obrigação excluída.')}
     closeDlg()}catch(e){onWriteErr(e)}}
 
+/* ---------- Comentários (Admin, Analista e Área responsável comentam; ninguém edita nem apaga) ---------- */
+const podeComentar=()=>!!S.db&&(S.isAdmin||S.canWrite||S.isArea);
+function comBox(kind,id){const key=kind+':'+id;S.com=S.com||{};delete S.com[key];
+  return `<div class="box"><header><h3>Comentários</h3></header><div class="list" id="comList">${comList(key)}</div>${podeComentar()?`<div class="pad" style="display:flex;flex-direction:column;gap:8px"><textarea id="comTxt" class="field" rows="3" maxlength="4000" placeholder="Escreva um comentário" aria-label="Novo comentário"></textarea><div><button type="button" class="btn sm pri" data-act="com-add" data-kind="${kind}" data-id="${esc(id)}">Comentar</button></div></div>`:''}</div>`}
+function comList(key){S.com=S.com||{};const l=S.com[key];
+  if(l===undefined){loadCom(key);return '<div class="pad">Carregando comentários…</div>'}
+  if(l===null)return '<div class="pad">Não foi possível carregar os comentários.</div>';
+  if(!l.length)return '<div class="pad">Nenhum comentário ainda.</div>';
+  ensureNames(l.map(c=>c.por));
+  return l.map(c=>`<div class="it" style="cursor:default"><div class="top"><b>${esc(nameOf(c.por))}</b><span class="muted" style="font-size:12px;white-space:nowrap">${esc(fmtDT(c.em))}</span></div><div style="font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere">${esc(c.texto)}</div></div>`).join('')}
+async function loadCom(key){S.com=S.com||{};if(S.comLoading&&S.comLoading[key])return;S.comLoading=S.comLoading||{};S.comLoading[key]=true;
+  const [k,id]=[key.slice(0,1),key.slice(2)];
+  try{S.com[key]=await apiJson('/api/comentarios?'+(k==='n'?'normaId=':'acaoId=')+encodeURIComponent(id))}catch{S.com[key]=null}
+  S.comLoading[key]=false;const el=$('#comList');if(el&&S.dlg&&S.dlg.id===id)el.innerHTML=comList(key)}
+async function addCom(t){const txt=$('#comTxt');const texto=(txt&&txt.value||'').trim();if(!texto){toast('Escreva o comentário.','crit');return}
+  const kind=t.dataset.kind,id=t.dataset.id;t.disabled=true;
+  try{await apiJson('/api/comentarios',{method:'POST',body:JSON.stringify(kind==='n'?{normaId:id,texto}:{acaoId:id,texto})});txt.value='';delete S.com[kind+':'+id];const el=$('#comList');if(el)el.innerHTML=comList(kind+':'+id);toast('Comentário registrado.')}
+  catch(e){toast(e.message,'crit')}finally{t.disabled=false}}
 async function uploadEv(files){const d=S.dlg;const a=S.acoes.find(x=>x.id===d.id);if(!a||!S.assets)return;
   let ev=[...(a.evidencias||[])];let ok=0;
   for(const f of files){const ext=(f.name.split('.').pop()||'').toLowerCase();const type=EV_TYPES[ext];
@@ -859,6 +880,8 @@ async function uploadEv(files){const d=S.dlg;const a=S.acoes.find(x=>x.id===d.id
     try{toast('Enviando '+f.name+'…');const r=await S.assets.upload(f,{type});ev.push({id:r.id,nome:f.name,tamanho:r.sizeBytes,em:new Date().toISOString(),por:S.meId||null});ok++}
     catch(e){const c=e&&e.code;toast(f.name+': '+(c==='too_large'?'arquivo acima do limite de 20 MB.':c==='unsupported_type'?'formato não aceito.':c==='quota_or_state'?'espaço de armazenamento esgotado.':c==='rate_limited'?'muitos envios seguidos, aguarde.':'falha no envio.'),'crit')}}
   if(!ok)return;
+  if(S.isArea){const ids=ev.filter(e=>!(a.evidencias||[]).some(x=>x.id===e.id)).map(e=>e.id);
+    try{await apiJson('/api/acoes/'+encodeURIComponent(a.id)+'/evidencias',{method:'POST',body:JSON.stringify({ids})});if(window.CN_atualizar)await window.CN_atualizar();toast(ok===1?'Evidência anexada.':ok+' evidências anexadas.')}catch(e){toast(e.message,'crit')}return}
   try{await S.db.doc('acoes/'+a.id).update({evidencias:ev,...stamp(false)});await log('Anexou evidência','Ação',a.descricao.slice(0,80),files.length===1?files[0].name:ok+' arquivos');toast(ok===1?'Evidência anexada.':ok+' evidências anexadas.')}catch(e){onWriteErr(e)}}
 async function removeEv(i){const d=S.dlg;const a=S.acoes.find(x=>x.id===d.id);if(!a)return;const ev=[...(a.evidencias||[])];const [e]=ev.splice(i,1);if(!e)return;
   try{await S.db.doc('acoes/'+a.id).update({evidencias:ev,...stamp(false)});if(S.assets){try{await S.assets.delete(e.id)}catch{}}await log('Removeu evidência','Ação',a.descricao.slice(0,80),e.nome);toast('Evidência removida.')}catch(err){onWriteErr(err)}}
@@ -916,6 +939,7 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
   if(act==='template')return template();
   if(act==='clear-nf'){S.nf={q:'',orgao:'',status:'',crit:''};return render()}
   if(act==='clear-af'){S.af={q:'',status:''};return render()}
+  if(act==='com-add')return addCom(t);
   if(act==='close')return closeDlg();
   if(act==='back'){const n=S.dlg&&S.dlg.from;if(n)openDlg({type:'norma',id:n});return}
   if(act==='del'){if(!t.classList.contains('armed')){t.classList.add('armed');const kind=t.dataset.kind;const n=kind==='norma'?S.acoes.filter(a=>a.normaId===S.dlg.id).length:0;t.textContent=n?`Confirmar: excluir norma e ${n} ação(ões)`:'Confirmar exclusão';setTimeout(()=>{if(t.isConnected){t.classList.remove('armed');t.textContent='Excluir'}},5000);return}return doDelete(t.dataset.kind)}
@@ -945,7 +969,8 @@ render();
   if(user){try{S.me=await user.me();S.meId=S.me.id;S.isAdmin=!!S.me.canEdit;const w=await user.can('data.write');
       if(w===true){S.canWrite=true;S.canWriteSource='platform'}else if(w===false&&!S.isAdmin){S.canWrite=false;S.canWriteSource='platform'}else{S.canWrite=true}
     }catch{}}
-  S.role=S.isAdmin?'Admin':S.canWrite?'Analista':'Leitura';
+  S.perfil=(S.me&&S.me.perfil)||'';S.isArea=S.perfil==='Área responsável';
+  S.role=S.isAdmin?'Admin':S.isArea?'Área responsável':S.canWrite?'Analista':'Leitura';
   if(!db){S.dbState='off';S.canWrite=false;S.role=S.role||'—';render();return}
   S.dbState='ready';
   const sub=(q,key)=>q.onSnapshot(snap=>{S[key]=snap.docs.map(d=>({id:d.id,...d.data()}));S.loaded[key]=true;render()},err=>{S.loaded[key]=true;toast('Não foi possível carregar os dados ('+key+'). Recarregue a página.','crit');render()});
