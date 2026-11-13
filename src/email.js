@@ -103,4 +103,18 @@ async function enviarResumo({ origem = 'agendado', teste = false, usuarioId = nu
   return { enviado: true, normas: normas.length, para };
 }
 
-module.exports = { enviarResumo, statusEnvio, montar, ErroEmail };
+
+// Código de acesso (2FA) enviado no login
+async function enviarCodigoLogin(para, codigo, minutos) {
+  const html = `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#F5F5F5;font-family:'Plus Jakarta Sans',Segoe UI,Arial,sans-serif;color:#191A1C">
+<div style="max-width:520px;margin:0 auto;padding:24px 16px"><div style="background:#fff;border-radius:12px;padding:24px;border-top:6px solid #1D4ED8">
+<div style="font-size:13px;color:#5B6272">Trinus · Controle Normativo</div>
+<p style="font-size:16px">Seu código de acesso é:</p>
+<div style="font-size:32px;font-weight:700;letter-spacing:8px;color:#1E3A8A">${esc(codigo)}</div>
+<p style="font-size:14px;color:#5B6272">Ele vale por ${Number(minutos)} minutos. Se você não tentou entrar no sistema, ignore este e-mail e avise o administrador.</p>
+</div></div></body></html>`;
+  const texto = `Seu código de acesso ao Controle Normativo: ${codigo}\nVale por ${Number(minutos)} minutos. Se você não tentou entrar, ignore e avise o administrador.\n`;
+  return enviarResend([para], { assunto: 'Seu código de acesso ao Controle Normativo', html, texto });
+}
+
+module.exports = { enviarResumo, statusEnvio, montar, enviarCodigoLogin, ErroEmail };
