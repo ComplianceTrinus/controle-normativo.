@@ -419,8 +419,8 @@ const ST_BAR={'Nova':'var(--info)','Em análise':'var(--warn)','Aplicável':'var
 const CRIT=['Alta','Média','Baixa'];
 const ST_ACAO=['Aberta','Em andamento','Concluída','Cancelada'];
 const PERIOD={Mensal:1,Bimestral:2,Trimestral:3,Semestral:6,Anual:12,Eventual:0};
-const ROUTES={painel:'Painel',indicadores:'Indicadores',normas:'Normas',acoes:'Planos de ação',obrigacoes:'Obrigações',auditoria:'Auditoria',envios:'Envio por e-mail'};
-const ADMIN_ROUTES=['auditoria','envios'];
+const ROUTES={painel:'Painel',indicadores:'Indicadores',normas:'Normas',acoes:'Planos de ação',obrigacoes:'Obrigações',envios:'Envio por e-mail'};
+const ADMIN_ROUTES=['envios'];
 const FONTES=[
   ['Busca de normas do Banco Central','https://www.bcb.gov.br/estabilidadefinanceira/buscanormas'],
   ['Resoluções CVM','https://conteudo.cvm.gov.br/legislacao/resolucoes.html'],
@@ -486,7 +486,7 @@ function doRender(){
   const a=document.activeElement;const fid=a&&a.id&&main.contains(a)?a.id:null;let ss=null;try{ss=fid?a.selectionStart:null}catch{}
   renderNav();renderWho();
   const r=route();
-  const views={painel:vPainel,indicadores:vIndic,normas:vNormas,acoes:vAcoes,obrigacoes:vObrig,auditoria:vAudit,envios:vEnvios};
+  const views={painel:vPainel,indicadores:vIndic,normas:vNormas,acoes:vAcoes,obrigacoes:vObrig,envios:vEnvios};
   main.innerHTML=`<div class="wrap">${banner()}${r==='painel'||r==='normas'?capTxt():''}${views[r]()}</div>`;
   if(fid){const el=document.getElementById(fid);if(el){el.focus();try{if(ss!=null)el.setSelectionRange(ss,ss)}catch{}}}
   refreshDialog();
@@ -657,12 +657,12 @@ function vEnvios(){
   if(S.dest===undefined&&!S.destErro)carregarDest();
   const l=S.dest||[];
   const rows=l.map((d,i)=>`<tr><td>${esc(d.email)}</td><td>${d.ativo?'<b>Ativo</b>':'<span class="muted">Pausado</span>'}</td><td class="nowrap"><button type="button" class="btn sm" data-act="dest-toggle" data-id="${i}">${d.ativo?'Pausar':'Reativar'}</button> <button type="button" class="btn sm" data-act="dest-del" data-id="${i}">Remover</button></td></tr>`).join('');
-  return `<div class="head"><div><h1>Envio por e-mail</h1><p>Quem recebe o resumo diário das normas novas, com link oficial e PDF. Só o Admin vê esta página.</p></div></div>
+  return `<div class="head"><div><h1>Envio por e-mail</h1><p>Quem recebe o e-mail diário "Normativos Divulgados", com o link oficial e o PDF de cada norma. Só o Admin vê esta página.</p></div></div>
   <div class="panel" style="padding:16px">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><input type="email" id="destNovo" value="${esc(S.destNovo||'')}" placeholder="nome@empresa.com.br" class="field" aria-label="Novo destinatário" style="flex:1;min-width:240px"><button type="button" class="btn pri" data-act="dest-add">Adicionar</button></div>
     ${S.destErro?`<div class="empty">${esc(S.destErro)}</div>`:S.dest===undefined?'<div class="empty">Carregando…</div>':l.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th>E-mail</th><th>Situação</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Nenhum destinatário cadastrado.</div>'}
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px"><button type="button" class="btn" data-act="email-teste">Enviar e-mail de teste agora</button><span class="muted" style="font-size:13px">${S.destEnvio?(S.destEnvio.configurado?('Serviço de e-mail configurado.'+(S.destEnvio.ultimoEnvio?' Último envio: '+esc(new Date(S.destEnvio.ultimoEnvio).toLocaleString('pt-BR'))+'.':' Nenhum envio automático ainda.')):'Serviço de e-mail ainda não configurado (falta a chave do Resend no Vercel).'):''}</span></div>
-    <p class="muted" style="font-size:13px;margin-top:10px">Envio automático nos dias úteis por volta das 08:30, depois das capturas, só quando houver norma nova. O teste manda as normas dos últimos 7 dias, com o assunto marcado como [Teste].</p>
+    <p class="muted" style="font-size:13px;margin-top:10px">Envio automático nos dias úteis por volta das 08:30, com o título "Normativos Divulgados" e a data do dia. Leva só os normativos publicados no dia anterior (na segunda-feira, os de sexta a domingo); se não houver nenhum, nada é enviado. O teste manda o mesmo conteúdo, com o assunto marcado como [Teste].</p>
   </div>`}
 function vNormas(){
   const list=filtNormas();const loading=!S.loaded.normas;const podeSel=!!(S.canWrite&&S.db);const sel=SEL();const nSel=list.filter(n=>sel.has(n.id)).length;const allSel=list.length>0&&nSel===list.length;
@@ -950,7 +950,6 @@ render();
   S.dbState='ready';
   const sub=(q,key)=>q.onSnapshot(snap=>{S[key]=snap.docs.map(d=>({id:d.id,...d.data()}));S.loaded[key]=true;render()},err=>{S.loaded[key]=true;toast('Não foi possível carregar os dados ('+key+'). Recarregue a página.','crit');render()});
   sub(db.collection('normas'),'normas');sub(db.collection('acoes'),'acoes');sub(db.collection('obrigacoes'),'obrig');
-  if(S.isAdmin)sub(db.collection('auditoria').orderBy('em','desc').limit(300),'audit');
   db.doc('sistema/captura').onSnapshot(s=>{S.captura=s.exists?s.data():null;render()},()=>{});
   db.doc('sistema/config').onSnapshot(s=>{S.cfg=s.exists?s.data():null;render()},()=>{});
   render();
