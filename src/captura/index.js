@@ -38,8 +38,11 @@ async function executarCaptura({ origem = 'manual', log = console } = {}) {
     } catch (err) { falhas.push('Banco Central: ' + err.message); }
 
     try {
-      itens.push(...await capturarCvm());
+      // Ofícios, Pareceres e Deliberações: só o último ano (as Resoluções seguem como antes)
+      const cvm = await capturarCvm({ desde: somarDias(hoje, -365) });
+      itens.push(...cvm);
       fontesOk.push('CVM');
+      falhas.push(...(cvm.falhas || []).map(f => 'CVM ' + f));
     } catch (err) { falhas.push('CVM: ' + err.message); }
 
     if (config.captura.anbima) {
