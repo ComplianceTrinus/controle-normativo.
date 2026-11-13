@@ -159,3 +159,6 @@ CREATE TABLE IF NOT EXISTS comentarios (
 );
 CREATE INDEX IF NOT EXISTS comentarios_norma_idx ON comentarios (norma_id, em);
 CREATE INDEX IF NOT EXISTS comentarios_acao_idx ON comentarios (acao_id, em);
+
+-- Áreas de cada usuário do perfil "Área responsável" (vê só ações e obrigações dessas áreas)
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS areas text[] NOT NULL DEFAULT '{}';
