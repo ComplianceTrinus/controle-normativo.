@@ -157,6 +157,40 @@ app.put('/api/sistema/:id', admin, async (req, res) => {
   try { await dados.gravarSistema('config', req.body || {}); res.json({ ok: true }); } catch (e) { tratarErro(res, e); }
 });
 
+// ---- Destinatários do e-mail diário de normas (só o Admin vê e altera) ----
+const EMAIL_RE = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
+async function lerDestinatarios() {
+  const d = await dados.lerSistema('destinatarios');
+  if (d && Array.isArray(d.lista)) return { lista: d.lista, atualizadoEm: d.atualizadoEm || null };
+  // Antes do primeiro cadastro, sugere o e-mail do Admin
+  return { lista: config.local.adminEmail ? [{ email: config.local.adminEmail, ativo: true }] : [], atualizadoEm: null };
+}
+app.get('/api/admin/destinatarios', admin, async (req, res) => {
+  try { res.json(await lerDestinatarios()); } catch (e) { tratarErro(res, e); }
+});
+app.put('/api/admin/destinatarios', admin, async (req, res) => {
+  try {
+    const entrada = req.body && Array.isArray(req.body.lista) ? req.body.lista : null;
+    if (!entrada) return res.status(400).json({ erro: 'Lista inválida.' });
+    const vistos = new Set();
+    const lista = [];
+    for (const x of entrada) {
+      const email = String((x && x.email) || '').trim().toLowerCase();
+      if (!email) continue;
+      if (email.length > 254 || !EMAIL_RE.test(email)) return res.status(400).json({ erro: 'E-mail inválido: ' + email.slice(0, 80) });
+      if (vistos.has(email)) continue;
+      vistos.add(email);
+      lista.push({ email, ativo: !(x && x.ativo === false) });
+    }
+    if (lista.length > 50) return res.status(400).json({ erro: 'No máximo 50 destinatários.' });
+    const antes = await lerDestinatarios();
+    await dados.gravarSistema('destinatarios', { lista, atualizadoEm: new Date().toISOString(), atualizadoPor: usuario(req).id });
+    const fmt = l => (l || []).map(d => d.email + (d.ativo ? '' : ' (pausado)')).join(', ') || 'nenhum';
+    await dados.registrarAuditoria({ acao: 'Alterou', tipo: 'Configuração', ref: 'Destinatários do e-mail de normas', detalhe: fmt(antes.lista) + ' → ' + fmt(lista) }, usuario(req).id);
+    res.json({ ok: true, lista });
+  } catch (e) { tratarErro(res, e); }
+});
+
 let capturaRodando = false;
 async function rodarCaptura(origem) {
   if (capturaRodando) return { ignorada: true };
