@@ -10,7 +10,7 @@ class ErroEmail extends Error {
 }
 
 const cfg = () => ({
-  chave: process.env.RESEND_API_KEY || '',
+  chave: (process.env.RESEND_API_KEY || '').trim(),
   remetente: process.env.EMAIL_REMETENTE || 'Controle Normativo <onboarding@resend.dev>',
 });
 
