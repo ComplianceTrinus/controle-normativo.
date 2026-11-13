@@ -224,7 +224,17 @@ async function gravarSistema(id, dados, c = { query: q }) {
                  ON CONFLICT (id) DO UPDATE SET dados = EXCLUDED.dados, atualizado_em = now()`, [id, dados]);
 }
 
+// ---- Áreas da empresa (lista cuidada pelo Admin na tela de Usuários) ----
+const AREAS_PADRAO = ['Tesouraria', 'Operações', 'Tecnologia', 'Compliance', 'Riscos', 'Jurídico', 'Pessoas', 'Contabilidade', 'Gestão'];
+// Compara áreas sem diferenciar maiúsculas, acentos e espaços nas pontas
+const normArea = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+async function listarAreas() {
+  const d = await lerSistema('areas');
+  return d && Array.isArray(d.lista) && d.lista.length ? d.lista : AREAS_PADRAO;
+}
+
 module.exports = {
+  AREAS_PADRAO, normArea, listarAreas,
   COLECOES, ErroValidacao, listar, gravar, atualizar, excluir,
   listarAuditoria, registrarAuditoria, lerSistema, gravarSistema, deLinha, paraColunas,
 };
