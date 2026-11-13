@@ -127,7 +127,7 @@ app.get('/api/usuarios', async (req, res) => {
   res.json(Object.fromEntries(r.rows.map(u => [u.id, { nome: u.nome }])));
 });
 
-app.get('/api/c/auditoria', async (req, res) => {
+app.get('/api/c/auditoria', admin, async (req, res) => {
   try { res.json(await dados.listarAuditoria(req.query.limit)); } catch (e) { tratarErro(res, e); }
 });
 app.post('/api/c/auditoria', escrita, async (req, res) => {
