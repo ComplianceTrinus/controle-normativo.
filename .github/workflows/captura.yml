@@ -1,0 +1,34 @@
+# Captura diária completa (Banco Central, CVM e ANBIMA) rodando no GitHub Actions.
+# Existe porque a ANBIMA precisa do Chromium, que não roda no Vercel.
+# Requisito: o segredo DATABASE_URL do repositório (Settings > Secrets and variables > Actions),
+# com o mesmo valor da variável DATABASE_URL do projeto no Vercel.
+name: Captura diaria de normas
+
+on:
+  schedule:
+    - cron: '5 11 * * *' # 08:05 em Brasília, depois da janela do Vercel Cron (07:00-07:59)
+  workflow_dispatch: {} # botão "Run workflow" para rodar na hora
+
+concurrency:
+  group: captura
+  cancel-in-progress: false
+
+jobs:
+  captura:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --omit=dev
+      - name: Instalar o Chromium (usado na ANBIMA)
+        run: npx playwright install --with-deps chromium
+      - name: Rodar a captura
+        run: node scripts/captura.js
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NODE_ENV: production
+          CAPTURA_ANBIMA: 'true'
