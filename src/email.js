@@ -1,6 +1,7 @@
 'use strict';
-// Resumo diário de normas novas por e-mail, enviado pelo Resend (API HTTP, sem dependência extra).
-// Só envia quando há norma cadastrada desde o último envio. Destinatários: tela "Envio por e-mail" (só Admin).
+// Resumo diário "Normativos Divulgados" por e-mail, enviado pelo Resend (API HTTP, sem dependência extra).
+// Leva só as normas publicadas no dia anterior (na segunda-feira, de sexta a domingo). Se não houver, nada é enviado.
+// Destinatários: tela "Envio por e-mail" (só Admin).
 const { q } = require('./db');
 const { config } = require('./config');
 const { lerSistema, gravarSistema, registrarAuditoria } = require('./colecoes');
@@ -20,6 +21,20 @@ const br = d => { const s = isoDia(d); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s.
 const cite = n => `${n.tipo} ${n.orgao === 'BACEN' ? 'BCB' : n.orgao} nº ${n.numero}`;
 const ORDEM = ['BACEN', 'CMN', 'CVM', 'ANBIMA'];
 
+// Datas no fuso de Brasília (YYYY-MM-DD)
+const diaBR = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+const somaDia = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const fimDeSemana = iso => [0, 6].includes(new Date(iso + 'T12:00:00Z').getUTCDay());
+// Período coberto pelo envio de "hoje": o dia anterior; se ele cair no fim de semana, volta até a sexta.
+function periodo(hoje = diaBR()) {
+  const fim = somaDia(hoje, -1);
+  let inicio = fim;
+  while (fimDeSemana(inicio)) inicio = somaDia(inicio, -1);
+  return { inicio, fim };
+}
+const quando = ({ inicio, fim }) => inicio === fim ? `em ${br(inicio)}` : `de ${br(inicio)} a ${br(fim)}`;
+const qtdTxt = n => `${n} ${n === 1 ? 'normativo publicado' : 'normativos publicados'}`;
+
 async function destinatarios() {
   const d = await lerSistema('destinatarios');
   const lista = d && Array.isArray(d.lista) ? d.lista
@@ -33,38 +48,40 @@ async function statusEnvio() {
   return { configurado: !!c.chave, remetente: c.remetente, ultimoEnvio: e.ultimoEnvio || null, ultimaVerificacao: e.ultimaVerificacao || null, ultimoResultado: e.ultimoResultado || '', formatoChave: c.chave ? `${c.chave.startsWith('re_') ? 'começa com re_' : 'NÃO começa com re_'}, ${c.chave.length} caracteres` : null };
 }
 
-function montar(normas, { teste = false } = {}) {
+function montar(normas, { teste = false, hoje = diaBR(), per = periodo(hoje), aviso = '' } = {}) {
   const grupos = {};
   for (const n of normas) (grupos[n.orgao] = grupos[n.orgao] || []).push(n);
   const orgaos = Object.keys(grupos).sort((a, b) => (ORDEM.indexOf(a) + 1 || 99) - (ORDEM.indexOf(b) + 1 || 99));
   const qtd = normas.length;
-  const titulo = `${qtd} ${qtd === 1 ? 'norma nova' : 'normas novas'} para triagem`;
+  const titulo = `Normativos Divulgados - ${br(hoje)}`;
+  const sub = `${qtdTxt(qtd)} ${quando(per)}`;
   const linkSistema = config.baseUrl + '/#normas';
   let html = `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#F5F5F5;font-family:'Plus Jakarta Sans',Segoe UI,Arial,sans-serif;color:#191A1C">
 <div style="max-width:680px;margin:0 auto;padding:24px 16px">
-<div style="background:linear-gradient(160deg,#1E3A8A,#000D5C);color:#fff;border-radius:12px 12px 0 0;padding:20px 24px">
-<div style="font-size:13px;opacity:.8">Trinus · Controle Normativo${teste ? ' · TESTE' : ''}</div>
-<div style="font-size:22px;font-weight:700;margin-top:4px">${esc(titulo)}</div></div>
-<div style="background:#fff;border-radius:0 0 12px 12px;padding:8px 24px 24px">`;
-  let texto = `${titulo}${teste ? ' (teste)' : ''}\n\n`;
+<div style="background:#2E4CFF;color:#fff;border-radius:16px 16px 0 0;padding:22px 24px">
+<div style="font-size:13px;opacity:.85">Trinus · Controle Normativo${teste ? ' · TESTE' : ''}</div>
+<div style="font-size:24px;font-weight:800;letter-spacing:-.02em;margin-top:4px">${esc(titulo)}</div>
+<div style="font-size:14px;opacity:.9;margin-top:4px">${esc(sub)}</div></div>
+<div style="background:#fff;border-radius:0 0 16px 16px;padding:8px 24px 24px">${aviso ? `<p style="font-size:13px;color:#94600A;background:#F7EBD3;border-radius:8px;padding:8px 12px;margin:16px 0 0">${esc(aviso)}</p>` : ''}`;
+  let texto = `${titulo}${teste ? ' (teste)' : ''}\n${sub}\n${aviso ? aviso + '\n' : ''}\n`;
   for (const o of orgaos) {
-    html += `<h2 style="font-size:15px;color:#1E3A8A;margin:20px 0 8px;border-bottom:2px solid #67E8F9;padding-bottom:4px">${esc(o)} (${grupos[o].length})</h2>`;
+    html += `<h2 style="font-size:15px;color:#2E4CFF;margin:20px 0 8px;border-bottom:2px solid #E9EDFF;padding-bottom:4px">${esc(o)} (${grupos[o].length})</h2>`;
     texto += `== ${o} ==\n`;
     for (const n of grupos[o]) {
       const data = br(n.data_publicacao);
       html += `<div style="padding:10px 0;border-bottom:1px solid #ECEEF2">
 <div style="font-weight:700">${esc(cite(n))}${data ? ` <span style="font-weight:400;color:#5B6272">· ${esc(data)}</span>` : ''}</div>
 <div style="margin:4px 0 6px;font-size:14px;line-height:1.45">${esc(n.ementa)}</div>
-${n.link ? `<a href="${esc(n.link)}" style="color:#1D4ED8;font-size:13px;font-weight:600">Abrir a norma no site oficial (texto e PDF)</a>` : ''}</div>`;
+${n.link ? `<a href="${esc(n.link)}" style="color:#2E4CFF;font-size:13px;font-weight:600">Abrir a norma no site oficial (texto e PDF)</a>` : ''}</div>`;
       texto += `- ${cite(n)}${data ? ' (' + data + ')' : ''}: ${n.ementa}\n  ${n.link || ''}\n`;
     }
     texto += '\n';
   }
-  html += `<p style="margin:24px 0 0"><a href="${esc(linkSistema)}" style="background:#1D4ED8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;display:inline-block">Fazer a triagem no sistema</a></p>
+  html += `<p style="margin:24px 0 0"><a href="${esc(linkSistema)}" style="background:#2E4CFF;color:#fff;text-decoration:none;padding:11px 18px;border-radius:10px;font-weight:600;display:inline-block">Fazer a triagem no sistema</a></p>
 <p style="font-size:12px;color:#5B6272;margin-top:20px">Enviado automaticamente pelo Controle Normativo. Para mudar quem recebe, o Admin usa a página "Envio por e-mail".</p>
 </div></div></body></html>`;
   texto += `Triagem: ${linkSistema}\n`;
-  const assunto = `${teste ? '[Teste] ' : ''}Controle Normativo: ${titulo}`;
+  const assunto = `${teste ? '[Teste] ' : ''}${titulo}`;
   return { assunto, html, texto };
 }
 
@@ -82,25 +99,39 @@ async function enviarResend(para, { assunto, html, texto }) {
   return j.id || '';
 }
 
-// origem: texto para a auditoria; teste: manda as normas dos últimos 7 dias (ou as 10 mais recentes) sem mexer no controle de envio
+// origem: texto para a auditoria; teste: manda o mesmo conteúdo do envio do dia, sem mexer no controle de envio
+// (se o período estiver vazio, o teste mostra os normativos do último dia com publicação, para conferir o layout).
 async function enviarResumo({ origem = 'agendado', teste = false, usuarioId = null } = {}) {
   const para = await destinatarios();
   if (!para.length) throw new ErroEmail('Nenhum destinatário ativo na página "Envio por e-mail".');
   const estado = (await lerSistema('email')) || {};
   const agora = new Date();
-  let desde = teste ? new Date(agora.getTime() - 7 * 864e5) : new Date(estado.ultimoEnvio || (agora.getTime() - 864e5));
+  const hoje = diaBR(agora);
+  let per = periodo(hoje);
+  if (!teste && estado.ultimoEnvioDia === hoje) return { enviado: false, motivo: 'O resumo de hoje já foi enviado.', para };
   const campos = 'id, orgao, tipo, numero, data_publicacao, ementa, link, criado_em';
-  let normas = (await q(`SELECT ${campos} FROM normas WHERE criado_em > $1 ORDER BY data_publicacao DESC NULLS LAST, criado_em DESC LIMIT 200`, [desde])).rows;
-  if (teste && !normas.length) normas = (await q(`SELECT ${campos} FROM normas ORDER BY criado_em DESC LIMIT 10`)).rows;
-  if (!normas.length) {
-    await gravarSistema('email', { ...estado, ultimaVerificacao: agora.toISOString(), ultimoResultado: 'Sem normas novas; nada enviado.' });
-    return { enviado: false, motivo: 'Nenhuma norma nova desde o último envio.', para };
+  const buscar = p => q(`SELECT ${campos} FROM normas WHERE data_publicacao::date BETWEEN $1::date AND $2::date ORDER BY data_publicacao DESC, orgao, numero LIMIT 300`, [p.inicio, p.fim]).then(r => r.rows);
+  let normas = await buscar(per);
+  let aviso = '';
+  if (teste && !normas.length) {
+    const u = (await q(`SELECT max(data_publicacao::date) AS d FROM normas WHERE data_publicacao::date < $1::date`, [hoje])).rows[0];
+    const d = u && u.d ? isoDia(u.d) : '';
+    if (d) {
+      aviso = `Teste: não houve normativo publicado ${quando(per)}. Para conferir o layout, este teste mostra os de ${br(d)}.`;
+      per = { inicio: d, fim: d };
+      normas = await buscar(per);
+    }
   }
-  const id = await enviarResend(para, montar(normas, { teste }));
-  const resultado = `${normas.length} ${normas.length === 1 ? 'norma' : 'normas'} para ${para.join(', ')}`;
-  if (!teste) await gravarSistema('email', { ...estado, ultimoEnvio: agora.toISOString(), ultimaVerificacao: agora.toISOString(), ultimoResultado: resultado });
-  await registrarAuditoria({ acao: 'Enviou', tipo: 'E-mail', ref: (teste ? 'Teste do resumo de normas' : 'Resumo diário de normas'), detalhe: resultado + ' · Origem: ' + origem + (id ? ' · id ' + id : '') }, usuarioId);
-  return { enviado: true, normas: normas.length, para };
+  if (!normas.length) {
+    const motivo = `Nenhum normativo publicado ${quando(per)}; nada enviado.`;
+    if (!teste) await gravarSistema('email', { ...estado, ultimaVerificacao: agora.toISOString(), ultimoResultado: motivo });
+    return { enviado: false, motivo, para };
+  }
+  const id = await enviarResend(para, montar(normas, { teste, hoje, per, aviso }));
+  const resultado = `${qtdTxt(normas.length)} ${quando(per)} para ${para.join(', ')}`;
+  if (!teste) await gravarSistema('email', { ...estado, ultimoEnvio: agora.toISOString(), ultimoEnvioDia: hoje, ultimaVerificacao: agora.toISOString(), ultimoResultado: resultado });
+  await registrarAuditoria({ acao: 'Enviou', tipo: 'E-mail', ref: (teste ? 'Teste de Normativos Divulgados' : 'Normativos Divulgados'), detalhe: resultado + ' · Origem: ' + origem + (id ? ' · id ' + id : '') }, usuarioId);
+  return { enviado: true, normas: normas.length, periodo: per, para };
 }
 
 
@@ -117,4 +148,4 @@ async function enviarCodigoLogin(para, codigo, minutos) {
   return enviarResend([para], { assunto: 'Seu código de acesso ao Controle Normativo', html, texto });
 }
 
-module.exports = { enviarResumo, statusEnvio, montar, enviarCodigoLogin, ErroEmail };
+module.exports = { enviarResumo, statusEnvio, montar, periodo, enviarCodigoLogin, ErroEmail };
