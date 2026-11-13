@@ -107,7 +107,7 @@
   function eu() { return mePromessa || (mePromessa = chamar('GET', '/api/me')); }
   var nomes = {};
   var user = {
-    me: async function () { var m = await eu(); return { id: m.id, name: m.nome, email: m.email, avatarUrl: '', color: '#0B5D57', isOwner: m.perfil === 'Admin', canEdit: m.perfil === 'Admin', perfil: m.perfil, modoLogin: m.modoLogin }; },
+    me: async function () { var m = await eu(); return { id: m.id, name: m.nome, email: m.email, avatarUrl: '', color: '#0B5D57', isOwner: m.perfil === 'Admin', canEdit: m.perfil === 'Admin', perfil: m.perfil, areas: m.areas || [], modoLogin: m.modoLogin }; },
     id: async function () { return (await eu()).id; },
     isOwner: async function () { return (await eu()).perfil === 'Admin'; },
     canEdit: async function () { return (await eu()).perfil === 'Admin'; },
