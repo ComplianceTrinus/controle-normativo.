@@ -176,3 +176,8 @@ CREATE TABLE IF NOT EXISTS encaminhamentos (
   em        timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS encaminhamentos_norma_idx ON encaminhamentos (norma_id, em DESC);
+-- Prazo de 10 dias corridos para a área avaliar e o retorno dela (uma resposta por encaminhamento)
+ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS prazo date;
+ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS resposta text;
+ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS respondido_em timestamptz;
+ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS respondido_por text;
