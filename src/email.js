@@ -2,7 +2,7 @@
 // Resumo diário "Normativos Divulgados" por e-mail, enviado pelo Resend (API HTTP, sem dependência extra).
 // Sai de segunda a sexta e leva só as normas publicadas no dia anterior (na segunda-feira, de sexta a domingo).
 // Se não houver, nada é enviado.
-// Destinatários: tela "Envio por e-mail" (só Admin).
+// Destinatários: Configurações > Envio Diário (só Admin).
 const { q } = require('./db');
 const { config } = require('./config');
 const { lerSistema, gravarSistema, registrarAuditoria } = require('./colecoes');
@@ -102,7 +102,7 @@ async function enviarResend(para, { assunto, html, texto }) {
 // (se o período estiver vazio, o teste mostra os normativos do último dia com publicação, para conferir o layout).
 async function enviarResumo({ origem = 'agendado', teste = false, usuarioId = null } = {}) {
   const para = await destinatarios();
-  if (!para.length) throw new ErroEmail('Nenhum destinatário ativo na página "Envio por e-mail".');
+  if (!para.length) throw new ErroEmail('Nenhum destinatário ativo em Configurações > Envio Diário.');
   const estado = (await lerSistema('email')) || {};
   const agora = new Date();
   const hoje = diaBR(agora);
