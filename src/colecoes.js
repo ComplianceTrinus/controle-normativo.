@@ -14,7 +14,7 @@ const COLECOES = {
     campos: {
       orgao: 'orgao', tipo: 'tipo', numero: 'numero', chave: 'chave',
       dataPublicacao: 'data_publicacao', vigencia: 'vigencia', prazoAdequacao: 'prazo_adequacao',
-      ementa: 'ementa', tema: 'tema', link: 'link', status: 'status', criticidade: 'criticidade',
+      ementa: 'ementa', tema: 'tema', link: 'link', status: 'status', criticidade: 'criticidade', criteriosRisco: 'criterios_risco',
       responsavel: 'responsavel', area: 'area', observacoes: 'observacoes', origem: 'origem',
       triadaEm: 'triada_em', analisadaEm: 'analisada_em', ...CARIMBO,
     },
