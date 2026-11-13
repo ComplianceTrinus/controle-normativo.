@@ -5,7 +5,7 @@ const { promisify } = require('util');
 const express = require('express');
 const { config } = require('./config');
 const { q } = require('./db');
-const { registrarAuditoria } = require('./colecoes');
+const { registrarAuditoria, listarAreas, gravarSistema, normArea } = require('./colecoes');
 
 const scrypt = promisify(crypto.scrypt);
 const PERFIS = ['Admin', 'Analista', 'Área responsável', 'Leitura'];
@@ -108,6 +108,11 @@ a{color:var(--ac)}
 </style></head><body><header class="topo"><img src="${LOGO}" alt="Trinus" width="84" height="26"><span>Controle Normativo</span></header><main><div class="box">${corpo}</div></main></body></html>`;
 }
 
+// Lê as áreas marcadas num formulário (uma ou várias caixas "areas") e mantém só as que existem na lista
+const areasDoForm = (valor, lista) => {
+  const marcadas = new Set([].concat(valor || []).map(normArea));
+  return lista.filter(a => marcadas.has(normArea(a)));
+};
 const aviso = m => m ? `<div class="msg ${m.tipo}">${m.html ? m.texto : esc(m.texto)}</div>` : '';
 
 const router = express.Router();
@@ -295,7 +300,9 @@ function soAdmin(req, res, next) {
 }
 
 async function telaUsuarios(req, res, msg) {
-  const lista = (await q('SELECT id, nome, email, perfil, ativo, trocar_senha, ultimo_acesso, bloqueado_ate FROM usuarios WHERE senha_hash IS NOT NULL ORDER BY ativo DESC, nome')).rows;
+  const lista = (await q('SELECT id, nome, email, perfil, ativo, trocar_senha, ultimo_acesso, bloqueado_ate, areas FROM usuarios WHERE senha_hash IS NOT NULL ORDER BY ativo DESC, nome')).rows;
+  const areas = await listarAreas();
+  const caixas = (sel, rotulo) => `<div class="caixas" role="group" aria-label="${esc(rotulo)}">${areas.map(a => `<label class="cx"><input type="checkbox" name="areas" value="${esc(a)}"${(sel || []).some(x => normArea(x) === normArea(a)) ? ' checked' : ''}> ${esc(a)}</label>`).join('')}</div>`;
   const csrf = tokenCsrf(req);
   const opt = (sel) => PERFIS.map(p => `<option${p === sel ? ' selected' : ''}>${p}</option>`).join('');
   const linhas = lista.map(u => {
@@ -304,22 +311,30 @@ async function telaUsuarios(req, res, msg) {
     return `<tr><td><b>${esc(u.nome)}</b><div class="mu">${esc(u.email)}</div></td>
 <td><form method="post" action="/usuarios/${esc(u.id)}" class="linha"><input type="hidden" name="_csrf" value="${csrf}"><input type="hidden" name="acao" value="perfil">
 <select name="perfil" aria-label="Perfil de ${esc(u.nome)}"${eu ? ' disabled' : ''}>${opt(u.perfil)}</select>${eu ? '' : '<button class="sec peq">Salvar</button>'}</form></td>
+<td>${u.perfil === 'Área responsável' ? `<form method="post" action="/usuarios/${esc(u.id)}"><input type="hidden" name="_csrf" value="${csrf}"><input type="hidden" name="acao" value="areas">${caixas(u.areas, 'Áreas de ' + u.nome)}<button class="sec peq" style="margin-top:6px">Salvar áreas</button>${(u.areas || []).length ? '' : '<div class="mu" style="color:#B3261E;margin-top:4px">Sem área: não vê nenhum item.</div>'}</form>` : '<span class="mu">Todas</span>'}</td>
 <td>${esc(sit)}<div class="mu">${u.ultimo_acesso ? 'Último acesso ' + new Date(u.ultimo_acesso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }) : ''}</div></td>
 <td>${eu ? '<span class="mu">Você</span>' : `<div class="linha">
 <form method="post" action="/usuarios/${esc(u.id)}"><input type="hidden" name="_csrf" value="${csrf}"><input type="hidden" name="acao" value="senha"><button class="sec peq">Gerar nova senha</button></form>
 <form method="post" action="/usuarios/${esc(u.id)}"><input type="hidden" name="_csrf" value="${csrf}"><input type="hidden" name="acao" value="${u.ativo ? 'desativar' : 'ativar'}"><button class="sec peq">${u.ativo ? 'Desativar' : 'Reativar'}</button></form></div>`}</td></tr>`;
   }).join('');
   res.send(pagina('Usuários', `<div class="linha" style="justify-content:space-between;margin-bottom:8px"><h1>Usuários</h1><a class="bt sec peq" href="/">Voltar ao sistema</a></div>
-<p class="mu">Admin: tudo, inclusive exclusões e usuários. Analista: cadastra e edita. Área responsável: comenta e anexa evidências, sem alterar normas e itens. Leitura: só consulta.</p>${aviso(msg)}
+<p class="mu">Admin: tudo, inclusive exclusões e usuários. Analista: cadastra e edita. Área responsável: vê só as ações e obrigações das suas áreas, comenta e anexa evidências, sem alterar nada. Leitura: só consulta.</p>${aviso(msg)}
 <h2 style="font-size:16px;margin:18px 0 8px">Novo usuário</h2>
 <form method="post" action="/usuarios"><input type="hidden" name="_csrf" value="${csrf}"><div class="grid">
 <label>Nome<input name="nome" id="novoNome" required maxlength="120"></label>
 <label>E-mail<input type="email" name="email" id="novoEmail" required maxlength="200"></label>
 <label>Perfil<select name="perfil" id="novoPerfil">${opt('Analista')}</select></label>
-<button type="submit">Cadastrar</button></div></form>
+<button type="submit">Cadastrar</button></div>
+<div style="margin-top:10px"><div class="mu" style="margin-bottom:4px">Áreas (só para o perfil Área responsável)</div>${caixas([], 'Áreas do novo usuário')}</div></form>
 <p class="mu" style="margin-top:8px">O sistema gera uma senha provisória para você repassar à pessoa. Ela troca a senha no primeiro acesso.</p>
 <h2 style="font-size:16px;margin:22px 0 8px">Equipe</h2>
-<div class="tw"><table><thead><tr><th>Pessoa</th><th>Perfil</th><th>Situação</th><th>Ações</th></tr></thead><tbody>${linhas}</tbody></table></div>`, { largo: true }));
+<div class="tw"><table><thead><tr><th>Pessoa</th><th>Perfil</th><th>Áreas</th><th>Situação</th><th>Ações</th></tr></thead><tbody>${linhas}</tbody></table></div>
+<h2 style="font-size:16px;margin:26px 0 8px">Lista de áreas</h2>
+<p class="mu">As áreas aparecem para escolha nas ações e obrigações e definem o que cada pessoa do perfil Área responsável enxerga. Uma por linha.</p>
+<form method="post" action="/usuarios/areas"><input type="hidden" name="_csrf" value="${csrf}">
+<label>Áreas<textarea name="lista" rows="${Math.max(6, areas.length + 1)}" style="font:inherit;border:1px solid #DADDE4;border-radius:10px;padding:9px 12px;max-width:420px">${esc(areas.join('\n'))}</textarea></label>
+<div style="margin-top:8px"><button type="submit">Salvar lista de áreas</button></div></form>
+<style>.caixas{display:flex;flex-wrap:wrap;gap:4px 12px;max-width:420px}.cx{flex-direction:row!important;align-items:center;gap:6px!important;font-weight:500!important;color:#191A1C!important;font-size:13px!important}.cx input{min-height:auto;width:16px;height:16px;padding:0}</style>`, { largo: true }));
 }
 
 const msgSenha = (u, senha, prefixo) => ({
@@ -344,10 +359,28 @@ router.post('/usuarios', logado, soAdmin, async (req, res, next) => {
     if (ja.rowCount) return telaUsuarios(req, res, { tipo: 'err', texto: 'Já existe um usuário com esse e-mail.' });
     const senha = senhaTemporaria();
     const id = 'loc-' + crypto.randomUUID().replace(/-/g, '').slice(0, 20);
-    await q(`INSERT INTO usuarios (id, nome, email, perfil, senha_hash, ativo, trocar_senha) VALUES ($1,$2,$3,$4,$5,true,true)`,
-      [id, nome, email, perfil, await gerarHash(senha)]);
-    await registrarAuditoria({ acao: 'Criou', tipo: 'Usuário', ref: email, detalhe: `Perfil ${perfil}` }, req.session.usuario.id);
+    const areasNovo = perfil === 'Área responsável' ? areasDoForm(req.body.areas, await listarAreas()) : [];
+    await q(`INSERT INTO usuarios (id, nome, email, perfil, senha_hash, ativo, trocar_senha, areas) VALUES ($1,$2,$3,$4,$5,true,true,$6)`,
+      [id, nome, email, perfil, await gerarHash(senha), areasNovo]);
+    await registrarAuditoria({ acao: 'Criou', tipo: 'Usuário', ref: email, detalhe: `Perfil ${perfil}${areasNovo.length ? ' · Áreas: ' + areasNovo.join(', ') : ''}` }, req.session.usuario.id);
     telaUsuarios(req, res, msgSenha(email, senha, 'Usuário cadastrado.'));
+  } catch (err) { next(err); }
+});
+
+// Lista de áreas da empresa
+router.post('/usuarios/areas', logado, soAdmin, async (req, res, next) => {
+  try {
+    if (config.authMode !== 'local') return res.redirect('/');
+    if (!conferirCsrf(req)) return telaUsuarios(req, res, { tipo: 'err', texto: 'A página expirou. Tente de novo.' });
+    const vistos = new Set();
+    const lista = String(req.body.lista || '').split(/\r?\n/).map(s => s.trim().replace(/\s+/g, ' ').slice(0, 60))
+      .filter(s => s && !vistos.has(normArea(s)) && vistos.add(normArea(s)));
+    if (!lista.length) return telaUsuarios(req, res, { tipo: 'err', texto: 'Informe pelo menos uma área.' });
+    if (lista.length > 50) return telaUsuarios(req, res, { tipo: 'err', texto: 'No máximo 50 áreas.' });
+    const antes = await listarAreas();
+    await gravarSistema('areas', { lista, atualizadoEm: new Date().toISOString(), atualizadoPor: req.session.usuario.id });
+    await registrarAuditoria({ acao: 'Alterou', tipo: 'Configuração', ref: 'Lista de áreas', detalhe: antes.join(', ') + ' → ' + lista.join(', ') }, req.session.usuario.id);
+    telaUsuarios(req, res, { tipo: 'ok', texto: 'Lista de áreas salva.' });
   } catch (err) { next(err); }
 });
 
@@ -369,6 +402,12 @@ router.post('/usuarios/:id', logado, soAdmin, async (req, res, next) => {
         await q("DELETE FROM sessoes WHERE sess -> 'usuario' ->> 'id' = $1", [id]).catch(() => {});
         await registrarAuditoria({ acao: 'Alterou', tipo: 'Usuário', ref: u.email, detalhe: `Perfil: ${u.perfil} → ${perfil}` }, quem);
         return telaUsuarios(req, res, { tipo: 'ok', texto: `Perfil de ${u.email} alterado para ${perfil}.` });
+      }
+      case 'areas': {
+        const novas = areasDoForm(req.body.areas, await listarAreas());
+        await q('UPDATE usuarios SET areas = $2 WHERE id = $1', [id, novas]);
+        await registrarAuditoria({ acao: 'Alterou', tipo: 'Usuário', ref: u.email, detalhe: `Áreas: ${(u.areas || []).join(', ') || 'nenhuma'} → ${novas.join(', ') || 'nenhuma'}` }, quem);
+        return telaUsuarios(req, res, { tipo: 'ok', texto: `Áreas de ${u.email}: ${novas.join(', ') || 'nenhuma'}.` });
       }
       case 'senha': {
         const senha = senhaTemporaria();
@@ -396,10 +435,10 @@ async function revalidar(req, res, next) {
   const u = req.session && req.session.usuario;
   if (!u || config.authMode !== 'local') return next();
   try {
-    const r = await q('SELECT perfil, ativo, nome FROM usuarios WHERE id = $1', [u.id]);
+    const r = await q('SELECT perfil, ativo, nome, areas FROM usuarios WHERE id = $1', [u.id]);
     const atual = r.rows[0];
     if (!atual || !atual.ativo) return req.session.destroy(() => (req.path.startsWith('/api/') ? res.status(401).json({ erro: 'Sessão encerrada.' }) : res.redirect('/login')));
-    u.perfil = atual.perfil; u.nome = atual.nome;
+    u.perfil = atual.perfil; u.nome = atual.nome; u.areas = atual.areas || [];
     next();
   } catch (err) { next(err); }
 }
