@@ -419,7 +419,7 @@ const ST_BAR={'Nova':'var(--info)','Em análise':'var(--warn)','Aplicável':'var
 const CRIT=['Alta','Média','Baixa'];
 const ST_ACAO=['Aberta','Em andamento','Concluída','Cancelada'];
 const PERIOD={Mensal:1,Bimestral:2,Trimestral:3,Semestral:6,Anual:12,Eventual:0};
-const ROUTES={painel:'Painel',indicadores:'Indicadores',normas:'Normas',acoes:'Planos de ação',obrigacoes:'Obrigações',envios:'Envio por e-mail'};
+const ROUTES={painel:'Painel',indicadores:'Indicadores',normas:'Normas',acoes:'Planos de ação',obrigacoes:'Obrigações',envios:'Envio Diário'};
 const ADMIN_ROUTES=['envios'];
 const FONTES=[
   ['Busca de normas do Banco Central','https://www.bcb.gov.br/estabilidadefinanceira/buscanormas'],
@@ -657,7 +657,7 @@ function vEnvios(){
   if(S.dest===undefined&&!S.destErro)carregarDest();
   const l=S.dest||[];
   const rows=l.map((d,i)=>`<tr><td>${esc(d.email)}</td><td>${d.ativo?'<b>Ativo</b>':'<span class="muted">Pausado</span>'}</td><td class="nowrap"><button type="button" class="btn sm" data-act="dest-toggle" data-id="${i}">${d.ativo?'Pausar':'Reativar'}</button> <button type="button" class="btn sm" data-act="dest-del" data-id="${i}">Remover</button></td></tr>`).join('');
-  return `<div class="head"><div><h1>Envio por e-mail</h1><p>Quem recebe o e-mail diário "Normativos Divulgados", com o link oficial e o PDF de cada norma. Só o Admin vê esta página.</p></div></div>
+  return `<div class="head"><div><h1>Envio Diário</h1><p>Quem recebe o e-mail diário "Normativos Divulgados", com o link oficial e o PDF de cada norma. Só o Admin vê esta página.</p></div></div>
   <div class="panel" style="padding:16px">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><input type="email" id="destNovo" value="${esc(S.destNovo||'')}" placeholder="nome@empresa.com.br" class="field" aria-label="Novo destinatário" style="flex:1;min-width:240px"><button type="button" class="btn pri" data-act="dest-add">Adicionar</button></div>
     ${S.destErro?`<div class="empty">${esc(S.destErro)}</div>`:S.dest===undefined?'<div class="empty">Carregando…</div>':l.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th>E-mail</th><th>Situação</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Nenhum destinatário cadastrado.</div>'}
