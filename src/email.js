@@ -78,9 +78,8 @@ ${n.link ? `<a href="${esc(n.link)}" style="color:#2E4CFF;font-size:13px;font-we
     }
     texto += '\n';
   }
-  html += `<p style="margin:24px 0 0"><a href="${esc(linkSistema)}" style="background:#2E4CFF;color:#fff;text-decoration:none;padding:11px 18px;border-radius:10px;font-weight:600;display:inline-block">Fazer a triagem no sistema</a></p>
+  html += `
 </div></div></body></html>`;
-  texto += `Triagem: ${linkSistema}\n`;
   const assunto = titulo;
   return { assunto, html, texto };
 }
