@@ -327,6 +327,10 @@ h2{font-size:16px;font-weight:700}
 .menu .dd a:hover{background:var(--surface-2)}
 .menu .dd a.out{color:var(--crit)}
 .abas{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:-6px}
+.prazo{display:inline-flex;flex-direction:column;gap:1px;padding:8px 12px 8px 11px;border-radius:12px;background:var(--pb);color:var(--pc);border-left:4px solid currentColor;min-width:158px;line-height:1.2}
+.prazo .pl{font-size:11.5px;font-weight:600;opacity:.85}
+.prazo b{font:800 19px/1.15 var(--f-display);letter-spacing:-.02em}
+.prazo .pt{font-size:12.5px;font-weight:700}
 .sino{position:absolute;top:22px;right:12px;z-index:45}
 .sino>button{width:40px;height:40px;border-radius:12px;border:0;background:rgba(255,255,255,.14);color:#fff;display:grid;place-items:center;cursor:pointer;position:relative}
 .sino>button:hover{background:rgba(255,255,255,.24)}
@@ -652,15 +656,19 @@ function planos(){return S.normas.map(n=>{const ac=S.acoes.filter(a=>a.normaId==
 const SIT_C={'Concluído':'ok','Em dia':'acc','Com atraso':'crit'};
 /* ---------- Normas encaminhadas para as áreas ---------- */
 async function loadEnc(){try{S.enc=await apiJson('/api/encaminhamentos')}catch{S.enc=S.enc||[]}render();const el=$('#encList');if(el&&S.dlg&&S.dlg.type==='norma')el.innerHTML=encHist(S.dlg.id)}
+function prazoChip(e){if(!e.prazo)return '';const d=days(e.prazo);let c,t;
+  if(e.resposta){c='ok';t='Retorno enviado'}else if(d<0){c='crit';t=`Atrasado há ${-d} dia${d<-1?'s':''}`}else if(d===0){c='warn';t='Vence hoje'}else if(d<=3){c='warn';t=`Faltam ${d} dia${d>1?'s':''}`}else{c='acc';t=`Faltam ${d} dias`}
+  return `<div class="prazo p-${c}"><span class="pl">Prazo para retorno</span><b>${esc(fmtD(e.prazo))}</b><span class="pt">${t}</span></div>`}
 function encStatus(e){if(e.resposta)return['Respondida','ok'];const d=days(e.prazo);if(d==null)return['Aguardando retorno','info'];if(d<0)return[`Atrasada ${-d}d`,'crit'];if(d===0)return['Vence hoje','warn'];if(d<=3)return[`Vence em ${d}d`,'warn'];return['Aguardando retorno','info']}
 function vRecebidas(){const loading=S.enc===undefined;const l=S.enc||[];ensureNames(l.map(e=>e.por));
-  const rows=l.map(e=>{const n=S.normas.find(x=>x.id===e.normaId);if(!n)return '';return `<tr data-act="open-norma" data-id="${esc(n.id)}"><td class="nowrap num">${esc(fmtDT(e.em))}</td><td>${og(n.orgao)}</td><td><div class="cite">${esc(cite(n))}</div><div class="sub">${esc(e.area)}</div></td><td><div class="clip">${esc(n.ementa)}</div></td><td><div class="clip">${esc(e.mensagem||'—')}</div><div class="sub">por ${esc(nameOf(e.por))}</div></td><td class="nowrap">${e.prazo?`<div class="num">${esc(fmtD(e.prazo))}</div>`:''}${pill(...encStatus(e))}</td></tr>`}).join('');
+  const rows=l.map(e=>{const n=S.normas.find(x=>x.id===e.normaId);if(!n)return '';return `<tr data-act="open-norma" data-id="${esc(n.id)}"><td class="nowrap num">${esc(fmtDT(e.em))}</td><td>${og(n.orgao)}</td><td><div class="cite">${esc(cite(n))}</div><div class="sub">${esc(e.area)}</div></td><td><div class="clip">${esc(n.ementa)}</div></td><td><div class="clip">${esc(e.mensagem||'—')}</div><div class="sub">por ${esc(nameOf(e.por))}</div></td><td class="nowrap">${prazoChip(e)}</td></tr>`}).join('');
   return `<div class="head"><div><h1>Normas recebidas</h1><p>Normas que o Compliance encaminhou para a sua área. Você tem 10 dias corridos para avaliar: abra a norma, leia e envie o retorno da área.</p></div></div>
   ${rows?`<div class="tblwrap"><table class="tbl"><thead><tr><th>Recebida em</th><th>Órgão</th><th>Norma</th><th>Ementa</th><th>Orientação do Compliance</th><th>Prazo de retorno</th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="panel"><div class="empty">${loading||!S.loaded.normas?'Carregando…':'Nenhuma norma encaminhada para a sua área ainda.'}</div></div>`}`}
 function encHist(id){const l=(S.enc||[]).filter(e=>e.normaId===id);if(!l.length)return '<div class="pad">Ainda não encaminhada.</div>';ensureNames(l.map(e=>e.por));
   ensureNames(l.map(e=>e.respondidoPor));
   return l.map(e=>`<div class="it" style="cursor:default"><div class="top"><b>${esc(e.area)}</b>${pill(...encStatus(e))}</div>
-    <div class="meta">Encaminhada em ${esc(fmtDT(e.em))} por ${esc(nameOf(e.por))}${e.prazo?` · prazo ${esc(fmtD(e.prazo))}`:''}</div>
+    <div class="meta">Encaminhada em ${esc(fmtDT(e.em))} por ${esc(nameOf(e.por))}</div>
+    <div style="margin:4px 0 2px">${prazoChip(e)}</div>
     ${e.mensagem?`<div style="font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere"><b>Orientação:</b> ${esc(e.mensagem)}</div>`:''}
     ${e.resposta?`<div style="font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--ok-soft);border-radius:8px;padding:8px 10px"><b>Retorno da área</b> (${esc(nameOf(e.respondidoPor))}, ${esc(fmtDT(e.respondidoEm))}):<br>${esc(e.resposta)}</div>`
       :S.isArea?`<div style="display:flex;flex-direction:column;gap:6px;margin-top:4px"><textarea id="resp-${esc(e.id)}" class="field" rows="3" maxlength="4000" placeholder="Retorno da área: a norma se aplica? Quais impactos e providências?" aria-label="Retorno da área ${esc(e.area)}"></textarea><div><button type="button" class="btn sm pri" data-act="enc-resp" data-id="${esc(e.id)}">Enviar retorno</button></div></div>`:''}
