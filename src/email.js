@@ -1,6 +1,7 @@
 'use strict';
 // Resumo diário "Normativos Divulgados" por e-mail, enviado pelo Resend (API HTTP, sem dependência extra).
-// Leva só as normas publicadas no dia anterior (na segunda-feira, de sexta a domingo). Se não houver, nada é enviado.
+// Sai de segunda a sexta e leva só as normas publicadas no dia anterior (na segunda-feira, de sexta a domingo).
+// Se não houver, nada é enviado.
 // Destinatários: tela "Envio por e-mail" (só Admin).
 const { q } = require('./db');
 const { config } = require('./config');
@@ -59,11 +60,11 @@ function montar(normas, { teste = false, hoje = diaBR(), per = periodo(hoje), av
   let html = `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#F5F5F5;font-family:'Plus Jakarta Sans',Segoe UI,Arial,sans-serif;color:#191A1C">
 <div style="max-width:680px;margin:0 auto;padding:24px 16px">
 <div style="background:#2E4CFF;color:#fff;border-radius:16px 16px 0 0;padding:22px 24px">
-<div style="font-size:13px;opacity:.85">Trinus · Controle Normativo${teste ? ' · TESTE' : ''}</div>
+<div style="font-size:13px;opacity:.85">Trinus · Controle Normativo</div>
 <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;margin-top:4px">${esc(titulo)}</div>
 <div style="font-size:14px;opacity:.9;margin-top:4px">${esc(sub)}</div></div>
 <div style="background:#fff;border-radius:0 0 16px 16px;padding:8px 24px 24px">${aviso ? `<p style="font-size:13px;color:#94600A;background:#F7EBD3;border-radius:8px;padding:8px 12px;margin:16px 0 0">${esc(aviso)}</p>` : ''}`;
-  let texto = `${titulo}${teste ? ' (teste)' : ''}\n${sub}\n${aviso ? aviso + '\n' : ''}\n`;
+  let texto = `${titulo}\n${sub}\n${aviso ? aviso + '\n' : ''}\n`;
   for (const o of orgaos) {
     html += `<h2 style="font-size:15px;color:#2E4CFF;margin:20px 0 8px;border-bottom:2px solid #E9EDFF;padding-bottom:4px">${esc(o)} (${grupos[o].length})</h2>`;
     texto += `== ${o} ==\n`;
@@ -78,10 +79,9 @@ ${n.link ? `<a href="${esc(n.link)}" style="color:#2E4CFF;font-size:13px;font-we
     texto += '\n';
   }
   html += `<p style="margin:24px 0 0"><a href="${esc(linkSistema)}" style="background:#2E4CFF;color:#fff;text-decoration:none;padding:11px 18px;border-radius:10px;font-weight:600;display:inline-block">Fazer a triagem no sistema</a></p>
-<p style="font-size:12px;color:#5B6272;margin-top:20px">Enviado automaticamente pelo Controle Normativo. Para mudar quem recebe, o Admin usa a página "Envio por e-mail".</p>
 </div></div></body></html>`;
   texto += `Triagem: ${linkSistema}\n`;
-  const assunto = `${teste ? '[Teste] ' : ''}${titulo}`;
+  const assunto = titulo;
   return { assunto, html, texto };
 }
 
@@ -108,6 +108,7 @@ async function enviarResumo({ origem = 'agendado', teste = false, usuarioId = nu
   const agora = new Date();
   const hoje = diaBR(agora);
   let per = periodo(hoje);
+  if (!teste && fimDeSemana(hoje)) return { enviado: false, motivo: 'O e-mail só é enviado de segunda a sexta.', para };
   if (!teste && estado.ultimoEnvioDia === hoje) return { enviado: false, motivo: 'O resumo de hoje já foi enviado.', para };
   const campos = 'id, orgao, tipo, numero, data_publicacao, ementa, link, criado_em';
   const buscar = p => q(`SELECT ${campos} FROM normas WHERE data_publicacao::date BETWEEN $1::date AND $2::date ORDER BY data_publicacao DESC, orgao, numero LIMIT 300`, [p.inicio, p.fim]).then(r => r.rows);
@@ -117,7 +118,7 @@ async function enviarResumo({ origem = 'agendado', teste = false, usuarioId = nu
     const u = (await q(`SELECT max(data_publicacao::date) AS d FROM normas WHERE data_publicacao::date < $1::date`, [hoje])).rows[0];
     const d = u && u.d ? isoDia(u.d) : '';
     if (d) {
-      aviso = `Teste: não houve normativo publicado ${quando(per)}. Para conferir o layout, este teste mostra os de ${br(d)}.`;
+      aviso = `Não houve normativo publicado ${quando(per)}. Este envio de teste mostra os de ${br(d)}.`;
       per = { inicio: d, fim: d };
       normas = await buscar(per);
     }
