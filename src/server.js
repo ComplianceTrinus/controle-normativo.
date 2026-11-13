@@ -120,6 +120,8 @@ app.use('/api', express.json({ limit: '1mb' }));
 const usuario = req => req.session.usuario;
 const escrita = auth.exigirPerfil('Admin', 'Analista');
 const admin = auth.exigirPerfil('Admin');
+// Comentar e anexar evidência: também a Área responsável (que não altera normas, ações nem obrigações)
+const colaboracao = auth.exigirPerfil('Admin', 'Analista', 'Área responsável');
 const COLS = ['normas', 'acoes', 'obrigacoes'];
 
 function tratarErro(res, err) {
@@ -242,7 +244,7 @@ const upload = multer({
     cb(null, true);
   },
 });
-app.post('/api/evidencias', escrita, (req, res) => {
+app.post('/api/evidencias', colaboracao, (req, res) => {
   upload.single('arquivo')(req, res, async err => {
     if (err) {
       const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : (err.status || 400);
@@ -275,6 +277,58 @@ app.get('/_blob/:id', async (req, res) => {
   res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(ev.nome)}`);
   if (ev.conteudo) return res.end(ev.conteudo);
   fs.createReadStream(arquivo).pipe(res);
+});
+
+// Vincula evidências já enviadas a uma ação, sem alterar os demais campos (usado pela Área responsável)
+const ID_ARQ = /^[A-Za-z0-9_-]{8,80}$/;
+app.post('/api/acoes/:id/evidencias', colaboracao, async (req, res) => {
+  try {
+    const ids = (Array.isArray(req.body && req.body.ids) ? req.body.ids : []).map(String).filter(x => ID_ARQ.test(x)).slice(0, 20);
+    if (!ids.length) return res.status(400).json({ erro: 'Nenhuma evidência informada.' });
+    const a = (await q('SELECT id, descricao FROM acoes WHERE id = $1', [req.params.id])).rows[0];
+    if (!a) return res.status(404).json({ erro: 'Ação não encontrada. Ela pode ter sido excluída.' });
+    const r = await q('UPDATE evidencias SET acao_id = $1 WHERE id = ANY($2) AND acao_id IS NULL AND enviado_por = $3 RETURNING nome', [a.id, ids, usuario(req).id]);
+    if (!r.rowCount) return res.status(400).json({ erro: 'Nenhuma evidência pôde ser vinculada.' });
+    await q('UPDATE acoes SET atualizado_em = now(), atualizado_por = $2 WHERE id = $1', [a.id, usuario(req).id]);
+    await dados.registrarAuditoria({ acao: 'Anexou evidência', tipo: 'Ação', ref: String(a.descricao || '').slice(0, 80), detalhe: r.rows.map(x => x.nome).join(', ') }, usuario(req).id);
+    res.json({ ok: true, vinculadas: r.rowCount });
+  } catch (e) { tratarErro(res, e); }
+});
+
+// ---- Comentários em normas e ações (somente inclusão) ----
+app.get('/api/comentarios', async (req, res) => {
+  const normaId = String(req.query.normaId || ''), acaoId = String(req.query.acaoId || '');
+  if (!normaId && !acaoId) return res.status(400).json({ erro: 'Informe a norma ou a ação.' });
+  try {
+    const r = normaId
+      ? await q('SELECT id, norma_id, acao_id, texto, por, em FROM comentarios WHERE norma_id = $1 ORDER BY em', [normaId])
+      : await q('SELECT id, norma_id, acao_id, texto, por, em FROM comentarios WHERE acao_id = $1 ORDER BY em', [acaoId]);
+    res.json(r.rows.map(c => ({ id: c.id, normaId: c.norma_id, acaoId: c.acao_id, texto: c.texto, por: c.por, em: c.em.toISOString() })));
+  } catch (e) { tratarErro(res, e); }
+});
+app.post('/api/comentarios', colaboracao, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const normaId = b.normaId ? String(b.normaId) : null, acaoId = b.acaoId ? String(b.acaoId) : null;
+    const texto = String(b.texto || '').trim();
+    if (!normaId && !acaoId) return res.status(400).json({ erro: 'Informe a norma ou a ação.' });
+    if (!texto) return res.status(400).json({ erro: 'Escreva o comentário.' });
+    if (texto.length > 4000) return res.status(400).json({ erro: 'Comentário muito longo (máximo de 4.000 caracteres).' });
+    let ref = '';
+    if (normaId) {
+      const n = (await q('SELECT tipo, orgao, numero FROM normas WHERE id = $1', [normaId])).rows[0];
+      if (!n) return res.status(404).json({ erro: 'Norma não encontrada. Ela pode ter sido excluída.' });
+      ref = `${n.tipo} ${n.orgao === 'BACEN' ? 'BCB' : n.orgao} nº ${n.numero}`;
+    } else {
+      const a = (await q('SELECT descricao FROM acoes WHERE id = $1', [acaoId])).rows[0];
+      if (!a) return res.status(404).json({ erro: 'Ação não encontrada. Ela pode ter sido excluída.' });
+      ref = String(a.descricao || '').slice(0, 80);
+    }
+    const id = crypto.randomUUID().replace(/-/g, '');
+    await q('INSERT INTO comentarios (id, norma_id, acao_id, texto, por) VALUES ($1, $2, $3, $4, $5)', [id, normaId, acaoId, texto, usuario(req).id]);
+    await dados.registrarAuditoria({ acao: 'Comentou', tipo: normaId ? 'Norma' : 'Ação', ref, detalhe: texto.slice(0, 500) }, usuario(req).id);
+    res.status(201).json({ ok: true, id });
+  } catch (e) { tratarErro(res, e); }
 });
 
 // ---- Página ----
