@@ -1,0 +1,30 @@
+{
+  "name": "controle-normativo",
+  "version": "1.0.0",
+  "description": "Controle de normas Bacen, CMN, CVM e ANBIMA para o time de Compliance",
+  "private": true,
+  "main": "src/server.js",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "migrar": "node --env-file-if-exists=.env scripts/migrar.js",
+    "importar": "node --env-file-if-exists=.env scripts/importar.js",
+    "captura": "node --env-file-if-exists=.env scripts/captura.js",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "@azure/msal-node": "^2.16.2",
+    "cheerio": "^1.0.0",
+    "connect-pg-simple": "^10.0.0",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "helmet": "^8.0.0",
+    "multer": "^2.0.2",
+    "node-cron": "^3.0.3",
+    "pg": "^8.13.1",
+    "playwright": "1.63.0",
+    "undici": "^7.2.0"
+  }
+}

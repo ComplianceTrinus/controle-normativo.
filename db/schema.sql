@@ -1,0 +1,138 @@
+-- Controle Normativo — esquema PostgreSQL (14 ou superior)
+-- Idempotente: pode ser executado várias vezes (npm run migrar).
+
+CREATE TABLE IF NOT EXISTS usuarios (
+  id             text PRIMARY KEY,              -- oid do Microsoft Entra ID
+  nome           text NOT NULL,
+  email          text,
+  perfil         text NOT NULL CHECK (perfil IN ('Admin','Analista','Leitura')),
+  ultimo_acesso  timestamptz NOT NULL DEFAULT now()
+);
+
+-- Login próprio (AUTH_MODE=local)
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS senha_hash text;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ativo boolean NOT NULL DEFAULT true;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS trocar_senha boolean NOT NULL DEFAULT false;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS tentativas integer NOT NULL DEFAULT 0;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bloqueado_ate timestamptz;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS criado_em timestamptz NOT NULL DEFAULT now();
+CREATE UNIQUE INDEX IF NOT EXISTS usuarios_email_local_idx ON usuarios (lower(email)) WHERE senha_hash IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS normas (
+  id               text PRIMARY KEY,
+  orgao            text NOT NULL CHECK (orgao IN ('BACEN','CMN','CVM','ANBIMA','Outro')),
+  tipo             text NOT NULL,
+  numero           text NOT NULL,
+  chave            text NOT NULL UNIQUE,         -- órgão|tipo|número normalizados (evita duplicidade)
+  data_publicacao  date,
+  vigencia         date,
+  prazo_adequacao  date,
+  ementa           text NOT NULL,
+  tema             text,
+  link             text,
+  status           text NOT NULL DEFAULT 'Nova'
+                   CHECK (status IN ('Nova','Em análise','Aplicável','Não aplicável','Adequada','Revogada')),
+  criticidade      text NOT NULL DEFAULT 'Média' CHECK (criticidade IN ('Alta','Média','Baixa')),
+  responsavel      text,
+  area             text,
+  observacoes      text,
+  origem           text,
+  triada_em        date,                          -- quando saiu de "Nova"
+  analisada_em     date,                          -- quando recebeu parecer de aplicabilidade
+  criado_em        timestamptz NOT NULL DEFAULT now(),
+  criado_por       text,
+  atualizado_em    timestamptz NOT NULL DEFAULT now(),
+  atualizado_por   text
+);
+CREATE INDEX IF NOT EXISTS normas_status_idx ON normas (status);
+CREATE INDEX IF NOT EXISTS normas_orgao_idx ON normas (orgao);
+CREATE INDEX IF NOT EXISTS normas_publicacao_idx ON normas (data_publicacao DESC);
+
+CREATE TABLE IF NOT EXISTS acoes (
+  id              text PRIMARY KEY,
+  norma_id        text REFERENCES normas(id) ON DELETE SET NULL,
+  descricao       text NOT NULL,
+  gap             text,
+  responsavel     text,
+  area            text,
+  prazo           date,
+  status          text NOT NULL DEFAULT 'Aberta' CHECK (status IN ('Aberta','Em andamento','Concluída','Cancelada')),
+  observacoes     text,
+  concluida_em    date,
+  criado_em       timestamptz NOT NULL DEFAULT now(),
+  criado_por      text,
+  atualizado_em   timestamptz NOT NULL DEFAULT now(),
+  atualizado_por  text
+);
+CREATE INDEX IF NOT EXISTS acoes_norma_idx ON acoes (norma_id);
+
+CREATE TABLE IF NOT EXISTS evidencias (
+  id            text PRIMARY KEY,
+  acao_id       text REFERENCES acoes(id) ON DELETE CASCADE,  -- nulo enquanto o arquivo não foi vinculado
+  nome          text NOT NULL,
+  tipo          text NOT NULL,
+  tamanho       integer NOT NULL,
+  enviado_em    timestamptz NOT NULL DEFAULT now(),
+  enviado_por   text
+);
+CREATE INDEX IF NOT EXISTS evidencias_acao_idx ON evidencias (acao_id);
+-- Conteúdo do arquivo quando ARMAZENAMENTO=banco (padrão)
+ALTER TABLE evidencias ADD COLUMN IF NOT EXISTS conteudo bytea;
+
+CREATE TABLE IF NOT EXISTS obrigacoes (
+  id                  text PRIMARY KEY,
+  titulo              text NOT NULL,
+  orgao               text NOT NULL,
+  periodicidade       text NOT NULL CHECK (periodicidade IN ('Mensal','Bimestral','Trimestral','Semestral','Anual','Eventual')),
+  proximo_vencimento  date,
+  canal               text,
+  norma_id            text REFERENCES normas(id) ON DELETE SET NULL,
+  responsavel         text,
+  area                text,
+  descricao           text,
+  ultimo_envio        date,
+  concluida           boolean NOT NULL DEFAULT false,
+  criado_em           timestamptz NOT NULL DEFAULT now(),
+  criado_por          text,
+  atualizado_em       timestamptz NOT NULL DEFAULT now(),
+  atualizado_por      text
+);
+
+CREATE TABLE IF NOT EXISTS obrigacao_envios (
+  id             bigserial PRIMARY KEY,
+  obrigacao_id   text NOT NULL REFERENCES obrigacoes(id) ON DELETE CASCADE,
+  data           date NOT NULL,
+  vencimento     date,
+  obs            text,
+  por            text,
+  registrado_em  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS envios_obrigacao_idx ON obrigacao_envios (obrigacao_id, data DESC);
+
+-- Trilha de auditoria: somente inclusão. UPDATE e DELETE são bloqueados por trigger.
+CREATE TABLE IF NOT EXISTS auditoria (
+  id       text PRIMARY KEY,
+  em       timestamptz NOT NULL DEFAULT now(),
+  por      text,                                   -- id do usuário; nulo = captura automática
+  acao     text NOT NULL,
+  tipo     text NOT NULL,
+  ref      text,
+  detalhe  text
+);
+CREATE INDEX IF NOT EXISTS auditoria_em_idx ON auditoria (em DESC);
+
+CREATE OR REPLACE FUNCTION auditoria_imutavel() RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'A trilha de auditoria não pode ser alterada nem excluída';
+END $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS auditoria_somente_inclusao ON auditoria;
+CREATE TRIGGER auditoria_somente_inclusao BEFORE UPDATE OR DELETE ON auditoria
+  FOR EACH ROW EXECUTE FUNCTION auditoria_imutavel();
+
+-- Estado da captura automática e configurações gerais
+CREATE TABLE IF NOT EXISTS sistema (
+  id             text PRIMARY KEY,
+  dados          jsonb NOT NULL DEFAULT '{}'::jsonb,
+  atualizado_em  timestamptz NOT NULL DEFAULT now()
+);

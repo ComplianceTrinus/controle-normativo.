@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%230B5D57%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2220%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22Arial%22 font-weight=%22700%22%3E%C2%A7%3C/text%3E%3C/svg%3E">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Controle Normativo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@87,500;87,600;87,700&family=Source+Sans+3:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<script src="/vendor/xlsx.full.min.js"></script>
+<script src="/js/api.js"></script>
+<style>
+/* Layout: mesa de compliance — trilho lateral de navegação, área de trabalho com tabelas densas e diálogos de edição */
+:root{
+  --bg:#F2F4F3; --surface:#FFFFFF; --surface-2:#E9EEEC; --ink:#14201C; --muted:#5A6762; --line:#D3DBD8;
+  --accent:#0B5D57; --accent-ink:#FFFFFF; --accent-soft:#DCEBE8;
+  --ok:#1D7646; --ok-soft:#DDF0E4; --warn:#94600A; --warn-soft:#F7EBD3; --crit:#B3261E; --crit-soft:#F8E0DE;
+  --info:#2B58A3; --info-soft:#E0E8F6; --mute-soft:#E6EAE8;
+  --o-bacen:#1F4C9C; --o-cmn:#5B3E9C; --o-cvm:#9E4410; --o-anbima:#2D722D; --o-outro:#56635E;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#9AA5A0; --grid:#E3E8E6; --axis:#C3CBC8; --track:#E4EAE8;
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:8px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1513; --surface:#161E1B; --surface-2:#1E2925; --ink:#E3EBE8; --muted:#97A6A0; --line:#2B3833;
+  --accent:#55B5A8; --accent-ink:#06201C; --accent-soft:#16332E;
+  --ok:#5CC48A; --ok-soft:#173326; --warn:#E0A84A; --warn-soft:#3A2C12; --crit:#F08077; --crit-soft:#3D1C1A;
+  --info:#86A9E8; --info-soft:#1B2840; --mute-soft:#242E2B;
+  --o-bacen:#8BAEF0; --o-cmn:#B7A0EE; --o-cvm:#F0A070; --o-anbima:#8FD08F; --o-outro:#A8B5B0;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#5E6B66; --grid:#26312D; --axis:#3A4742; --track:#26312D;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1513; --surface:#161E1B; --surface-2:#1E2925; --ink:#E3EBE8; --muted:#97A6A0; --line:#2B3833;
+  --accent:#55B5A8; --accent-ink:#06201C; --accent-soft:#16332E;
+  --ok:#5CC48A; --ok-soft:#173326; --warn:#E0A84A; --warn-soft:#3A2C12; --crit:#F08077; --crit-soft:#3D1C1A;
+  --info:#86A9E8; --info-soft:#1B2840; --mute-soft:#242E2B;
+  --o-bacen:#8BAEF0; --o-cmn:#B7A0EE; --o-cvm:#F0A070; --o-anbima:#8FD08F; --o-outro:#A8B5B0;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#5E6B66; --grid:#26312D; --axis:#3A4742; --track:#26312D;
+  color-scheme:dark}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink)}
+body{font:15px/1.5 var(--f-body);-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--f-display);font-stretch:87%;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:26px;font-weight:700}
+h2{font-size:17px;font-weight:600}
+h3{font-size:14px;font-weight:600}
+a{color:var(--accent)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-size:.86em}
+.muted{color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+
+.app{display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100vh}
+.side{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:20px;padding-block:22px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:16px;position:sticky;top:0;height:100vh}
+.brand{display:flex;gap:10px;align-items:center}
+.mark{width:34px;height:34px;border-radius:7px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:700 20px var(--f-display);flex:none}
+.brand b{display:block;font:700 16px/1.1 var(--f-display);font-stretch:87%}
+.brand small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;color:var(--ink);text-decoration:none;font-weight:500}
+.nav a:hover{background:var(--surface-2)}
+.nav a[aria-current="page"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.nav .cnt{font:500 11px var(--f-mono);color:var(--muted);background:var(--surface-2);padding:1px 6px;border-radius:9px}
+.nav .cnt.alert{background:var(--crit-soft);color:var(--crit)}
+.who{margin-top:auto;border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.who .row{display:flex;align-items:center;gap:8px}
+.who img{width:26px;height:26px;border-radius:50%}
+.who details summary{cursor:pointer;color:var(--muted);font-size:12px}
+.who details p{margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.45}
+
+main{min-width:0;padding-block:26px 60px;padding-left:max(16px,2.4vw);padding-right:max(16px,env(safe-area-inset-right,0px),2.4vw)}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+.head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px}
+.head p{margin:4px 0 0;color:var(--muted);max-width:68ch}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);padding:7px 13px;border-radius:6px;cursor:pointer;font-weight:500;font-size:14px;white-space:nowrap;text-decoration:none;color:var(--ink)}
+.btn:hover{background:var(--surface-2)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 40%,var(--line))}
+.btn.danger.armed{background:var(--crit);color:var(--surface);border-color:var(--crit)}
+.btn.sm{padding:4px 9px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.banner{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:12px 14px;font-size:14px;display:flex;gap:10px;align-items:flex-start}
+.banner.warn{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+.banner b{font-weight:600}
+
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.kpi:hover{border-color:var(--accent)}
+.kpi .v{font:700 30px/1.1 var(--f-display);font-variant-numeric:tabular-nums}
+.kpi .l{font-size:13px;color:var(--muted)}
+.kpi.crit .v{color:var(--crit)}
+.kpi.warn .v{color:var(--warn)}
+
+.cols{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);min-width:0}
+.panel>header{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.panel>header .muted{font-size:13px}
+.panel .body{padding:12px 16px}
+.empty{padding:22px 16px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+
+.agenda{list-style:none;margin:0;padding:0}
+.agenda li{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 16px;border-top:1px solid var(--line);cursor:pointer}
+.agenda li:first-child{border-top:0}
+.agenda li:hover{background:var(--surface-2)}
+.agenda .d{font:500 13px var(--f-mono);line-height:1.2}
+.agenda .d small{display:block;color:var(--muted);font-size:11px}
+.agenda .t{min-width:0}
+.agenda .t b{font-weight:600;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agenda .t span{font-size:12.5px;color:var(--muted)}
+.agenda li.late .d{color:var(--crit)}
+
+.bars{display:flex;flex-direction:column;gap:12px}
+.bar-row{display:grid;grid-template-columns:70px minmax(0,1fr) 32px;gap:10px;align-items:center;font-size:13px}
+.bar{display:flex;height:12px;border-radius:3px;overflow:hidden;background:var(--surface-2)}
+.bar i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin-top:4px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.toolbar input[type=search]{flex:1 1 240px;min-width:0}
+.field,.toolbar input,.toolbar select,.form input,.form select,.form textarea{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:7px 10px;min-height:36px}
+.toolbar select{flex:0 1 auto}
+.form textarea{resize:vertical;min-height:70px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;font-size:13px}
+.chips a{color:var(--muted)}
+
+.tblwrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;font:600 11px var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface)}
+.tbl td{padding:10px 12px;border-top:1px solid var(--line);vertical-align:top}
+.tbl tr:first-child td{border-top:0}
+.tbl tbody tr{cursor:pointer}
+.tbl tbody tr:hover td{background:var(--surface-2)}
+.tbl .cite{font-weight:600;white-space:nowrap}
+.tbl .sub{font-size:12.5px;color:var(--muted)}
+.tbl .clip{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:52ch}
+.tbl td.nowrap{white-space:nowrap}
+.late-txt{color:var(--crit);font-weight:600}
+.soon-txt{color:var(--warn);font-weight:600}
+
+.og{display:inline-block;font:600 10.5px var(--f-mono);letter-spacing:.04em;padding:2px 6px;border-radius:4px;color:var(--c);background:color-mix(in srgb,var(--c) 13%,transparent);white-space:nowrap}
+.og-BACEN{--c:var(--o-bacen)}.og-CMN{--c:var(--o-cmn)}.og-CVM{--c:var(--o-cvm)}.og-ANBIMA{--c:var(--o-anbima)}.og-Outro{--c:var(--o-outro)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap;background:var(--pb);color:var(--pc)}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.p-info{--pb:var(--info-soft);--pc:var(--info)}
+.p-warn{--pb:var(--warn-soft);--pc:var(--warn)}
+.p-acc{--pb:var(--accent-soft);--pc:var(--accent)}
+.p-ok{--pb:var(--ok-soft);--pc:var(--ok)}
+.p-crit{--pb:var(--crit-soft);--pc:var(--crit)}
+.p-mute{--pb:var(--mute-soft);--pc:var(--muted)}
+.crit{font-size:12.5px;font-weight:600}
+.crit-Alta{color:var(--crit)}.crit-Média{color:var(--warn)}.crit-Baixa{color:var(--muted)}
+
+.month{display:flex;flex-direction:column;gap:0}
+.month h3{font:600 12px var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:0 2px 8px}
+.ob{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-top:0}
+.ob:first-of-type{border-top:1px solid var(--line);border-radius:var(--r) var(--r) 0 0}
+.ob:last-child{border-radius:0 0 var(--r) var(--r)}
+.ob:only-of-type{border-radius:var(--r)}
+.ob .day{text-align:center;line-height:1}
+.ob .day b{display:block;font:700 22px var(--f-display);font-variant-numeric:tabular-nums}
+.ob .day small{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.ob .info{min-width:0;display:flex;flex-direction:column;gap:3px}
+.ob .info b{font-weight:600}
+.ob .meta{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12.5px;color:var(--muted);align-items:center}
+.ob .btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.ob.late .day b{color:var(--crit)}
+
+dialog{border:1px solid var(--line);border-radius:12px;padding:0;background:var(--surface);color:var(--ink);width:min(1040px,calc(100vw - 24px));max-height:calc(100vh - 32px);box-shadow:0 24px 60px rgba(0,0,0,.25)}
+dialog.narrow{width:min(560px,calc(100vw - 24px))}
+dialog::backdrop{background:rgba(10,20,17,.45)}
+.dlg{display:flex;flex-direction:column;max-height:calc(100vh - 34px)}
+.dlg>header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:16px 20px;border-bottom:1px solid var(--line)}
+.dlg>header .t{display:flex;flex-direction:column;gap:4px;min-width:0}
+.dlg .x{border:0;background:none;font-size:22px;line-height:1;cursor:pointer;color:var(--muted);padding:2px 6px}
+.dlg .content{overflow:auto;padding:18px 20px;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:22px}
+.dlg .content.single{grid-template-columns:minmax(0,1fr)}
+.dlg>footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 20px;border-top:1px solid var(--line);background:var(--surface)}
+.dlg>footer .r{display:flex;gap:8px;margin-left:auto}
+.form{display:flex;flex-direction:column;gap:12px;min-width:0}
+.form fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;min-width:0}
+.form label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:600;color:var(--muted);min-width:0}
+.form label>*{font-weight:400;color:var(--ink);font-size:14px}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.side-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.box{border:1px solid var(--line);border-radius:var(--r);background:var(--bg)}
+.box>header{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.box .list{display:flex;flex-direction:column}
+.box .it{padding:10px 12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:4px;cursor:pointer}
+.box .it:first-child{border-top:0}
+.box .it:hover{background:var(--surface-2)}
+.box .it .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.box .it .top b{font-weight:600;font-size:14px}
+.box .it .meta{font-size:12.5px;color:var(--muted)}
+.box .pad{padding:12px;font-size:13px;color:var(--muted)}
+.ev{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--line);font-size:13.5px}
+.ev:first-child{border-top:0}
+.ev a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.facts{font-size:12.5px;color:var(--muted);display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
+.facts dt{font-weight:600}
+.facts dd{margin:0}
+.hist{list-style:none;margin:0;padding:0;font-size:13px}
+.hist li{padding:8px 12px;border-top:1px solid var(--line)}
+.hist li:first-child{border-top:0}
+
+.prev{max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:6px;margin-top:8px}
+.prev table{font-size:12.5px}
+.drop{border:1.5px dashed var(--line);border-radius:var(--r);padding:18px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:8px;align-items:center}
+
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:50;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(520px,calc(100vw - 32px))}
+#toast div{background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+#toast div.crit{background:var(--crit);color:#fff}
+.skel{color:var(--muted);padding:18px 16px;font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.stat .l{font-size:13px;color:var(--muted);font-weight:600}
+.stat .v{font:600 30px/1.05 var(--f-body)}
+.stat .s{font-size:12.5px;color:var(--muted)}
+.meter{height:6px;border-radius:3px;background:var(--track);overflow:hidden}
+.meter i{display:block;height:100%;border-radius:3px}
+.m-ok{background:var(--ok)}.m-warn{background:var(--warn)}.m-crit{background:var(--crit)}.m-none{background:transparent}
+.lvl{font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px}
+.lvl-ok{color:var(--ok)}.lvl-warn{color:var(--warn)}.lvl-crit{color:var(--crit)}
+.chart{width:100%;height:auto;display:block;overflow:visible}
+.chart .gl{stroke:var(--grid);stroke-width:1}.chart .gl.base{stroke:var(--axis)}
+.chart .tk{fill:var(--muted);font:11px var(--f-body);font-variant-numeric:tabular-nums}
+.chart .vl{fill:var(--ink);font:600 11px var(--f-body);font-variant-numeric:tabular-nums}
+.chart .hit{fill:transparent;cursor:default}.chart .hit:hover{fill:var(--ink);fill-opacity:.05}
+.lg{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--muted)}
+.lg span{display:inline-flex;align-items:center;gap:6px}
+.lg i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.hb{display:flex;flex-direction:column;gap:10px}
+.hb-row{display:grid;grid-template-columns:minmax(0,170px) minmax(0,1fr) 36px;gap:10px;align-items:center;font-size:13px}
+.hb-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb-t{height:14px;display:block}
+.hb-t i{display:block;height:100%;border-radius:0 4px 4px 0;min-width:0}
+.hb-v{text-align:right;font-weight:600}
+.tview{margin-top:10px;font-size:13px}
+.tview summary{cursor:pointer;color:var(--muted)}
+.tview .tblwrap{margin-top:8px}
+.prog{display:flex;align-items:center;gap:8px;min-width:120px}
+.prog .meter{flex:1;height:6px}
+.prog .meter i{background:var(--accent)}
+.cfg{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;font-size:13px}
+.cfg label{display:flex;flex-direction:column;gap:4px;color:var(--muted);font-weight:600;font-size:12.5px}
+.cfg input{width:90px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px;min-height:34px;color:var(--ink)}
+#tip{position:fixed;z-index:60;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12.5px;line-height:1.4;padding:7px 10px;border-radius:6px;max-width:280px;box-shadow:0 6px 18px rgba(0,0,0,.2)}
+@media (max-width:980px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.hb-row{grid-template-columns:minmax(0,1fr) 30px;row-gap:4px}.hb-l{grid-column:1/-1;white-space:normal}.stat .v{font-size:26px}}
+.cap{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:13px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:8px 12px}
+.cap b{font-weight:600}
+.cap a{margin-left:auto;font-weight:600}
+.cap .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.cap .dot.ok{background:var(--ok)}.cap .dot.bad{background:var(--crit)}
+
+@media (max-width:980px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cols{grid-template-columns:minmax(0,1fr)}
+  .dlg .content{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding-block:14px;padding-right:max(16px,env(safe-area-inset-right,0px));gap:12px}
+  .nav{flex-direction:row;overflow-x:auto;gap:4px;margin:0 -4px;padding-bottom:2px}
+  .nav a{flex:none}
+  .who{margin-top:0;padding-top:10px}
+  main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .g3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ob{grid-template-columns:46px minmax(0,1fr)}
+  .ob .btns{grid-column:1/-1;justify-content:flex-start}
+  h1{font-size:22px}
+  .agenda li{grid-template-columns:52px minmax(0,1fr);padding:10px 14px}
+  .agenda li>.pill,.agenda li>.og{grid-column:2;justify-self:start}
+  .agenda .t b{white-space:normal}
+}
+@media (max-width:460px){
+  .g2,.g3{grid-template-columns:minmax(0,1fr)}
+  .kpi .v{font-size:26px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="mark" aria-hidden="true">§</span><div><b>Controle Normativo</b><small>Bacen · CMN · CVM · ANBIMA</small></div></div>
+    <nav class="nav" id="nav" aria-label="Seções"></nav>
+    <div class="who" id="who"><span class="muted">Conectando…</span></div>
+  </aside>
+  <main id="main"><div class="wrap"><div class="skel">Carregando o controle normativo…</div></div></main>
+</div>
+<dialog id="dlg"></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="tip" hidden></div>
+
+<script>
+/* ---------- Constantes ---------- */
+const ORGAOS=['BACEN','CMN','CVM','ANBIMA','Outro'];
+const SIGLA={BACEN:'BCB',CMN:'CMN',CVM:'CVM',ANBIMA:'ANBIMA',Outro:''};
+const TIPOS=['Resolução','Resolução Conjunta','Circular','Carta Circular','Instrução Normativa','Ofício Circular','Comunicado','Código','Regras e Procedimentos','Audiência Pública','Deliberação','Lei','Decreto','Outro'];
+const ST_NORMA=['Nova','Em análise','Aplicável','Não aplicável','Adequada','Revogada'];
+const ST_COLOR={'Nova':'info','Em análise':'warn','Aplicável':'acc','Não aplicável':'mute','Adequada':'ok','Revogada':'mute'};
+const ST_BAR={'Nova':'var(--info)','Em análise':'var(--warn)','Aplicável':'var(--accent)','Não aplicável':'var(--line)','Adequada':'var(--ok)','Revogada':'var(--muted)'};
+const CRIT=['Alta','Média','Baixa'];
+const ST_ACAO=['Aberta','Em andamento','Concluída','Cancelada'];
+const PERIOD={Mensal:1,Bimestral:2,Trimestral:3,Semestral:6,Anual:12,Eventual:0};
+const ROUTES={painel:'Painel',indicadores:'Indicadores',normas:'Normas',acoes:'Planos de ação',obrigacoes:'Obrigações',auditoria:'Auditoria'};
+const FONTES=[
+  ['Busca de normas do Banco Central','https://www.bcb.gov.br/estabilidadefinanceira/buscanormas'],
+  ['Resoluções CVM','https://conteudo.cvm.gov.br/legislacao/resolucoes.html'],
+  ['Códigos ANBIMA','https://www.anbima.com.br/pt_br/autorregular/codigos.htm'],
+];
+const EV_TYPES={pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',csv:'text/csv',txt:'text/plain',md:'text/markdown',json:'application/json'};
+
+/* ---------- Estado ---------- */
+const S={db:null,user:null,assets:null,downloads:null,me:null,meId:null,isAdmin:false,canWrite:true,role:'',
+  dbState:'loading',loaded:{},normas:[],acoes:[],obrig:[],audit:[],names:{},
+  nf:{q:'',orgao:'',status:'',crit:''},af:{q:'',status:''},auf:{tipo:''},
+  dlg:null,importRows:null,busy:false};
+const $=s=>document.querySelector(s);
+const main=$('#main'), dlg=$('#dlg');
+
+/* ---------- Utilidades ---------- */
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const isoOf=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const today=()=>isoOf(new Date());
+function pISO(s){if(!s||!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)}
+function fmtD(s){if(!s)return '—';const p=s.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:s}
+function days(s){const a=pISO(s);if(!a)return null;return Math.round((a-pISO(today()))/864e5)}
+function addMonths(s,n){const d=pISO(s);if(!d)return s;const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return isoOf(d)}
+const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+const DSEM=['dom','seg','ter','qua','qui','sex','sáb'];
+function fmtDT(iso){try{return new Date(iso).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}catch{return iso}}
+function norm(s){return String(s??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim()}
+function chave(n){return norm(n.orgao)+'|'+norm(n.tipo)+'|'+norm(n.numero).replace(/[^\w]/g,'')}
+function cite(n){const s=SIGLA[n.orgao]??'';const num=String(n.numero||'').trim();const isNum=/^[\d.\/-]+$/.test(num);
+  let base=n.tipo||'Norma';if(s)base+=' '+s;
+  return base+(num?(isNum?' nº '+num:' — '+num):'')}
+const og=o=>`<span class="og og-${esc(ORGAOS.includes(o)?o:'Outro')}">${esc(o||'—')}</span>`;
+const pill=(t,c)=>`<span class="pill p-${c}">${esc(t)}</span>`;
+const stPill=s=>pill(s||'Nova',ST_COLOR[s]||'info');
+const opts=(arr,sel,blank)=>(blank!=null?`<option value="">${esc(blank)}</option>`:'')+arr.map(v=>`<option${v===sel?' selected':''}>${esc(v)}</option>`).join('');
+function acaoStatus(a){if(a.status==='Concluída'||a.status==='Cancelada')return a.status;const d=days(a.prazo);if(d!=null&&d<0)return 'Atrasada';return a.status||'Aberta'}
+const AC_COLOR={'Aberta':'info','Em andamento':'warn','Concluída':'ok','Cancelada':'mute','Atrasada':'crit'};
+function obStatus(o){if(o.concluida)return['Cumprida','ok'];const d=days(o.proximoVencimento);if(d==null)return['Sem data','mute'];if(d<0)return['Atrasada','crit'];if(d===0)return['Vence hoje','warn'];if(d<=7)return[`Vence em ${d}d`,'warn'];return['Em dia','ok']}
+function prazoTxt(s,done){if(!s)return '<span class="muted">—</span>';const d=days(s);if(done||d==null)return esc(fmtD(s));
+  if(d<0)return `<span class="late-txt">${esc(fmtD(s))}</span><div class="sub">${-d} dia${d===-1?'':'s'} de atraso</div>`;
+  if(d<=15)return `<span class="soon-txt">${esc(fmtD(s))}</span><div class="sub">${d===0?'hoje':'em '+d+' dia'+(d===1?'':'s')}</div>`;
+  return esc(fmtD(s))}
+function nameOf(id){if(!id)return 'Sistema';if(S.names[id])return S.names[id];if(id===S.meId)return (S.me&&S.me.name)||'Você';return 'Membro da equipe'}
+async function ensureNames(ids){if(!S.user)return;const u=[...new Set(ids.filter(Boolean))];if(!u.length)return;
+  try{const ps=await S.user.profiles(u);let ch=false;for(const id of u){const nm=(ps[id]&&ps[id].name)||'';if(nm&&S.names[id]!==nm){S.names[id]=nm;ch=true}}if(ch)render()}catch{}}
+function toast(msg,kind){const t=document.createElement('div');t.textContent=msg;if(kind)t.className=kind;$('#toast').appendChild(t);setTimeout(()=>t.remove(),kind==='crit'?6500:3200)}
+function errMsg(e){const c=e&&e.code;
+  if(c==='invalid_argument'){return 'Não foi possível salvar: seu acesso é somente leitura ou há um dado inválido.'}
+  if(c==='quota_exceeded')return 'Limite de armazenamento atingido. Exclua registros antigos para continuar.';
+  if(c==='resource_exhausted')return 'Muitas operações seguidas. Aguarde alguns segundos e tente de novo.';
+  if(c==='unavailable')return 'Serviço temporariamente indisponível. Tente novamente em instantes.';
+  return 'Não foi possível concluir: '+((e&&e.message)||e)}
+function onWriteErr(e){if(e&&e.code==='invalid_argument'&&S.canWriteSource!=='platform'){S.canWrite=false;render()}toast(errMsg(e),'crit')}
+function strip(o){const r={};for(const k in o)if(o[k]!==undefined)r[k]=o[k];return r}
+function diff(a,b,labels){const out=[];for(const k in labels){const x=a[k]??'',y=b[k]??'';if(String(x)!==String(y)){const f=v=>/^\d{4}-\d{2}-\d{2}$/.test(v)?fmtD(v):(String(v).length>40?String(v).slice(0,40)+'…':v);out.push(`${labels[k]}: ${f(x)||'—'} → ${f(y)||'—'}`)}}return out.join('; ')}
+async function log(acao,tipo,ref,detalhe){if(!S.db)return;try{await S.db.collection('auditoria').add({em:new Date().toISOString(),por:S.meId||null,acao,tipo,ref:String(ref||'').slice(0,200),detalhe:String(detalhe||'').slice(0,600)})}catch{}}
+const route=()=>{const h=location.hash.slice(1);return ROUTES[h]?h:'painel'};
+
+/* ---------- Render ---------- */
+let raf=0;function render(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;doRender()})}
+function doRender(){
+  const a=document.activeElement;const fid=a&&a.id&&main.contains(a)?a.id:null;let ss=null;try{ss=fid?a.selectionStart:null}catch{}
+  renderNav();renderWho();
+  const r=route();
+  const views={painel:vPainel,indicadores:vIndic,normas:vNormas,acoes:vAcoes,obrigacoes:vObrig,auditoria:vAudit};
+  main.innerHTML=`<div class="wrap">${banner()}${r==='painel'||r==='normas'?capTxt():''}${views[r]()}</div>`;
+  if(fid){const el=document.getElementById(fid);if(el){el.focus();try{if(ss!=null)el.setSelectionRange(ss,ss)}catch{}}}
+  refreshDialog();
+}
+function capTxt(){const c=S.captura;if(!c||!c.ultimaExecucao)return '';const ok=c.status!=='erro';
+  return `<div class="cap"><span class="dot ${ok?'ok':'bad'}"></span><span><b>Atualização automática diária</b> · última execução ${esc(fmtDT(c.ultimaExecucao))}${c.novas!=null?` · ${c.novas} ${c.novas===1?'norma nova':'normas novas'}`:''}${c.fontes?` · ${esc(c.fontes)}`:''}${c.detalhe?`<span class="muted"> · ${esc(c.detalhe)}</span>`:''}</span>${c.novas?`<a href="#normas" data-act="goto" data-go="normas:Nova">Ver para triagem</a>`:''}${S.isAdmin&&window.CN_SERVIDOR?`<button class="btn sm" data-act="run-captura">Atualizar agora</button>`:''}</div>`}
+function banner(){
+  if(S.dbState==='off')return `<div class="banner warn"><div><b>Banco de dados indisponível nesta visualização.</b> Não foi possível conectar ao servidor. Recarregue a página; se continuar, avise o suporte de TI.</div></div>`;
+  if(S.dbState==='ready'&&!S.canWrite)return `<div class="banner"><div><b>Acesso somente leitura.</b> Você pode consultar normas, planos e obrigações. Para editar, peça ao administrador o perfil Analista.</div></div>`;
+  return '';
+}
+function renderNav(){
+  const r=route();const late=S.acoes.filter(a=>acaoStatus(a)==='Atrasada').length+S.obrig.filter(o=>obStatus(o)[0]==='Atrasada').length;
+  const triage=S.normas.filter(n=>(n.status||'Nova')==='Nova').length;
+  const cnt={normas:triage?`<span class="cnt" title="Para triagem">${triage}</span>`:'',acoes:'',obrigacoes:''};
+  const la=S.acoes.filter(a=>acaoStatus(a)==='Atrasada').length,lo=S.obrig.filter(o=>obStatus(o)[0]==='Atrasada').length;
+  if(la)cnt.acoes=`<span class="cnt alert" title="Atrasadas">${la}</span>`;if(lo)cnt.obrigacoes=`<span class="cnt alert" title="Atrasadas">${lo}</span>`;
+  $('#nav').innerHTML=Object.entries(ROUTES).map(([k,v])=>`<a href="#${k}"${k===r?' aria-current="page"':''}><span>${v}</span>${cnt[k]||''}</a>`).join('');
+}
+function renderWho(){
+  if(S.dbState==='loading'){return}
+  const nm=(S.me&&S.me.name)||'Você';
+  $('#who').innerHTML=`<div class="row">${S.me&&S.me.avatarUrl?`<img src="${esc(S.me.avatarUrl)}" alt="">`:''}<div><div style="font-weight:600">${esc(nm)}</div><div class="muted" style="font-size:12px">Perfil: ${esc(S.role||'—')}</div></div></div>
+  <details><summary>Como funcionam os perfis</summary><p>${S.me&&S.me.modoLogin==='local'?'O Admin define o perfil de cada pessoa em Usuários.':'O perfil vem do login corporativo (Microsoft Entra ID).'} <b>Admin</b>: tudo, inclusive exclusões. <b>Analista</b>: cadastra e edita. <b>Leitura</b>: apenas consulta.</p></details>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px">${S.me&&S.me.modoLogin==='local'?`${S.isAdmin?'<a href="/usuarios" class="muted">Usuários</a>':''}<a href="/conta/senha" class="muted">Trocar senha</a>`:''}<a href="/auth/logout" class="muted">Sair</a></div>`;
+}
+
+/* ---------- Painel ---------- */
+function vPainel(){
+  const loading=!S.loaded.normas;
+  const triage=S.normas.filter(n=>(n.status||'Nova')==='Nova').length;
+  const analise=S.normas.filter(n=>n.status==='Em análise').length;
+  const late=S.acoes.filter(a=>acaoStatus(a)==='Atrasada').length;
+  const ob30=S.obrig.filter(o=>!o.concluida&&days(o.proximoVencimento)!=null&&days(o.proximoVencimento)<=30).length;
+  const kp=(v,l,go,cls)=>`<button class="kpi ${cls||''}" data-act="goto" data-go="${go}"><span class="v">${loading?'–':v}</span><span class="l">${l}</span></button>`;
+  // agenda
+  const ag=[];const lim=30;
+  for(const a of S.acoes){const st=acaoStatus(a);if(st==='Concluída'||st==='Cancelada'||!a.prazo)continue;const d=days(a.prazo);if(d<=lim){const n=S.normas.find(x=>x.id===a.normaId);ag.push({d:a.prazo,dd:d,t:a.descricao,s:'Ação · '+(n?cite(n):'sem norma')+(a.responsavel?' · '+a.responsavel:''),act:'open-acao',id:a.id})}}
+  for(const o of S.obrig){if(o.concluida||!o.proximoVencimento)continue;const d=days(o.proximoVencimento);if(d<=lim)ag.push({d:o.proximoVencimento,dd:d,t:o.titulo,s:'Obrigação '+(o.periodicidade||'').toLowerCase()+' · '+o.orgao+(o.responsavel?' · '+o.responsavel:''),act:'open-obrig',id:o.id})}
+  for(const n of S.normas){if(!n.prazoAdequacao||['Adequada','Não aplicável','Revogada'].includes(n.status))continue;const d=days(n.prazoAdequacao);if(d<=lim)ag.push({d:n.prazoAdequacao,dd:d,t:'Prazo de adequação: '+cite(n),s:'Norma · '+(n.status||'Nova'),act:'open-norma',id:n.id})}
+  ag.sort((a,b)=>a.d<b.d?-1:1);
+  const agHtml=ag.length?`<ul class="agenda">${ag.slice(0,14).map(i=>{const dt=pISO(i.d);return `<li class="${i.dd<0?'late':''}" data-act="${i.act}" data-id="${esc(i.id)}"><div class="d">${esc(fmtD(i.d).slice(0,5))}<small>${i.dd<0?(-i.dd)+'d atraso':i.dd===0?'hoje':DSEM[dt.getDay()]}</small></div><div class="t"><b>${esc(i.t)}</b><span>${esc(i.s)}</span></div>${i.dd<0?pill('Atrasado','crit'):i.dd<=7?pill('Esta semana','warn'):''}</li>`}).join('')}</ul>`
+    :`<div class="empty">${loading?'Carregando…':'Nada vence nos próximos 30 dias. Prazos de ações, obrigações e adequações aparecem aqui.'}</div>`;
+  // barras por órgão
+  const rows=ORGAOS.map(o=>{const ns=S.normas.filter(n=>n.orgao===o);return{o,ns}}).filter(r=>r.ns.length);
+  const barsHtml=rows.length?`<div class="bars">${rows.map(r=>`<div class="bar-row"><span>${og(r.o)}</span><div class="bar" role="img" aria-label="${esc(r.o)}: ${ST_NORMA.map(s=>s+' '+r.ns.filter(n=>(n.status||'Nova')===s).length).join(', ')}">${ST_NORMA.map(s=>{const c=r.ns.filter(n=>(n.status||'Nova')===s).length;return c?`<i style="width:${c/r.ns.length*100}%;background:${ST_BAR[s]}" title="${esc(s)}: ${c}"></i>`:''}).join('')}</div><span class="num muted" style="text-align:right">${r.ns.length}</span></div>`).join('')}
+    <div class="legend">${ST_NORMA.map(s=>`<span><i style="background:${ST_BAR[s]}"></i>${s}</span>`).join('')}</div></div>`
+    :`<div class="muted" style="font-size:14px">${loading?'Carregando…':'Sem normas cadastradas.'}</div>`;
+  const recentes=[...S.normas].sort((a,b)=>(b.dataPublicacao||'')>(a.dataPublicacao||'')?1:-1).slice(0,6);
+  const semPlano=S.normas.filter(n=>n.status==='Aplicável'&&!S.acoes.some(a=>a.normaId===n.id));
+  const mini=list=>`<ul class="agenda">${list.map(n=>`<li data-act="open-norma" data-id="${esc(n.id)}"><div class="d">${esc(fmtD(n.dataPublicacao).slice(0,5))}<small>${esc((n.dataPublicacao||'').slice(0,4))}</small></div><div class="t"><b>${esc(cite(n))}</b><span>${esc(n.ementa||'')}</span></div>${og(n.orgao)}</li>`).join('')}</ul>`;
+  return `<div class="head"><div><h1>Painel de conformidade</h1><p>Situação das normas acompanhadas pelo Compliance, prazos de adequação e obrigações regulatórias.</p></div>
+    <div class="actions">${S.canWrite&&S.db?`<button class="btn pri" data-act="new-norma">Nova norma</button>`:''}</div></div>
+  <div class="kpis">${kp(triage,'Normas para triagem','normas:Nova',triage?'warn':'')}${kp(analise,'Em análise de aplicabilidade','normas:Em análise')}${kp(late,'Ações atrasadas','acoes:Atrasada',late?'crit':'')}${kp(ob30,'Obrigações em até 30 dias','obrigacoes','')}</div>
+  <div class="cols">
+    <section class="panel"><header><h2>Agenda dos próximos 30 dias</h2><span class="muted">${ag.length} ${ag.length===1?'item':'itens'}</span></header>${agHtml}</section>
+    <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+      <section class="panel"><header><h2>Normas por órgão</h2><span class="muted">${S.normas.length} no total</span></header><div class="body">${barsHtml}</div></section>
+      <section class="panel"><header><h2>Aplicáveis sem plano de ação</h2><span class="muted">${semPlano.length}</span></header>${semPlano.length?mini(semPlano.slice(0,6)):`<div class="empty">Toda norma aplicável já tem plano de ação.</div>`}</section>
+    </div>
+  </div>
+  <section class="panel"><header><h2>Publicadas mais recentemente</h2><a href="#normas" class="muted">Ver todas</a></header>${recentes.length?mini(recentes):`<div class="empty">${loading?'Carregando…':'Nenhuma norma cadastrada ainda.'}${!loading&&S.canWrite&&S.db?`<div class="actions"><button class="btn pri" data-act="new-norma">Cadastrar norma</button><button class="btn" data-act="import">Importar planilha</button></div>`:''}</div>`}</section>`;
+}
+
+/* ---------- Indicadores ---------- */
+const DECIDIDO=['Aplicável','Não aplicável','Adequada','Revogada'];
+function cfg(){return Object.assign({slaTriagem:5,slaAnalise:30},S.cfg||{})}
+function bizDays(a,b){const A=pISO(a),B=pISO(b);if(!A||!B)return null;if(B<=A)return 0;let n=0;const d=new Date(A);while(d<B){d.setDate(d.getDate()+1);const w=d.getDay();if(w!==0&&w!==6)n++}return n}
+function baseDate(n){return (n.criadoEm?isoOf(new Date(n.criadoEm)):'')||n.dataPublicacao||today()}
+function slaInfo(n){const c=cfg(),b=baseDate(n),t=today(),st=n.status||'Nova';
+  const triDone=st!=='Nova',triD=bizDays(b,triDone?(n.triadaEm||b):t);
+  const anDone=DECIDIDO.includes(st),anD=bizDays(b,anDone?(n.analisadaEm||b):t);
+  return{triDone,triD,triOk:triD<=c.slaTriagem,anDone,anD,anOk:anD<=c.slaAnalise}}
+const pct=(a,b)=>b?Math.round(a/b*100):null;
+const lvlOf=v=>v==null?'none':v>=90?'ok':v>=70?'warn':'crit';
+const LVL_TXT={ok:'Dentro da meta',warn:'Atenção',crit:'Abaixo da meta',none:'Sem dados'};
+function stat(label,v,sub){const l=lvlOf(v);return `<div class="stat"><div class="l">${label}</div><div class="v">${v==null?'—':v+'%'}</div><div class="meter" role="img" aria-label="${v==null?'sem dados':v+'%'}"><i class="m-${l}" style="width:${v||0}%"></i></div><div class="s"><span class="lvl lvl-${l}">${l==='ok'?'✓':l==='none'?'':'!'} ${LVL_TXT[l]}</span> · ${sub}</div></div>`}
+function niceStep(max){const raw=max/4;const p=Math.pow(10,Math.floor(Math.log10(raw)));for(const m of [1,2,5,10])if(m*p>=raw)return Math.max(1,m*p);return Math.max(1,10*p)}
+function roundTop(x,y,w,h,r){r=Math.min(r,h,w/2);return `M${x},${y+h}V${y+r}Q${x},${y} ${x+r},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${y+h}Z`}
+const SER=[['BACEN','var(--s1)'],['CMN','var(--s2)'],['CVM','var(--s3)'],['ANBIMA','var(--s4)'],['Outro','var(--s5)']];
+function monthsBack(k){const r=[];const now=new Date();for(let i=k-1;i>=0;i--){const x=new Date(now.getFullYear(),now.getMonth()-i,1);r.push({key:x.getFullYear()+'-'+pad(x.getMonth()+1),m:x.getMonth(),y:x.getFullYear()})}return r}
+function chartMeses(){
+  const data=monthsBack(12).map(m=>{const ns=S.normas.filter(n=>(n.dataPublicacao||'').slice(0,7)===m.key);return{...m,v:SER.map(([o])=>ns.filter(n=>(ORGAOS.includes(n.orgao)&&n.orgao!=='Outro'?n.orgao:'Outro')===o).length),t:ns.length}});
+  const used=SER.map((s,i)=>i).filter(i=>data.some(d=>d.v[i]));
+  const max=Math.max(1,...data.map(d=>d.t)),step=niceStep(max),top=Math.ceil(max/step)*step;
+  const W=Math.max(300,Math.min(1200,Math.round((main.clientWidth||900)-(innerWidth<=760?64:90)))),H=innerWidth<=760?200:240,L=30,R=6,T=18,B=28,pw=W-L-R,ph=H-T-B,band=pw/data.length,bw=Math.min(24,band*.6);
+  let g='';for(let v=0;v<=top;v+=step){const y=T+ph-v/top*ph;g+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" class="gl${v===0?' base':''}"/><text x="${L-6}" y="${y+4}" class="tk" text-anchor="end">${v}</text>`}
+  let bars='',hits='',labs='';
+  data.forEach((d,i)=>{const x=L+band*i+(band-bw)/2;let y=T+ph;const segs=[];SER.forEach(([o,c],k)=>{if(d.v[k])segs.push({o,c,v:d.v[k],h:d.v[k]/top*ph})});
+    segs.forEach((s,j)=>{y-=s.h;const gap=j>0?2:0,h=Math.max(1,s.h-gap);bars+=j===segs.length-1?`<path d="${roundTop(x,y,bw,h,4)}" fill="${s.c}"/>`:`<rect x="${x}" y="${y}" width="${bw}" height="${h}" fill="${s.c}"/>`});
+    if(d.t)bars+=`<text x="${x+bw/2}" y="${y-5}" class="vl" text-anchor="middle">${d.t}</text>`;
+    const mes=MESES[d.m];if(band>=26||i%2===0)labs+=`<text x="${x+bw/2}" y="${H-10}" class="tk" text-anchor="middle">${mes.slice(0,3)}${(d.m===0||i===0)&&band>=40?' '+String(d.y).slice(2):''}</text>`;
+    const tip=`${mes} de ${d.y}: ${d.t} ${d.t===1?'norma':'normas'}`+(d.t?' — '+segs.map(s=>s.o+' '+s.v).join(' · '):'');
+    hits+=`<rect class="hit" x="${L+band*i}" y="${T}" width="${band}" height="${ph}" data-tip="${esc(tip)}"/>`});
+  const tbl=`<details class="tview"><summary>Ver tabela</summary><div class="tblwrap"><table class="tbl"><thead><tr><th>Mês</th>${SER.map(s=>`<th>${s[0]}</th>`).join('')}<th>Total</th></tr></thead><tbody>${data.map(d=>`<tr style="cursor:default"><td>${MESES[d.m]}/${d.y}</td>${d.v.map(v=>`<td class="num">${v}</td>`).join('')}<td class="num"><b>${d.t}</b></td></tr>`).join('')}</tbody></table></div></details>`;
+  return `${used.length>1?`<div class="lg">${used.map(i=>`<span><i style="background:${SER[i][1]}"></i>${SER[i][0]}</span>`).join('')}</div>`:''}
+  <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Normas publicadas por mês nos últimos 12 meses, por órgão">${g}${bars}${labs}${hits}</svg>${tbl}`}
+function hbars(items){const max=Math.max(1,...items.map(i=>i.v));return `<div class="hb">${items.map(i=>`<div class="hb-row" data-tip="${esc(i.label)}: ${i.v}"><span class="hb-l">${esc(i.label)}</span><span class="hb-t"><i style="width:${i.v/max*100}%;background:${i.c}"></i></span><span class="hb-v num">${i.v}</span></div>`).join('')}</div>`}
+function planos(){return S.normas.map(n=>{const ac=S.acoes.filter(a=>a.normaId===n.id&&a.status!=='Cancelada');if(!ac.length)return null;
+  const done=ac.filter(a=>a.status==='Concluída').length,late=ac.filter(a=>acaoStatus(a)==='Atrasada').length;
+  const prox=ac.filter(a=>a.status!=='Concluída'&&a.prazo).map(a=>a.prazo).sort()[0]||'';
+  const ev=ac.reduce((s,a)=>s+(a.evidencias||[]).length,0);
+  const sit=done===ac.length?'Concluído':late?'Com atraso':'Em dia';
+  return{n,ac,done,late,prox,ev,sit}}).filter(Boolean).sort((a,b)=>{const r={'Com atraso':0,'Em dia':1,'Concluído':2};return r[a.sit]-r[b.sit]||((a.prox||'9')<(b.prox||'9')?-1:1)})}
+const SIT_C={'Concluído':'ok','Em dia':'acc','Com atraso':'crit'};
+function vIndic(){
+  const loading=!S.loaded.normas||!S.loaded.acoes;const ns=S.normas;
+  const atr=S.acoes.filter(a=>acaoStatus(a)==='Atrasada').length;
+  const apl=ns.filter(n=>n.status==='Aplicável'||n.status==='Adequada'),aplPlano=apl.filter(n=>S.acoes.some(a=>a.normaId===n.id)).length;
+  const acAbertas=S.acoes.filter(a=>a.status==='Aberta'||a.status==='Em andamento').length;
+  const num=(label,v,sub)=>`<div class="stat"><div class="l">${label}</div><div class="v">${loading?'–':v}</div><div class="s">${sub}</div></div>`;
+  // ações por prazo
+  const b={np:0,ca:0,ed:0,v7:0,a30:0,a30p:0};for(const a of S.acoes){if(a.status==='Cancelada')continue;if(a.status==='Concluída'){(a.prazo&&a.concluidaEm&&a.concluidaEm>a.prazo)?b.ca++:b.np++;continue}const d=days(a.prazo);if(d==null||d>7)b.ed++;else if(d>=0)b.v7++;else if(d>=-30)b.a30++;else b.a30p++}
+  const stItems=ST_NORMA.map(s=>({label:s,v:ns.filter(n=>(n.status||'Nova')===s).length,c:'var(--s1)'}));
+  const acItems=[{label:'Concluídas no prazo',v:b.np,c:'var(--ok)'},{label:'Concluídas com atraso',v:b.ca,c:'var(--warn)'},{label:'Em aberto, em dia',v:b.ed,c:'var(--s1)'},{label:'Vencem em até 7 dias',v:b.v7,c:'var(--warn)'},{label:'Atrasadas até 30 dias',v:b.a30,c:'var(--crit)'},{label:'Atrasadas há mais de 30 dias',v:b.a30p,c:'var(--crit)'}];
+  // por órgão
+  const org=ORGAOS.map(o=>{const x=ns.filter(n=>n.orgao===o);if(!x.length)return null;const st=s=>x.filter(n=>(n.status||'Nova')===s).length;
+    return{o,tot:x.length,nova:st('Nova'),an:st('Em análise'),apl:st('Aplicável')+st('Adequada'),plano:x.filter(n=>S.acoes.some(a=>a.normaId===n.id)).length,na:st('Não aplicável')}}).filter(Boolean);
+  const pl=planos().filter(p=>!S.pf||p.sit===S.pf);const semPlano=ns.filter(n=>n.status==='Aplicável'&&!S.acoes.some(a=>a.normaId===n.id)).length;
+  return `<div class="head"><div><h1>Indicadores</h1><p>Volume de normas recebidas, situação da triagem e andamento dos planos de ação.</p></div>
+    <div class="actions">${S.downloads&&window.XLSX?`<button class="btn" data-act="export-planos">Exportar planos</button>`:''}</div></div>
+  <div class="stats">
+    ${num('Normas acompanhadas',ns.length,`${ns.filter(n=>(n.status||'Nova')==='Nova').length} para triagem · ${ns.filter(n=>n.status==='Em análise').length} em análise`)}
+    ${num('Normas com plano de ação',aplPlano,`de ${apl.length} aplicáve${apl.length===1?'l':'is'}${semPlano?` · <span class="late-txt">${semPlano} sem plano</span>`:''}`)}
+    ${num('Ações em aberto',acAbertas,`${S.acoes.filter(a=>a.status==='Concluída').length} concluídas no total`)}
+    ${num('Ações atrasadas',atr,atr?'<span class="late-txt">prazo vencido</span>':'nenhuma com prazo vencido')}
+  </div>
+  <section class="panel"><header><h2>Normas publicadas por mês</h2><span class="muted">Últimos 12 meses, pela data de publicação</span></header><div class="body">${loading?'<div class="muted">Carregando…</div>':chartMeses()}</div></section>
+  <div class="cols">
+    <section class="panel"><header><h2>Situação das normas</h2><span class="muted">${ns.length} normas</span></header><div class="body">${hbars(stItems)}</div></section>
+    <section class="panel"><header><h2>Ações por prazo</h2><span class="muted">${S.acoes.filter(a=>a.status!=='Cancelada').length} ações</span></header><div class="body">${S.acoes.length?hbars(acItems):'<div class="muted" style="font-size:14px">Nenhuma ação registrada ainda.</div>'}</div></section>
+  </div>
+  <section class="panel"><header><h2>Normas por órgão</h2><span class="muted">Clique para ver as normas do órgão</span></header>
+    ${org.length?`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Órgão</th><th>Total</th><th>Para triagem</th><th>Em análise</th><th>Aplicáveis</th><th>Com plano de ação</th><th>Não aplicáveis</th></tr></thead><tbody>${org.map(r=>`<tr data-act="goto" data-go="normas:" data-orgao="${esc(r.o)}"><td>${og(r.o)}</td><td class="num"><b>${r.tot}</b></td><td class="num">${r.nova}</td><td class="num">${r.an}</td><td class="num">${r.apl}</td><td class="num">${r.plano}</td><td class="num">${r.na}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Sem normas cadastradas.</div>'}</section>
+  <section class="panel"><header><h2>Normas com plano de ação</h2><div class="toolbar"><select id="pf" aria-label="Situação do plano">${opts(['Com atraso','Em dia','Concluído'],S.pf||'','Todas as situações')}</select></div></header>
+    ${semPlano?`<div class="body" style="border-bottom:1px solid var(--line);font-size:13.5px"><span class="late-txt">${semPlano} norma${semPlano===1?' aplicável está':'s aplicáveis estão'} sem plano de ação.</span> <a href="#normas" data-act="goto" data-go="normas:Aplicável">Ver normas aplicáveis</a></div>`:''}
+    ${pl.length?`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Norma</th><th>Criticidade</th><th>Andamento</th><th>Próximo prazo</th><th>Atrasadas</th><th>Evidências</th><th>Situação</th></tr></thead><tbody>${pl.map(p=>`<tr data-act="open-norma" data-id="${esc(p.n.id)}"><td>${og(p.n.orgao)} <span class="cite">${esc(cite(p.n))}</span><div class="sub clip">${esc(p.n.ementa)}</div></td><td><span class="crit crit-${esc(p.n.criticidade||'Média')}">${esc(p.n.criticidade||'—')}</span></td><td><div class="prog"><div class="meter"><i style="width:${p.done/p.ac.length*100}%"></i></div><span class="num sub">${p.done}/${p.ac.length}</span></div></td><td class="nowrap num">${prazoTxt(p.prox,!p.prox)}</td><td class="num">${p.late?`<span class="late-txt">${p.late}</span>`:'0'}</td><td class="num">${p.ev}</td><td>${pill(p.sit,SIT_C[p.sit])}</td></tr>`).join('')}</tbody></table></div>`
+    :`<div class="empty">${loading?'Carregando…':S.pf?'Nenhum plano nesta situação.':'Nenhuma norma tem plano de ação ainda. Abra uma norma aplicável e registre as ações de adequação.'}</div>`}</section>`;
+}
+function exportPlanos(){const rows=planos().map(p=>({'Órgão':p.n.orgao,'Norma':cite(p.n),'Ementa':p.n.ementa,'Criticidade':p.n.criticidade||'','Status da norma':p.n.status||'Nova','Ações':p.ac.length,'Concluídas':p.done,'Atrasadas':p.late,'Próximo prazo':p.prox?fmtD(p.prox):'','Evidências':p.ev,'Situação do plano':p.sit}));saveXlsx(rows,'Planos de ação','normas-com-plano-'+today()+'.xlsx')}
+async function saveCfg(){const t=parseInt(val('cfgTri'),10),a=parseInt(val('cfgAn'),10);if(!(t>0&&a>0)){toast('Informe prazos em dias úteis maiores que zero.','crit');return}
+  const old=cfg();try{await S.db.doc('sistema/config').set({slaTriagem:t,slaAnalise:a,atualizadoEm:new Date().toISOString(),atualizadoPor:S.meId||null});await log('Alterou','Configuração','Prazos de SLA',`Triagem: ${old.slaTriagem} → ${t} d.u.; Análise: ${old.slaAnalise} → ${a} d.u.`);toast('Prazos de SLA salvos.')}catch(e){onWriteErr(e)}}
+
+/* ---------- Normas ---------- */
+function filtNormas(){const f=S.nf,q=norm(f.q);return S.normas.filter(n=>(!f.orgao||n.orgao===f.orgao)&&(!f.status||(n.status||'Nova')===f.status)&&(!f.crit||n.criticidade===f.crit)&&(!q||norm([cite(n),n.ementa,n.tema,n.responsavel,n.area,n.numero].join(' ')).includes(q)))
+  .sort((a,b)=>(b.dataPublicacao||'')>(a.dataPublicacao||'')?1:(b.dataPublicacao||'')<(a.dataPublicacao||'')?-1:0)}
+function vNormas(){
+  const list=filtNormas();const loading=!S.loaded.normas;
+  const rows=list.map(n=>{const ac=S.acoes.filter(a=>a.normaId===n.id);const open=ac.filter(a=>!['Concluída','Cancelada'].includes(a.status)).length;const done=['Adequada','Não aplicável','Revogada'].includes(n.status);
+    return `<tr data-act="open-norma" data-id="${esc(n.id)}"><td>${og(n.orgao)}</td><td><div class="cite">${esc(cite(n))}</div><div class="sub num">${esc(fmtD(n.dataPublicacao))}${n.tema?' · '+esc(n.tema):''}</div></td><td><div class="clip">${esc(n.ementa)}</div></td><td>${stPill(n.status)}</td><td><span class="crit crit-${esc(n.criticidade||'Média')}">${esc(n.criticidade||'—')}</span></td><td>${esc(n.responsavel||'—')}${n.area?`<div class="sub">${esc(n.area)}</div>`:''}</td><td class="nowrap num">${prazoTxt(n.prazoAdequacao,done)}</td><td class="num nowrap">${ac.length?`${open} aberta${open===1?'':'s'}<div class="sub">${ac.length} no total</div>`:'<span class="muted">—</span>'}</td></tr>`}).join('');
+  const f=S.nf;
+  return `<div class="head"><div><h1>Normas</h1><p>Normativos do Bacen, CMN, CVM e ANBIMA acompanhados pela área, com triagem, aplicabilidade e prazo de adequação.</p></div>
+    <div class="actions">${S.downloads&&window.XLSX?`<button class="btn" data-act="export-normas">Exportar Excel</button>`:''}${S.canWrite&&S.db?`<button class="btn" data-act="import">Importar planilha</button><button class="btn pri" data-act="new-norma">Nova norma</button>`:''}</div></div>
+  <div class="toolbar"><input type="search" id="nq" placeholder="Buscar por número, ementa, tema ou responsável" value="${esc(f.q)}" aria-label="Buscar normas">
+    <select id="no" aria-label="Órgão">${opts(ORGAOS,f.orgao,'Todos os órgãos')}</select>
+    <select id="ns" aria-label="Status">${opts(ST_NORMA,f.status,'Todos os status')}</select>
+    <select id="nc" aria-label="Criticidade">${opts(CRIT,f.crit,'Qualquer criticidade')}</select>
+    ${f.q||f.orgao||f.status||f.crit?`<button class="btn sm" data-act="clear-nf">Limpar filtros</button>`:''}</div>
+  <div class="chips muted">Fontes oficiais: ${FONTES.map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${t}</a>`).join(' · ')}</div>
+  ${list.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th>Órgão</th><th>Norma</th><th>Ementa</th><th>Status</th><th>Criticidade</th><th>Responsável</th><th>Prazo adequação</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="muted" style="font-size:13px">${list.length} de ${S.normas.length} normas</div>`
+  :`<div class="panel"><div class="empty">${loading?'Carregando normas…':S.normas.length?'Nenhuma norma corresponde aos filtros.':'Nenhuma norma cadastrada ainda. Cadastre a primeira ou importe a planilha que a equipe já usa.'}${!loading&&!S.normas.length&&S.canWrite&&S.db?`<div class="actions"><button class="btn pri" data-act="new-norma">Cadastrar norma</button><button class="btn" data-act="import">Importar planilha</button></div>`:''}</div></div>`}`;
+}
+
+/* ---------- Ações ---------- */
+function vAcoes(){
+  const f=S.af,q=norm(f.q);const loading=!S.loaded.acoes;
+  const list=S.acoes.map(a=>({a,st:acaoStatus(a),n:S.normas.find(x=>x.id===a.normaId)}))
+    .filter(x=>(!f.status||x.st===f.status)&&(!q||norm([x.a.descricao,x.a.gap,x.a.responsavel,x.a.area,x.n?cite(x.n):''].join(' ')).includes(q)))
+    .sort((x,y)=>{const r=s=>s==='Atrasada'?0:s==='Concluída'||s==='Cancelada'?2:1;return r(x.st)-r(y.st)||((x.a.prazo||'9999')<(y.a.prazo||'9999')?-1:1)});
+  const rows=list.map(({a,st,n})=>`<tr data-act="open-acao" data-id="${esc(a.id)}"><td class="nowrap num">${prazoTxt(a.prazo,st==='Concluída'||st==='Cancelada')}</td><td><div style="font-weight:600" class="clip">${esc(a.descricao)}</div>${a.gap?`<div class="sub clip">Gap: ${esc(a.gap)}</div>`:''}</td><td>${n?`${og(n.orgao)} <span class="sub">${esc(cite(n))}</span>`:'<span class="muted">Sem norma</span>'}</td><td>${esc(a.responsavel||'—')}${a.area?`<div class="sub">${esc(a.area)}</div>`:''}</td><td>${pill(st,AC_COLOR[st]||'info')}</td><td class="num">${(a.evidencias||[]).length||'<span class="muted">—</span>'}</td></tr>`).join('');
+  return `<div class="head"><div><h1>Planos de ação</h1><p>Ações de adequação abertas a partir das normas aplicáveis, com responsável, prazo e evidências.</p></div>
+    <div class="actions">${S.downloads&&window.XLSX?`<button class="btn" data-act="export-acoes">Exportar Excel</button>`:''}${S.canWrite&&S.db?`<button class="btn pri" data-act="new-acao">Nova ação</button>`:''}</div></div>
+  <div class="toolbar"><input type="search" id="aq" placeholder="Buscar por ação, gap, responsável ou norma" value="${esc(f.q)}" aria-label="Buscar ações">
+    <select id="as" aria-label="Status">${opts([...ST_ACAO,'Atrasada'],f.status,'Todos os status')}</select>
+    ${f.q||f.status?`<button class="btn sm" data-act="clear-af">Limpar filtros</button>`:''}</div>
+  ${list.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th>Prazo</th><th>Ação</th><th>Norma</th><th>Responsável</th><th>Status</th><th>Evidências</th></tr></thead><tbody>${rows}</tbody></table></div>`
+  :`<div class="panel"><div class="empty">${loading?'Carregando ações…':S.acoes.length?'Nenhuma ação corresponde aos filtros.':'Nenhum plano de ação ainda. Abra uma norma aplicável e registre as ações de adequação.'}</div></div>`}`;
+}
+
+/* ---------- Obrigações ---------- */
+function vObrig(){
+  const loading=!S.loaded.obrig;
+  const list=[...S.obrig].sort((a,b)=>(a.concluida?1:0)-(b.concluida?1:0)||((a.proximoVencimento||'9999')<(b.proximoVencimento||'9999')?-1:1));
+  const groups=[];for(const o of list){const d=pISO(o.proximoVencimento);const k=o.concluida?'Cumpridas (eventuais)':d?(days(o.proximoVencimento)<0?'Atrasadas':MESES[d.getMonth()]+' de '+d.getFullYear()):'Sem data';let g=groups.find(g=>g.k===k);if(!g){g={k,items:[]};groups.push(g)}g.items.push(o)}
+  const item=o=>{const d=pISO(o.proximoVencimento);const[st,c]=obStatus(o);const n=S.normas.find(x=>x.id===o.normaId);
+    return `<div class="ob ${c==='crit'?'late':''}"><div class="day">${d?`<b>${pad(d.getDate())}</b><small>${MESES[d.getMonth()].slice(0,3)}</small>`:'<small>—</small>'}</div>
+    <div class="info"><b>${esc(o.titulo)}</b><div class="meta">${og(o.orgao)}<span>${esc(o.periodicidade||'—')}</span>${o.canal?`<span>${esc(o.canal)}</span>`:''}${o.responsavel?`<span>${esc(o.responsavel)}</span>`:''}${n?`<span>${esc(cite(n))}</span>`:''}${o.ultimoEnvio?`<span>Último envio ${esc(fmtD(o.ultimoEnvio))}</span>`:''}</div></div>
+    <div class="btns">${pill(st,c)}${S.canWrite&&!o.concluida?`<button class="btn sm pri" data-act="envio" data-id="${esc(o.id)}">Registrar envio</button>`:''}<button class="btn sm" data-act="open-obrig" data-id="${esc(o.id)}">${S.canWrite?'Editar':'Detalhes'}</button></div></div>`};
+  return `<div class="head"><div><h1>Obrigações regulatórias</h1><p>Envios e entregas recorrentes aos reguladores. Ao registrar um envio, o próximo vencimento é calculado pela periodicidade.</p></div>
+    <div class="actions">${S.canWrite&&S.db?`<button class="btn pri" data-act="new-obrig">Nova obrigação</button>`:''}</div></div>
+  ${groups.length?groups.map(g=>`<section class="month"><h3>${esc(g.k)}</h3>${g.items.map(item).join('')}</section>`).join('')
+  :`<div class="panel"><div class="empty">${loading?'Carregando obrigações…':'Nenhuma obrigação cadastrada. Inclua os envios periódicos da instituição (documentos, demonstrativos, relatórios de conformidade) para acompanhar os vencimentos.'}${!loading&&S.canWrite&&S.db?`<button class="btn pri" data-act="new-obrig">Cadastrar obrigação</button>`:''}</div></div>`}`;
+}
+
+/* ---------- Auditoria ---------- */
+function vAudit(){
+  const loading=!S.loaded.audit;const tipos=[...new Set(S.audit.map(e=>e.tipo).filter(Boolean))];
+  const list=S.audit.filter(e=>!S.auf.tipo||e.tipo===S.auf.tipo);
+  ensureNames(list.map(e=>e.por));
+  return `<div class="head"><div><h1>Trilha de auditoria</h1><p>Registro de quem incluiu, alterou ou excluiu normas, ações, obrigações e evidências. Mostra os 300 eventos mais recentes.</p></div></div>
+  <div class="toolbar"><select id="auf" aria-label="Tipo">${opts(tipos,S.auf.tipo,'Todos os tipos')}</select></div>
+  ${list.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Item</th><th>Detalhe</th></tr></thead><tbody>${list.map(e=>`<tr style="cursor:default"><td class="nowrap num">${esc(fmtDT(e.em))}</td><td class="nowrap">${esc(nameOf(e.por))}</td><td class="nowrap">${esc(e.acao)} <span class="sub">${esc(e.tipo)}</span></td><td>${esc(e.ref)}</td><td class="sub">${esc(e.detalhe||'')}</td></tr>`).join('')}</tbody></table></div>`
+  :`<div class="panel"><div class="empty">${loading?'Carregando…':'Nenhum evento registrado ainda.'}</div></div>`}`;
+}
+
+/* ---------- Diálogos ---------- */
+function openDlg(state){S.dlg=state;dlg.className=state.narrow?'narrow':'';drawDlg();if(!dlg.open)dlg.showModal()}
+function closeDlg(){S.dlg=null;S.importRows=null;if(dlg.open)dlg.close()}
+dlg.addEventListener('close',()=>{S.dlg=null});
+function drawDlg(){const d=S.dlg;if(!d)return;
+  const m={norma:dNorma,acao:dAcao,obrig:dObrig,envio:dEnvio,import:dImport}[d.type];dlg.innerHTML=m(d);}
+function refreshDialog(){const d=S.dlg;if(!d||!dlg.open)return;
+  if(d.type==='norma'&&d.id){const el=$('#dlgAcoes');if(el)el.innerHTML=normaAcoes(d.id)}
+  if(d.type==='acao'&&d.id){const el=$('#evList');if(el)el.innerHTML=evList(S.acoes.find(a=>a.id===d.id))}
+  if(d.type==='obrig'&&d.id){const el=$('#obHist');if(el)el.innerHTML=obHist(S.obrig.find(o=>o.id===d.id))}}
+const ro=()=>!S.canWrite||!S.db;
+function delBtn(kind){return S.isAdmin&&S.db?`<button type="button" class="btn danger" data-act="del" data-kind="${kind}">Excluir</button>`:'<span></span>'}
+function facts(o){ensureNames([o.criadoPor,o.atualizadoPor]);return `<dl class="facts">${o.criadoEm?`<dt>Cadastrada</dt><dd>${esc(fmtDT(o.criadoEm))} por ${esc(nameOf(o.criadoPor))}</dd>`:''}${o.atualizadoEm?`<dt>Última alteração</dt><dd>${esc(fmtDT(o.atualizadoEm))} por ${esc(nameOf(o.atualizadoPor))}</dd>`:''}${o.origem?`<dt>Origem</dt><dd>${esc(o.origem)}</dd>`:''}</dl>`}
+
+function dNorma(d){const n=d.id?S.normas.find(x=>x.id===d.id)||{}:{orgao:'BACEN',tipo:'Resolução',status:'Nova',criticidade:'Média',dataPublicacao:today()};
+  const temas=[...new Set(S.normas.map(x=>x.tema).filter(Boolean))].sort();
+  return `<form class="dlg" id="fNorma" data-form="norma"><header><div class="t">${d.id?`<div>${og(n.orgao)} ${stPill(n.status)}</div><h2>${esc(cite(n))}</h2>`:'<h2>Nova norma</h2>'}</div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
+  <div class="content"><div class="form"><fieldset ${ro()?'disabled':''}>
+    <div class="g3"><label>Órgão<select id="nOrgao">${opts(ORGAOS,n.orgao)}</select></label><label>Tipo<select id="nTipo">${opts(TIPOS,n.tipo)}</select></label><label>Número<input id="nNumero" value="${esc(n.numero)}" placeholder="ex.: 4.595" required></label></div>
+    <div class="g3"><label>Publicação<input type="date" id="nPub" value="${esc(n.dataPublicacao)}"></label><label>Início de vigência<input type="date" id="nVig" value="${esc(n.vigencia)}"></label><label>Prazo de adequação<input type="date" id="nPrazo" value="${esc(n.prazoAdequacao)}"></label></div>
+    <label>Ementa<textarea id="nEmenta" rows="3" required placeholder="Resumo do que a norma dispõe">${esc(n.ementa)}</textarea></label>
+    <div class="g2"><label>Tema<input id="nTema" list="temas" value="${esc(n.tema)}" placeholder="ex.: PLD/FT, Crédito, Fundos"><datalist id="temas">${temas.map(t=>`<option value="${esc(t)}">`).join('')}</datalist></label><label>Link oficial<input type="url" id="nLink" value="${esc(n.link)}" placeholder="https://"></label></div>
+    <div class="g2"><label>Status<select id="nStatus">${opts(ST_NORMA,n.status||'Nova')}</select></label><label>Criticidade<select id="nCrit">${opts(CRIT,n.criticidade||'Média')}</select></label></div>
+    <div class="g2"><label>Responsável<input id="nResp" value="${esc(n.responsavel)}" placeholder="Nome do analista"></label><label>Áreas impactadas<input id="nArea" value="${esc(n.area)}" placeholder="ex.: Crédito, TI, Jurídico"></label></div>
+    <label>Análise de aplicabilidade e observações<textarea id="nObs" rows="5" placeholder="Por que a norma se aplica (ou não), impactos, revogações relacionadas">${esc(n.observacoes)}</textarea></label>
+  </fieldset></div>
+  <div class="side-col">${d.id?`<div class="box"><header><h3>Plano de ação</h3>${!ro()?`<button type="button" class="btn sm" data-act="new-acao" data-norma="${esc(d.id)}">Nova ação</button>`:''}</header><div class="list" id="dlgAcoes">${normaAcoes(d.id)}</div></div>
+    ${n.link?`<a class="btn" href="${esc(n.link)}" target="_blank" rel="noopener">Abrir texto oficial</a>`:''}${facts(n)}`
+    :`<div class="box"><div class="pad">Depois de salvar, registre aqui o plano de ação da norma.</div></div><div class="chips muted">Consultar: ${FONTES.map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${t}</a>`).join(' · ')}</div>`}</div></div>
+  <footer>${d.id?delBtn('norma'):'<span></span>'}<div class="r"><button type="button" class="btn" data-act="close">${ro()?'Fechar':'Cancelar'}</button>${ro()?'':`<button class="btn pri" type="submit">Salvar norma</button>`}</div></footer></form>`}
+function normaAcoes(id){const ac=S.acoes.filter(a=>a.normaId===id).sort((a,b)=>(a.prazo||'9')<(b.prazo||'9')?-1:1);
+  if(!ac.length)return `<div class="pad">Nenhuma ação registrada para esta norma.</div>`;
+  return ac.map(a=>{const st=acaoStatus(a);return `<div class="it" data-act="open-acao" data-id="${esc(a.id)}" data-from="${esc(id)}"><div class="top"><b>${esc(a.descricao)}</b>${pill(st,AC_COLOR[st])}</div><div class="meta">${a.responsavel?esc(a.responsavel)+' · ':''}Prazo ${esc(fmtD(a.prazo))}${(a.evidencias||[]).length?' · '+a.evidencias.length+' evidência'+(a.evidencias.length>1?'s':''):''}</div></div>`}).join('')}
+
+function dAcao(d){const a=d.id?S.acoes.find(x=>x.id===d.id)||{}:{status:'Aberta',normaId:d.normaId||''};
+  const ns=[...S.normas].sort((x,y)=>cite(x).localeCompare(cite(y),'pt-BR'));
+  return `<form class="dlg" data-form="acao"><header><div class="t">${d.id?`<div>${pill(acaoStatus(a),AC_COLOR[acaoStatus(a)])}</div>`:''}<h2>${d.id?'Ação de adequação':'Nova ação de adequação'}</h2></div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
+  <div class="content"><div class="form"><fieldset ${ro()?'disabled':''}>
+    <label>Norma<select id="aNorma"><option value="">Sem norma vinculada</option>${ns.map(n=>`<option value="${esc(n.id)}"${n.id===a.normaId?' selected':''}>${esc(cite(n))}</option>`).join('')}</select></label>
+    <label>Ação<textarea id="aDesc" rows="2" required placeholder="O que precisa ser feito">${esc(a.descricao)}</textarea></label>
+    <label>Gap identificado<textarea id="aGap" rows="3" placeholder="Diferença entre o exigido pela norma e o praticado hoje">${esc(a.gap)}</textarea></label>
+    <div class="g2"><label>Responsável<input id="aResp" value="${esc(a.responsavel)}" placeholder="Nome"></label><label>Área<input id="aArea" value="${esc(a.area)}" placeholder="ex.: Operações"></label></div>
+    <div class="g2"><label>Prazo<input type="date" id="aPrazo" value="${esc(a.prazo)}"></label><label>Status<select id="aStatus">${opts(ST_ACAO,a.status||'Aberta')}</select></label></div>
+    <label>Comentários<textarea id="aObs" rows="3">${esc(a.observacoes)}</textarea></label>
+  </fieldset></div>
+  <div class="side-col"><div class="box"><header><h3>Evidências</h3></header><div class="list" id="evList">${evList(a)}</div></div>
+    ${d.id?(S.assets&&!ro()?`<label class="drop" for="evFile"><span>Anexar evidência</span><span style="font-size:12px">PDF, imagens, CSV ou TXT, até 20 MB. Converta Word e Excel para PDF.</span><input type="file" id="evFile" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.csv,.txt,.md,.json"></label>`:`<div class="muted" style="font-size:12.5px">${ro()?'':'O envio de arquivos não está disponível para o seu acesso. Peça a um administrador.'}</div>`):`<div class="muted" style="font-size:12.5px">Salve a ação para anexar evidências.</div>`}
+    ${d.id?facts(a):''}</div></div>
+  <footer>${d.id?delBtn('acao'):'<span></span>'}<div class="r">${d.from?`<button type="button" class="btn" data-act="back">Voltar à norma</button>`:''}<button type="button" class="btn" data-act="close">${ro()?'Fechar':'Cancelar'}</button>${ro()?'':`<button class="btn pri" type="submit">Salvar ação</button>`}</div></footer></form>`}
+function evList(a){const ev=(a&&a.evidencias)||[];if(!ev.length)return `<div class="pad">Nenhuma evidência anexada.</div>`;
+  ensureNames(ev.map(e=>e.por));
+  return ev.map((e,i)=>`<div class="ev"><div style="min-width:0;display:flex;flex-direction:column"><a href="/_blob/${esc(e.id)}" target="_blank" rel="noopener">${esc(e.nome)}</a><span class="muted" style="font-size:12px">${esc(fmtDT(e.em))} · ${esc(nameOf(e.por))}</span></div>${S.isAdmin?`<button type="button" class="btn sm danger" data-act="del-ev" data-i="${i}">Remover</button>`:''}</div>`).join('')}
+
+function dObrig(d){const o=d.id?S.obrig.find(x=>x.id===d.id)||{}:{orgao:'BACEN',periodicidade:'Mensal',proximoVencimento:''};
+  const ns=[...S.normas].sort((x,y)=>cite(x).localeCompare(cite(y),'pt-BR'));
+  return `<form class="dlg" data-form="obrig"><header><div class="t"><h2>${d.id?esc(o.titulo):'Nova obrigação regulatória'}</h2></div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
+  <div class="content"><div class="form"><fieldset ${ro()?'disabled':''}>
+    <label>Obrigação<input id="oTit" value="${esc(o.titulo)}" required placeholder="ex.: Relatório anual de conformidade"></label>
+    <div class="g3"><label>Órgão<select id="oOrg">${opts(ORGAOS,o.orgao)}</select></label><label>Periodicidade<select id="oPer">${opts(Object.keys(PERIOD),o.periodicidade)}</select></label><label>Próximo vencimento<input type="date" id="oVenc" value="${esc(o.proximoVencimento)}" required></label></div>
+    <div class="g2"><label>Canal de envio<input id="oCanal" value="${esc(o.canal)}" placeholder="ex.: STA, sistema CVMWeb, e-mail"></label><label>Norma de origem<select id="oNorma"><option value="">Nenhuma</option>${ns.map(n=>`<option value="${esc(n.id)}"${n.id===o.normaId?' selected':''}>${esc(cite(n))}</option>`).join('')}</select></label></div>
+    <div class="g2"><label>Responsável<input id="oResp" value="${esc(o.responsavel)}"></label><label>Área<input id="oArea" value="${esc(o.area)}"></label></div>
+    <label>Descrição e procedimento<textarea id="oDesc" rows="4" placeholder="O que enviar, de onde vêm os dados, quem aprova">${esc(o.descricao)}</textarea></label>
+  </fieldset></div>
+  <div class="side-col"><div class="box"><header><h3>Histórico de envios</h3></header><ul class="hist" id="obHist">${obHist(o)}</ul></div>${d.id?facts(o):''}</div></div>
+  <footer>${d.id?delBtn('obrig'):'<span></span>'}<div class="r"><button type="button" class="btn" data-act="close">${ro()?'Fechar':'Cancelar'}</button>${ro()?'':`<button class="btn pri" type="submit">Salvar obrigação</button>`}</div></footer></form>`}
+function obHist(o){const h=(o&&o.historico)||[];if(!h.length)return `<li class="muted">Nenhum envio registrado.</li>`;ensureNames(h.map(x=>x.por));
+  return h.map(x=>`<li><b class="num">${esc(fmtD(x.data))}</b> · venc. ${esc(fmtD(x.vencimento))}<div class="muted" style="font-size:12px">${esc(nameOf(x.por))}${x.obs?' · '+esc(x.obs):''}</div></li>`).join('')}
+
+function dEnvio(d){const o=S.obrig.find(x=>x.id===d.id)||{};const n=PERIOD[o.periodicidade]||0;
+  return `<form class="dlg" data-form="envio"><header><div class="t"><h2>Registrar envio</h2><span class="muted">${esc(o.titulo)} · vencimento ${esc(fmtD(o.proximoVencimento))}</span></div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
+  <div class="content single"><div class="form"><label>Data do envio<input type="date" id="eData" value="${today()}" required></label><label>Protocolo ou observação<input id="eObs" placeholder="ex.: protocolo 2026/000123"></label>
+  <div class="muted" style="font-size:13px">${n?`O próximo vencimento passa para <b>${esc(fmtD(addMonths(o.proximoVencimento,n)))}</b>.`:'Obrigação eventual: ficará marcada como cumprida.'}</div></div></div>
+  <footer><span></span><div class="r"><button type="button" class="btn" data-act="close">Cancelar</button><button class="btn pri" type="submit">Registrar envio</button></div></footer></form>`}
+
+function dImport(){const rows=S.importRows;
+  let prev='';if(rows){const nw=rows.filter(r=>!r._dup&&!r._err),dup=rows.filter(r=>r._dup).length,er=rows.filter(r=>r._err).length;
+    prev=`<div style="font-size:14px"><b>${nw.length}</b> normas novas para importar${dup?` · ${dup} já cadastradas (ignoradas)`:''}${er?` · <span class="late-txt">${er} com erro</span>`:''}</div>
+    <div class="prev"><table class="tbl"><thead><tr><th></th><th>Norma</th><th>Publicação</th><th>Ementa</th><th>Status</th></tr></thead><tbody>${rows.slice(0,60).map(r=>`<tr style="cursor:default"><td>${r._err?pill('Erro','crit'):r._dup?pill('Já existe','mute'):pill('Nova','ok')}</td><td class="nowrap">${og(r.orgao)} ${esc(cite(r))}</td><td class="num nowrap">${esc(fmtD(r.dataPublicacao))}</td><td><div class="clip">${esc(r._err||r.ementa)}</div></td><td>${esc(r.status)}</td></tr>`).join('')}</tbody></table></div>`}
+  return `<form class="dlg" data-form="import"><header><div class="t"><h2>Importar planilha de normas</h2><span class="muted">Excel (.xlsx) ou CSV, uma norma por linha</span></div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
+  <div class="content single"><div class="form">
+    ${window.XLSX?`<label class="drop" for="impFile"><span>Escolher arquivo</span><span style="font-size:12px">Colunas reconhecidas: Órgão, Tipo, Número, Data publicação, Vigência, Ementa, Tema, Status, Criticidade, Responsável, Área, Prazo adequação, Link, Observações</span><input type="file" id="impFile" accept=".xlsx,.xls,.csv"></label>`:`<div class="banner warn">O leitor de planilhas não carregou. Recarregue a página e tente de novo.</div>`}
+    ${S.downloads&&window.XLSX?`<div><button type="button" class="btn sm" data-act="template">Baixar modelo em Excel</button></div>`:''}
+    ${prev}</div></div>
+  <footer><span></span><div class="r"><button type="button" class="btn" data-act="close">Cancelar</button>${rows&&rows.some(r=>!r._dup&&!r._err)?`<button class="btn pri" type="submit"${S.busy?' disabled':''}>${S.busy?'Importando…':'Importar '+rows.filter(r=>!r._dup&&!r._err).length+' normas'}</button>`:''}</div></footer></form>`}
+
+/* ---------- Gravações ---------- */
+const val=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
+const stamp=isNew=>{const t=new Date().toISOString();return isNew?{criadoEm:t,criadoPor:S.meId||null,atualizadoEm:t,atualizadoPor:S.meId||null}:{atualizadoEm:t,atualizadoPor:S.meId||null}};
+const NL={orgao:'Órgão',tipo:'Tipo',numero:'Número',dataPublicacao:'Publicação',vigencia:'Vigência',prazoAdequacao:'Prazo',ementa:'Ementa',tema:'Tema',link:'Link',status:'Status',criticidade:'Criticidade',responsavel:'Responsável',area:'Áreas',observacoes:'Análise'};
+const AL={normaId:'Norma',descricao:'Ação',gap:'Gap',responsavel:'Responsável',area:'Área',prazo:'Prazo',status:'Status',observacoes:'Comentários'};
+const OL={titulo:'Obrigação',orgao:'Órgão',periodicidade:'Periodicidade',proximoVencimento:'Vencimento',canal:'Canal',normaId:'Norma',responsavel:'Responsável',area:'Área',descricao:'Descrição'};
+
+async function saveNorma(){const d=S.dlg;const data={orgao:val('nOrgao'),tipo:val('nTipo'),numero:val('nNumero'),dataPublicacao:val('nPub'),vigencia:val('nVig'),prazoAdequacao:val('nPrazo'),ementa:val('nEmenta'),tema:val('nTema'),link:val('nLink'),status:val('nStatus'),criticidade:val('nCrit'),responsavel:val('nResp'),area:val('nArea'),observacoes:val('nObs')};
+  if(!data.numero||!data.ementa){toast('Preencha o número e a ementa da norma.','crit');return}
+  data.chave=chave(data);const dup=S.normas.find(n=>n.chave===data.chave&&n.id!==d.id);if(dup){toast(cite(dup)+' já está cadastrada.','crit');return}
+  try{if(d.id){const old=S.normas.find(n=>n.id===d.id)||{};const df=diff(old,data,NL);if(!df){toast('Nenhuma alteração para salvar.');return}
+      if(data.status!=='Nova'&&!old.triadaEm&&(old.status||'Nova')==='Nova')data.triadaEm=today();
+      if(DECIDIDO.includes(data.status)&&!old.analisadaEm&&!DECIDIDO.includes(old.status||'Nova'))data.analisadaEm=today();
+      await S.db.doc('normas/'+d.id).update({...data,...stamp(false)});await log('Alterou','Norma',cite(data),df);toast('Norma atualizada.')}
+    else{if(data.status!=='Nova')data.triadaEm=today();if(DECIDIDO.includes(data.status))data.analisadaEm=today();
+      const ref=S.db.collection('normas').doc();await ref.set({...data,origem:'Cadastro manual',...stamp(true)});await log('Cadastrou','Norma',cite(data),data.ementa.slice(0,120));toast('Norma cadastrada. Registre agora o plano de ação, se aplicável.');S.dlg={type:'norma',id:ref.id};drawDlg()}
+  }catch(e){onWriteErr(e)}}
+async function saveAcao(){const d=S.dlg;const data={normaId:val('aNorma'),descricao:val('aDesc'),gap:val('aGap'),responsavel:val('aResp'),area:val('aArea'),prazo:val('aPrazo'),status:val('aStatus'),observacoes:val('aObs')};
+  if(!data.descricao){toast('Descreva a ação.','crit');return}
+  const n=S.normas.find(x=>x.id===data.normaId);const ref=(n?cite(n)+' · ':'')+data.descricao.slice(0,80);
+  try{if(d.id){const old=S.acoes.find(a=>a.id===d.id)||{};const df=diff(old,data,AL);if(!df){toast('Nenhuma alteração para salvar.');return}
+      const extra=data.status==='Concluída'&&old.status!=='Concluída'?{concluidaEm:today()}:{};
+      await S.db.doc('acoes/'+d.id).update({...data,...extra,...stamp(false)});await log('Alterou','Ação',ref,df);toast('Ação atualizada.')}
+    else{const r=S.db.collection('acoes').doc();await r.set({...data,evidencias:[],...stamp(true)});await log('Criou','Ação',ref,'Prazo '+fmtD(data.prazo));toast('Ação criada. Você já pode anexar evidências.');S.dlg={...d,type:'acao',id:r.id};drawDlg()}
+  }catch(e){onWriteErr(e)}}
+async function saveObrig(){const d=S.dlg;const data={titulo:val('oTit'),orgao:val('oOrg'),periodicidade:val('oPer'),proximoVencimento:val('oVenc'),canal:val('oCanal'),normaId:val('oNorma'),responsavel:val('oResp'),area:val('oArea'),descricao:val('oDesc')};
+  if(!data.titulo||!data.proximoVencimento){toast('Informe a obrigação e o próximo vencimento.','crit');return}
+  try{if(d.id){const old=S.obrig.find(o=>o.id===d.id)||{};const df=diff(old,data,OL);if(!df){toast('Nenhuma alteração para salvar.');return}
+      await S.db.doc('obrigacoes/'+d.id).update({...data,...stamp(false)});await log('Alterou','Obrigação',data.titulo,df);toast('Obrigação atualizada.')}
+    else{await S.db.collection('obrigacoes').doc().set({...data,historico:[],concluida:false,...stamp(true)});await log('Cadastrou','Obrigação',data.titulo,data.periodicidade+' · venc. '+fmtD(data.proximoVencimento));toast('Obrigação cadastrada.');closeDlg()}
+  }catch(e){onWriteErr(e)}}
+async function saveEnvio(){const d=S.dlg;const o=S.obrig.find(x=>x.id===d.id);if(!o)return;const dt=val('eData');if(!dt){toast('Informe a data do envio.','crit');return}
+  const n=PERIOD[o.periodicidade]||0;const h=[{data:dt,vencimento:o.proximoVencimento,obs:val('eObs'),por:S.meId||null},...(o.historico||[])].slice(0,36);
+  const upd={ultimoEnvio:dt,historico:h,...stamp(false)};if(n)upd.proximoVencimento=addMonths(o.proximoVencimento,n);else upd.concluida=true;
+  try{await S.db.doc('obrigacoes/'+o.id).update(upd);await log('Registrou envio','Obrigação',o.titulo,'Envio em '+fmtD(dt)+(val('eObs')?' · '+val('eObs'):'')+(n?' · próximo venc. '+fmtD(upd.proximoVencimento):''));toast(n?'Envio registrado. Próximo vencimento: '+fmtD(upd.proximoVencimento)+'.':'Envio registrado. Obrigação cumprida.');closeDlg()}catch(e){onWriteErr(e)}}
+
+async function doDelete(kind){const d=S.dlg;if(!d||!d.id)return;
+  try{if(kind==='norma'){const n=S.normas.find(x=>x.id===d.id);const ac=S.acoes.filter(a=>a.normaId===d.id);for(const a of ac){await S.db.doc('acoes/'+a.id).delete()}await S.db.doc('normas/'+d.id).delete();await log('Excluiu','Norma',n?cite(n):d.id,ac.length?ac.length+' ação(ões) vinculada(s) também excluída(s)':'');toast('Norma excluída.')}
+    if(kind==='acao'){const a=S.acoes.find(x=>x.id===d.id);await S.db.doc('acoes/'+d.id).delete();await log('Excluiu','Ação',a?a.descricao.slice(0,80):d.id,'');toast('Ação excluída.')}
+    if(kind==='obrig'){const o=S.obrig.find(x=>x.id===d.id);await S.db.doc('obrigacoes/'+d.id).delete();await log('Excluiu','Obrigação',o?o.titulo:d.id,'');toast('Obrigação excluída.')}
+    closeDlg()}catch(e){onWriteErr(e)}}
+
+async function uploadEv(files){const d=S.dlg;const a=S.acoes.find(x=>x.id===d.id);if(!a||!S.assets)return;
+  let ev=[...(a.evidencias||[])];let ok=0;
+  for(const f of files){const ext=(f.name.split('.').pop()||'').toLowerCase();const type=EV_TYPES[ext];
+    if(!type){toast(`${f.name}: formato não aceito. Use PDF, imagem, CSV ou TXT.`,'crit');continue}
+    try{toast('Enviando '+f.name+'…');const r=await S.assets.upload(f,{type});ev.push({id:r.id,nome:f.name,tamanho:r.sizeBytes,em:new Date().toISOString(),por:S.meId||null});ok++}
+    catch(e){const c=e&&e.code;toast(f.name+': '+(c==='too_large'?'arquivo acima do limite de 20 MB.':c==='unsupported_type'?'formato não aceito.':c==='quota_or_state'?'espaço de armazenamento esgotado.':c==='rate_limited'?'muitos envios seguidos, aguarde.':'falha no envio.'),'crit')}}
+  if(!ok)return;
+  try{await S.db.doc('acoes/'+a.id).update({evidencias:ev,...stamp(false)});await log('Anexou evidência','Ação',a.descricao.slice(0,80),files.length===1?files[0].name:ok+' arquivos');toast(ok===1?'Evidência anexada.':ok+' evidências anexadas.')}catch(e){onWriteErr(e)}}
+async function removeEv(i){const d=S.dlg;const a=S.acoes.find(x=>x.id===d.id);if(!a)return;const ev=[...(a.evidencias||[])];const [e]=ev.splice(i,1);if(!e)return;
+  try{await S.db.doc('acoes/'+a.id).update({evidencias:ev,...stamp(false)});if(S.assets){try{await S.assets.delete(e.id)}catch{}}await log('Removeu evidência','Ação',a.descricao.slice(0,80),e.nome);toast('Evidência removida.')}catch(err){onWriteErr(err)}}
+
+/* ---------- Importação / exportação ---------- */
+const COLMAP={orgao:'orgao',orgaoregulador:'orgao',regulador:'orgao',tipo:'tipo',tiponorma:'tipo',numero:'numero',n:'numero',no:'numero',datapublicacao:'dataPublicacao',publicacao:'dataPublicacao',data:'dataPublicacao',vigencia:'vigencia',iniciovigencia:'vigencia',iniciodevigencia:'vigencia',ementa:'ementa',assunto:'ementa',resumo:'ementa',descricao:'ementa',tema:'tema',status:'status',situacao:'status',criticidade:'criticidade',prioridade:'criticidade',responsavel:'responsavel',area:'area',areas:'area',areasimpactadas:'area',prazo:'prazoAdequacao',prazoadequacao:'prazoAdequacao',prazodeadequacao:'prazoAdequacao',link:'link',url:'link',observacoes:'observacoes',obs:'observacoes',analise:'observacoes'};
+function toISO(v){if(v==null||v==='')return '';if(v instanceof Date&&!isNaN(v))return isoOf(v);if(typeof v==='number'&&window.XLSX){const p=XLSX.SSF.parse_date_code(v);if(p)return p.y+'-'+pad(p.m)+'-'+pad(p.d)}
+  const s=String(v).trim();let m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)return m[3]+'-'+pad(m[2])+'-'+pad(m[1]);m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return m[1]+'-'+m[2]+'-'+m[3];return ''}
+function pick(list,v,def){const n=norm(v);return list.find(x=>norm(x)===n)||def}
+function orgaoOf(v){const n=norm(v).replace(/[^a-z]/g,'');if(['bacen','bcb','bancocentral','bc'].includes(n))return 'BACEN';if(n==='cmn'||n.includes('conselhomonetario'))return 'CMN';if(n==='cvm'||n.includes('comissaodevalores'))return 'CVM';if(n.includes('anbima'))return 'ANBIMA';return n?'Outro':''}
+async function readImport(file){try{const buf=await file.arrayBuffer();const wb=XLSX.read(buf,{type:'array',cellDates:true});const ws=wb.Sheets[wb.SheetNames[0]];const raw=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true});
+  if(!raw.length){toast('A planilha está vazia.','crit');return}
+  const seen=new Set(S.normas.map(n=>n.chave));
+  S.importRows=raw.map(r=>{const o={};for(const k in r){const f=COLMAP[norm(k).replace(/[^a-z0-9]/g,'')];if(f&&o[f]==null)o[f]=r[k]}
+    const n={orgao:orgaoOf(o.orgao),tipo:pick(TIPOS,o.tipo,o.tipo?'Outro':'Resolução'),numero:String(o.numero??'').trim(),dataPublicacao:toISO(o.dataPublicacao),vigencia:toISO(o.vigencia),prazoAdequacao:toISO(o.prazoAdequacao),ementa:String(o.ementa??'').trim(),tema:String(o.tema??'').trim(),status:pick(ST_NORMA,o.status,'Nova'),criticidade:pick(CRIT,o.criticidade,'Média'),responsavel:String(o.responsavel??'').trim(),area:String(o.area??'').trim(),link:String(o.link??'').trim(),observacoes:String(o.observacoes??'').trim()};
+    if(!n.orgao)n._err='Órgão não informado';else if(!n.numero)n._err='Número não informado';else if(!n.ementa)n._err='Ementa não informada';
+    n.chave=chave(n);if(!n._err&&seen.has(n.chave))n._dup=true;else if(!n._err)seen.add(n.chave);return n});
+  drawDlg()}catch(e){toast('Não foi possível ler o arquivo. Confira se é um .xlsx ou .csv válido.','crit')}}
+async function runImport(){const rows=(S.importRows||[]).filter(r=>!r._dup&&!r._err);if(!rows.length||S.busy)return;S.busy=true;drawDlg();let ok=0;
+  try{for(const r of rows){const{_dup,_err,...data}=r;if(data.status!=='Nova')data.triadaEm=today();if(DECIDIDO.includes(data.status))data.analisadaEm=today();await S.db.collection('normas').doc().set({...data,origem:'Importação de planilha',...stamp(true)});ok++}
+    await log('Importou','Norma',ok+' normas','Importação de planilha');toast(ok+' normas importadas.');S.busy=false;closeDlg()}
+  catch(e){S.busy=false;onWriteErr(e);if(ok)toast(ok+' normas foram importadas antes do erro.','crit');S.importRows=null;drawDlg()}}
+async function saveXlsx(rows,sheet,filename){if(!S.downloads||!window.XLSX)return;const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheet);
+  const out=XLSX.write(wb,{type:'array',bookType:'xlsx'});try{await S.downloads.save({filename,data:new Uint8Array(out)})}catch(e){if(e&&e.code!=='declined')toast('Não foi possível gerar o arquivo.','crit')}}
+function exportNormas(){const rows=filtNormas().map(n=>({'Órgão':n.orgao,'Tipo':n.tipo,'Número':n.numero,'Norma':cite(n),'Data publicação':fmtD(n.dataPublicacao),'Vigência':n.vigencia?fmtD(n.vigencia):'','Ementa':n.ementa,'Tema':n.tema||'','Status':n.status||'Nova','Criticidade':n.criticidade||'','Responsável':n.responsavel||'','Área':n.area||'','Prazo adequação':n.prazoAdequacao?fmtD(n.prazoAdequacao):'','Ações abertas':S.acoes.filter(a=>a.normaId===n.id&&!['Concluída','Cancelada'].includes(a.status)).length,'Link':n.link||'','Observações':n.observacoes||''}));
+  saveXlsx(rows,'Normas','normas-'+today()+'.xlsx')}
+function exportAcoes(){const rows=S.acoes.map(a=>{const n=S.normas.find(x=>x.id===a.normaId);return{'Norma':n?cite(n):'','Órgão':n?n.orgao:'','Ação':a.descricao,'Gap':a.gap||'','Responsável':a.responsavel||'','Área':a.area||'','Prazo':a.prazo?fmtD(a.prazo):'','Status':acaoStatus(a),'Concluída em':a.concluidaEm?fmtD(a.concluidaEm):'','Evidências':(a.evidencias||[]).map(e=>e.nome).join('; ')}});
+  saveXlsx(rows,'Planos de ação','planos-de-acao-'+today()+'.xlsx')}
+function template(){saveXlsx([{'Órgão':'CVM','Tipo':'Resolução','Número':'50','Data publicação':'31/08/2021','Vigência':'','Ementa':'EXEMPLO — apague esta linha. Dispõe sobre a prevenção à lavagem de dinheiro no mercado de valores mobiliários.','Tema':'PLD/FT','Status':'Em análise','Criticidade':'Alta','Responsável':'','Área':'','Prazo adequação':'','Link':'https://conteudo.cvm.gov.br/legislacao/resolucoes/resol050.html','Observações':''}],'Normas','modelo-importacao-normas.xlsx')}
+
+/* ---------- Eventos ---------- */
+function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
+  if(act==='save-cfg')return saveCfg();
+  if(act==='run-captura'){t.disabled=true;window.CN_executarCaptura().then(r=>toast(r.mensagem||'Atualização iniciada.')).catch(e=>toast(errMsg(e),'crit'));return}
+  if(act==='export-planos')return exportPlanos();
+  if(act==='goto'){const[r,f]=t.dataset.go.split(':');if(r==='normas'){S.nf={q:'',orgao:t.dataset.orgao||'',status:f||'',crit:''}}if(r==='acoes'){S.af={q:'',status:f||''}}location.hash=r;render();return}
+  if(act==='new-norma')return openDlg({type:'norma'});
+  if(act==='open-norma')return openDlg({type:'norma',id});
+  if(act==='new-acao')return openDlg({type:'acao',normaId:t.dataset.norma||'',from:t.dataset.norma||''});
+  if(act==='open-acao')return openDlg({type:'acao',id,from:t.dataset.from||''});
+  if(act==='new-obrig')return openDlg({type:'obrig'});
+  if(act==='open-obrig')return openDlg({type:'obrig',id});
+  if(act==='envio')return openDlg({type:'envio',id,narrow:true});
+  if(act==='import'){S.importRows=null;return openDlg({type:'import',narrow:false})}
+  if(act==='export-normas')return exportNormas();
+  if(act==='export-acoes')return exportAcoes();
+  if(act==='template')return template();
+  if(act==='clear-nf'){S.nf={q:'',orgao:'',status:'',crit:''};return render()}
+  if(act==='clear-af'){S.af={q:'',status:''};return render()}
+  if(act==='close')return closeDlg();
+  if(act==='back'){const n=S.dlg&&S.dlg.from;if(n)openDlg({type:'norma',id:n});return}
+  if(act==='del'){if(!t.classList.contains('armed')){t.classList.add('armed');const kind=t.dataset.kind;const n=kind==='norma'?S.acoes.filter(a=>a.normaId===S.dlg.id).length:0;t.textContent=n?`Confirmar: excluir norma e ${n} ação(ões)`:'Confirmar exclusão';setTimeout(()=>{if(t.isConnected){t.classList.remove('armed');t.textContent='Excluir'}},5000);return}return doDelete(t.dataset.kind)}
+  if(act==='del-ev'){if(!t.classList.contains('armed')){t.classList.add('armed');t.textContent='Confirmar';setTimeout(()=>{if(t.isConnected){t.classList.remove('armed');t.textContent='Remover'}},5000);return}return removeEv(Number(t.dataset.i))}
+}
+main.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(t){e.preventDefault();handleAct(t,e)}});
+dlg.addEventListener('click',e=>{if(e.target===dlg)return closeDlg();const t=e.target.closest('[data-act]');if(t&&t.tagName!=='A'){e.preventDefault();handleAct(t,e)}});
+dlg.addEventListener('submit',e=>{e.preventDefault();if(!S.db)return;const f=e.target.dataset.form;({norma:saveNorma,acao:saveAcao,obrig:saveObrig,envio:saveEnvio,import:runImport})[f]()});
+dlg.addEventListener('change',e=>{if(e.target.id==='evFile'&&e.target.files.length){uploadEv([...e.target.files]);e.target.value=''}if(e.target.id==='impFile'&&e.target.files[0]){readImport(e.target.files[0]);e.target.value=''}});
+main.addEventListener('input',e=>{const id=e.target.id;if(id==='nq'){S.nf.q=e.target.value;render()}if(id==='aq'){S.af.q=e.target.value;render()}});
+main.addEventListener('change',e=>{const id=e.target.id,v=e.target.value;if(id==='no')S.nf.orgao=v;else if(id==='ns')S.nf.status=v;else if(id==='nc')S.nf.crit=v;else if(id==='as')S.af.status=v;else if(id==='auf')S.auf.tipo=v;else if(id==='pf')S.pf=v;else return;render()});
+const tipEl=$('#tip');
+main.addEventListener('mousemove',e=>{const t=e.target.closest('[data-tip]');if(!t){tipEl.hidden=true;return}tipEl.textContent=t.dataset.tip;tipEl.hidden=false;
+  const w=tipEl.offsetWidth,h=tipEl.offsetHeight;let x=e.clientX+14,y=e.clientY-h-10;if(x+w>innerWidth-8)x=e.clientX-w-14;if(y<8)y=e.clientY+16;tipEl.style.left=x+'px';tipEl.style.top=y+'px'});
+main.addEventListener('mouseleave',()=>{tipEl.hidden=true});
+window.addEventListener('hashchange',()=>{window.scrollTo(0,0);render()});
+let rsz=0;window.addEventListener('resize',()=>{clearTimeout(rsz);rsz=setTimeout(()=>{if(route()==='indicadores')render()},200)});
+
+/* ---------- Inicialização ---------- */
+render();
+(async()=>{
+  const C=window.claude;
+  const use=n=>C&&C.use?C.use(n).catch(()=>null):Promise.resolve(null);
+  const [db,user,assets,downloads]=await Promise.all([use('db'),use('user'),use('assets'),use('downloads')]);
+  S.db=db;S.user=user;S.assets=assets;S.downloads=downloads;
+  if(user){try{S.me=await user.me();S.meId=S.me.id;S.isAdmin=!!S.me.canEdit;const w=await user.can('data.write');
+      if(w===true){S.canWrite=true;S.canWriteSource='platform'}else if(w===false&&!S.isAdmin){S.canWrite=false;S.canWriteSource='platform'}else{S.canWrite=true}
+    }catch{}}
+  S.role=S.isAdmin?'Admin':S.canWrite?'Analista':'Leitura';
+  if(!db){S.dbState='off';S.canWrite=false;S.role=S.role||'—';render();return}
+  S.dbState='ready';
+  const sub=(q,key)=>q.onSnapshot(snap=>{S[key]=snap.docs.map(d=>({id:d.id,...d.data()}));S.loaded[key]=true;render()},err=>{S.loaded[key]=true;toast('Não foi possível carregar os dados ('+key+'). Recarregue a página.','crit');render()});
+  sub(db.collection('normas'),'normas');sub(db.collection('acoes'),'acoes');sub(db.collection('obrigacoes'),'obrig');
+  sub(db.collection('auditoria').orderBy('em','desc').limit(300),'audit');
+  db.doc('sistema/captura').onSnapshot(s=>{S.captura=s.exists?s.data():null;render()},()=>{});
+  db.doc('sistema/config').onSnapshot(s=>{S.cfg=s.exists?s.data():null;render()},()=>{});
+  render();
+})();
+</script>
+
+</body>
+</html>
