@@ -300,7 +300,8 @@ function soAdmin(req, res, next) {
 }
 
 async function telaUsuarios(req, res, msg) {
-  const lista = (await q('SELECT id, nome, email, perfil, ativo, trocar_senha, ultimo_acesso, bloqueado_ate, areas FROM usuarios WHERE senha_hash IS NOT NULL ORDER BY ativo DESC, nome')).rows;
+  const lista = (await q('SELECT id, nome, email, perfil, ativo, trocar_senha, ultimo_acesso, bloqueado_ate, areas, ver_obrigacoes FROM usuarios WHERE senha_hash IS NOT NULL ORDER BY ativo DESC, nome')).rows;
+  const caixaOb = marcado => `<label class="cx" style="margin-top:6px"><input type="checkbox" name="obrig" value="1"${marcado ? ' checked' : ''}> Acesso às obrigações regulatórias</label>`;
   const areas = await listarAreas();
   const caixas = (sel, rotulo) => `<div class="caixas" role="group" aria-label="${esc(rotulo)}">${areas.map(a => `<label class="cx"><input type="checkbox" name="areas" value="${esc(a)}"${(sel || []).some(x => normArea(x) === normArea(a)) ? ' checked' : ''}> ${esc(a)}</label>`).join('')}</div>`;
   const csrf = tokenCsrf(req);
@@ -311,7 +312,7 @@ async function telaUsuarios(req, res, msg) {
     return `<tr><td><b>${esc(u.nome)}</b><div class="mu">${esc(u.email)}</div></td>
 <td><form method="post" action="/usuarios/${esc(u.id)}" class="linha"><input type="hidden" name="_csrf" value="${csrf}"><input type="hidden" name="acao" value="perfil">
 <select name="perfil" aria-label="Perfil de ${esc(u.nome)}"${eu ? ' disabled' : ''}>${opt(u.perfil)}</select>${eu ? '' : '<button class="sec peq">Salvar</button>'}</form></td>
-<td>${u.perfil === 'Área responsável' ? `<form method="post" action="/usuarios/${esc(u.id)}"><input type="hidden" name="_csrf" value="${csrf}"><input type="hidden" name="acao" value="areas">${caixas(u.areas, 'Áreas de ' + u.nome)}<button class="sec peq" style="margin-top:6px">Salvar áreas</button>${(u.areas || []).length ? '' : '<div class="mu" style="color:#B3261E;margin-top:4px">Sem área: não vê nenhum item.</div>'}</form>` : '<span class="mu">Todas</span>'}</td>
+<td>${u.perfil === 'Área responsável' ? `<form method="post" action="/usuarios/${esc(u.id)}"><input type="hidden" name="_csrf" value="${csrf}"><input type="hidden" name="acao" value="areas">${caixas(u.areas, 'Áreas de ' + u.nome)}${caixaOb(u.ver_obrigacoes)}<button class="sec peq" style="margin-top:6px;display:block">Salvar acesso</button>${(u.areas || []).length ? '' : '<div class="mu" style="color:#B3261E;margin-top:4px">Sem área: não vê nenhum item.</div>'}</form>` : '<span class="mu">Todas</span>'}</td>
 <td>${esc(sit)}<div class="mu">${u.ultimo_acesso ? 'Último acesso ' + new Date(u.ultimo_acesso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }) : ''}</div></td>
 <td>${eu ? '<span class="mu">Você</span>' : `<div class="linha">
 <form method="post" action="/usuarios/${esc(u.id)}"><input type="hidden" name="_csrf" value="${csrf}"><input type="hidden" name="acao" value="senha"><button class="sec peq">Gerar nova senha</button></form>
@@ -325,7 +326,7 @@ async function telaUsuarios(req, res, msg) {
 <label>E-mail<input type="email" name="email" id="novoEmail" required maxlength="200"></label>
 <label>Perfil<select name="perfil" id="novoPerfil">${opt('Analista')}</select></label>
 <button type="submit">Cadastrar</button></div>
-<div style="margin-top:10px"><div class="mu" style="margin-bottom:4px">Áreas (só para o perfil Área responsável)</div>${caixas([], 'Áreas do novo usuário')}</div></form>
+<div style="margin-top:10px"><div class="mu" style="margin-bottom:4px">Áreas (só para o perfil Área responsável)</div>${caixas([], 'Áreas do novo usuário')}${caixaOb(false)}</div></form>
 <p class="mu" style="margin-top:8px">O sistema gera uma senha provisória para você repassar à pessoa. Ela troca a senha no primeiro acesso.</p>
 <h2 style="font-size:16px;margin:22px 0 8px">Equipe</h2>
 <div class="tw"><table><thead><tr><th>Pessoa</th><th>Perfil</th><th>Áreas</th><th>Situação</th><th>Ações</th></tr></thead><tbody>${linhas}</tbody></table></div>
@@ -360,9 +361,10 @@ router.post('/usuarios', logado, soAdmin, async (req, res, next) => {
     const senha = senhaTemporaria();
     const id = 'loc-' + crypto.randomUUID().replace(/-/g, '').slice(0, 20);
     const areasNovo = perfil === 'Área responsável' ? areasDoForm(req.body.areas, await listarAreas()) : [];
-    await q(`INSERT INTO usuarios (id, nome, email, perfil, senha_hash, ativo, trocar_senha, areas) VALUES ($1,$2,$3,$4,$5,true,true,$6)`,
-      [id, nome, email, perfil, await gerarHash(senha), areasNovo]);
-    await registrarAuditoria({ acao: 'Criou', tipo: 'Usuário', ref: email, detalhe: `Perfil ${perfil}${areasNovo.length ? ' · Áreas: ' + areasNovo.join(', ') : ''}` }, req.session.usuario.id);
+    const obNovo = perfil === 'Área responsável' && req.body.obrig === '1';
+    await q(`INSERT INTO usuarios (id, nome, email, perfil, senha_hash, ativo, trocar_senha, areas, ver_obrigacoes) VALUES ($1,$2,$3,$4,$5,true,true,$6,$7)`,
+      [id, nome, email, perfil, await gerarHash(senha), areasNovo, obNovo]);
+    await registrarAuditoria({ acao: 'Criou', tipo: 'Usuário', ref: email, detalhe: `Perfil ${perfil}${areasNovo.length ? ' · Áreas: ' + areasNovo.join(', ') : ''}${obNovo ? ' · com acesso às obrigações' : ''}` }, req.session.usuario.id);
     telaUsuarios(req, res, msgSenha(email, senha, 'Usuário cadastrado.'));
   } catch (err) { next(err); }
 });
@@ -405,9 +407,10 @@ router.post('/usuarios/:id', logado, soAdmin, async (req, res, next) => {
       }
       case 'areas': {
         const novas = areasDoForm(req.body.areas, await listarAreas());
-        await q('UPDATE usuarios SET areas = $2 WHERE id = $1', [id, novas]);
-        await registrarAuditoria({ acao: 'Alterou', tipo: 'Usuário', ref: u.email, detalhe: `Áreas: ${(u.areas || []).join(', ') || 'nenhuma'} → ${novas.join(', ') || 'nenhuma'}` }, quem);
-        return telaUsuarios(req, res, { tipo: 'ok', texto: `Áreas de ${u.email}: ${novas.join(', ') || 'nenhuma'}.` });
+        const ob = req.body.obrig === '1';
+        await q('UPDATE usuarios SET areas = $2, ver_obrigacoes = $3 WHERE id = $1', [id, novas, ob]);
+        await registrarAuditoria({ acao: 'Alterou', tipo: 'Usuário', ref: u.email, detalhe: `Áreas: ${(u.areas || []).join(', ') || 'nenhuma'} → ${novas.join(', ') || 'nenhuma'} · Obrigações: ${u.ver_obrigacoes ? 'sim' : 'não'} → ${ob ? 'sim' : 'não'}` }, quem);
+        return telaUsuarios(req, res, { tipo: 'ok', texto: `Acesso de ${u.email}: ${novas.join(', ') || 'nenhuma área'}${ob ? ', com obrigações' : ', sem obrigações'}.` });
       }
       case 'senha': {
         const senha = senhaTemporaria();
@@ -435,10 +438,10 @@ async function revalidar(req, res, next) {
   const u = req.session && req.session.usuario;
   if (!u || config.authMode !== 'local') return next();
   try {
-    const r = await q('SELECT perfil, ativo, nome, areas FROM usuarios WHERE id = $1', [u.id]);
+    const r = await q('SELECT perfil, ativo, nome, areas, ver_obrigacoes FROM usuarios WHERE id = $1', [u.id]);
     const atual = r.rows[0];
     if (!atual || !atual.ativo) return req.session.destroy(() => (req.path.startsWith('/api/') ? res.status(401).json({ erro: 'Sessão encerrada.' }) : res.redirect('/login')));
-    u.perfil = atual.perfil; u.nome = atual.nome; u.areas = atual.areas || [];
+    u.perfil = atual.perfil; u.nome = atual.nome; u.areas = atual.areas || []; u.verObrigacoes = !!atual.ver_obrigacoes;
     next();
   } catch (err) { next(err); }
 }
