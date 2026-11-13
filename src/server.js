@@ -16,7 +16,7 @@ const contas = require('./contas');
 const { importarBackup } = require('./importacao');
 const dados = require('./colecoes');
 const { executarCaptura } = require('./captura');
-const { enviarResumo, statusEnvio } = require('./email');
+const { enviarResumo, statusEnvio, enviarEncaminhamento } = require('./email');
 
 validar();
 if (config.armazenamento === 'disco') fs.mkdirSync(config.uploadDir, { recursive: true });
@@ -127,12 +127,17 @@ const colaboracao = auth.exigirPerfil('Admin', 'Analista', 'Área responsável')
 function escopoArea(req) {
   const u = usuario(req);
   if (!u || u.perfil !== 'Área responsável') return null;
-  return new Set((u.areas || []).map(dados.normArea).filter(Boolean));
+  const s = new Set((u.areas || []).map(dados.normArea).filter(Boolean));
+  s.verOb = !!u.verObrigacoes; // obrigações só para quem o Admin marcou
+  return s;
 }
 async function visiveis(esc) {
   const ac = (await dados.listar('acoes')).filter(a => esc.has(dados.normArea(a.area)));
-  const ob = (await dados.listar('obrigacoes')).filter(o => esc.has(dados.normArea(o.area)));
-  return { ac, ob, acIds: new Set(ac.map(a => a.id)), nIds: new Set([...ac, ...ob].map(x => x.normaId).filter(Boolean)) };
+  const ob = esc.verOb ? (await dados.listar('obrigacoes')).filter(o => esc.has(dados.normArea(o.area))) : [];
+  const enc = (await q('SELECT norma_id, area FROM encaminhamentos')).rows.filter(e => esc.has(dados.normArea(e.area)));
+  const nIds = new Set([...ac, ...ob].map(x => x.normaId).filter(Boolean));
+  enc.forEach(e => nIds.add(e.norma_id));
+  return { ac, ob, acIds: new Set(ac.map(a => a.id)), nIds };
 }
 const COLS = ['normas', 'acoes', 'obrigacoes'];
 
@@ -171,6 +176,39 @@ app.get('/api/c/:col', async (req, res) => {
     if (col === 'acoes') return res.json(v.ac);
     if (col === 'obrigacoes') return res.json(v.ob);
     res.json((await dados.listar('normas')).filter(n => v.nIds.has(n.id)));
+  } catch (e) { tratarErro(res, e); }
+});
+
+// ---- Normas encaminhadas para as áreas ----
+app.get('/api/encaminhamentos', async (req, res) => {
+  try {
+    const r = await q('SELECT id, norma_id, area, mensagem, por, em FROM encaminhamentos ORDER BY em DESC LIMIT 3000');
+    let l = r.rows.map(e => ({ id: e.id, normaId: e.norma_id, area: e.area, mensagem: e.mensagem || '', por: e.por, em: e.em.toISOString() }));
+    const esc = escopoArea(req);
+    if (esc) l = l.filter(e => esc.has(dados.normArea(e.area)));
+    res.json(l);
+  } catch (e) { tratarErro(res, e); }
+});
+app.post('/api/normas/:id/encaminhar', escrita, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const marcadas = new Set([].concat(b.areas || []).map(dados.normArea));
+    const areas = (await dados.listarAreas()).filter(a => marcadas.has(dados.normArea(a)));
+    if (!areas.length) return res.status(400).json({ erro: 'Escolha pelo menos uma área.' });
+    const mensagem = String(b.mensagem || '').trim().slice(0, 2000);
+    const n = (await q('SELECT id, tipo, orgao, numero, ementa, link, data_publicacao FROM normas WHERE id = $1', [req.params.id])).rows[0];
+    if (!n) return res.status(404).json({ erro: 'Norma não encontrada. Ela pode ter sido excluída.' });
+    const quem = usuario(req);
+    for (const area of areas) {
+      await q('INSERT INTO encaminhamentos (id, norma_id, area, mensagem, por) VALUES ($1, $2, $3, $4, $5)', [crypto.randomUUID().replace(/-/g, ''), n.id, area, mensagem || null, quem.id]);
+    }
+    const alvo = new Set(areas.map(dados.normArea));
+    const pessoas = (await q("SELECT email, areas FROM usuarios WHERE perfil = 'Área responsável' AND ativo AND email IS NOT NULL")).rows;
+    const para = [...new Set(pessoas.filter(p => (p.areas || []).some(a => alvo.has(dados.normArea(a)))).map(p => p.email.toLowerCase()))];
+    const envio = para.length ? await enviarEncaminhamento(para, { norma: n, areas, mensagem, por: quem.nome }) : { ok: [], falhas: [] };
+    const ref = `${n.tipo} ${n.orgao === 'BACEN' ? 'BCB' : n.orgao} nº ${n.numero}`;
+    await dados.registrarAuditoria({ acao: 'Encaminhou', tipo: 'Norma', ref, detalhe: `Para ${areas.join(', ')} · e-mail para ${envio.ok.length} pessoa(s)${envio.falhas.length ? ` · ${envio.falhas.length} falha(s)` : ''}${mensagem ? ' · ' + mensagem.slice(0, 300) : ''}` }, quem.id);
+    res.json({ ok: true, areas, avisados: envio.ok, falhas: envio.falhas, semDestinatario: !para.length });
   } catch (e) { tratarErro(res, e); }
 });
 
