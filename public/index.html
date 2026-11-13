@@ -326,6 +326,10 @@ h2{font-size:16px;font-weight:700}
 .menu .dd a{color:var(--ink);text-decoration:none;padding:9px 12px;border-radius:9px;font-weight:500}
 .menu .dd a:hover{background:var(--surface-2)}
 .menu .dd a.out{color:var(--crit)}
+.abas{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:-6px}
+.abas a{padding:10px 14px;text-decoration:none;color:var(--muted);font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px}
+.abas a:hover{color:var(--ink)}
+.abas a[aria-current="page"]{color:var(--accent);border-bottom-color:var(--accent)}
 
 main{padding-block:36px 72px}
 .wrap{max-width:1280px;gap:24px}
@@ -419,8 +423,8 @@ const ST_BAR={'Nova':'var(--info)','Em análise':'var(--warn)','Aplicável':'var
 const CRIT=['Alta','Média','Baixa'];
 const ST_ACAO=['Aberta','Em andamento','Concluída','Cancelada'];
 const PERIOD={Mensal:1,Bimestral:2,Trimestral:3,Semestral:6,Anual:12,Eventual:0};
-const ROUTES={recebidas:'Normas recebidas',painel:'Painel',indicadores:'Indicadores',normas:'Normas',acoes:'Planos de ação',obrigacoes:'Obrigações',envios:'Envio Diário'};
-const ADMIN_ROUTES=['envios'];
+const ROUTES={recebidas:'Normas recebidas',painel:'Painel',indicadores:'Indicadores',normas:'Normas',acoes:'Planos de ação',obrigacoes:'Obrigações',config:'Configurações'};
+const ADMIN_ROUTES=['config'];
 const AREA_ROUTES=['recebidas','acoes','indicadores','obrigacoes']; // Área responsável não vê Painel nem Normas
 const FONTES=[
   ['Busca de normas do Banco Central','https://www.bcb.gov.br/estabilidadefinanceira/buscanormas'],
@@ -480,7 +484,7 @@ function strip(o){const r={};for(const k in o)if(o[k]!==undefined)r[k]=o[k];retu
 function diff(a,b,labels){const out=[];for(const k in labels){const x=a[k]??'',y=b[k]??'';if(String(x)!==String(y)){const f=v=>/^\d{4}-\d{2}-\d{2}$/.test(v)?fmtD(v):(String(v).length>40?String(v).slice(0,40)+'…':v);out.push(`${labels[k]}: ${f(x)||'—'} → ${f(y)||'—'}`)}}return out.join('; ')}
 async function log(acao,tipo,ref,detalhe){if(!S.db)return;try{await S.db.collection('auditoria').add({em:new Date().toISOString(),por:S.meId||null,acao,tipo,ref:String(ref||'').slice(0,200),detalhe:String(detalhe||'').slice(0,600)})}catch{}}
 const routeOk=h=>!!ROUTES[h]&&(!ADMIN_ROUTES.includes(h)||S.isAdmin)&&(!S.isArea||AREA_ROUTES.includes(h))&&(h!=='recebidas'||S.isArea)&&(h!=='obrigacoes'||!S.isArea||!!(S.me&&S.me.verObrigacoes));
-const route=()=>{const h=location.hash.slice(1);return routeOk(h)?h:(S.isArea?'recebidas':'painel')};
+const route=()=>{let h=location.hash.slice(1);if(h==='envios')h='config';return routeOk(h)?h:(S.isArea?'recebidas':'painel')};
 
 /* ---------- Render ---------- */
 let raf=0;function render(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;doRender()})}
@@ -488,7 +492,7 @@ function doRender(){
   const a=document.activeElement;const fid=a&&a.id&&main.contains(a)?a.id:null;let ss=null;try{ss=fid?a.selectionStart:null}catch{}
   renderNav();renderWho();
   const r=route();
-  const views={recebidas:vRecebidas,painel:vPainel,indicadores:vIndic,normas:vNormas,acoes:vAcoes,obrigacoes:vObrig,envios:vEnvios};
+  const views={recebidas:vRecebidas,painel:vPainel,indicadores:vIndic,normas:vNormas,acoes:vAcoes,obrigacoes:vObrig,config:vConfig};
   main.innerHTML=`<div class="wrap">${banner()}${r==='painel'||r==='normas'?capTxt():''}${views[r]()}</div>`;
   if(fid){const el=document.getElementById(fid);if(el){el.focus();try{if(ss!=null)el.setSelectionRange(ss,ss)}catch{}}}
   refreshDialog();
@@ -516,7 +520,7 @@ function renderWho(){
   const ini=nm.trim().split(/\s+/).map(p=>p[0]||'').slice(0,2).join('').toUpperCase()||'?';
   const local=S.me&&S.me.modoLogin==='local';
   $('#who').innerHTML=`<details class="menu"><summary aria-label="Menu da conta de ${esc(nm)}">${S.me&&S.me.avatarUrl?`<img src="${esc(S.me.avatarUrl)}" alt="">`:`<span class="av" aria-hidden="true">${esc(ini)}</span>`}<span class="nm">${esc(nm.split(/\s+/)[0])}</span></summary>
-  <div class="dd">${local?`${S.isAdmin?'<a href="/usuarios">Usuários</a>':''}<a href="/conta/senha">Trocar senha</a>`:''}<a href="/auth/logout" class="out">Sair</a></div></details>`;
+  <div class="dd">${local?`<a href="/conta/senha">Trocar senha</a>`:''}<a href="/auth/logout" class="out">Sair</a></div></details>`;
 }
 document.addEventListener('click',e=>{const m=document.querySelector('.menu[open]');if(m&&!m.contains(e.target))m.removeAttribute('open')});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.menu[open]');if(m){m.removeAttribute('open');m.querySelector('summary').focus()}}});
@@ -687,7 +691,9 @@ async function saveCfg(){const t=parseInt(val('cfgTri'),10),a=parseInt(val('cfgA
 function filtNormas(){const f=S.nf,q=norm(f.q);return S.normas.filter(n=>(!f.orgao||n.orgao===f.orgao)&&(!f.status||(n.status||'Nova')===f.status)&&(!f.crit||n.criticidade===f.crit)&&(!q||norm([cite(n),n.ementa,n.tema,n.responsavel,n.area,n.numero].join(' ')).includes(q)))
   .sort((a,b)=>(b.dataPublicacao||'')>(a.dataPublicacao||'')?1:(b.dataPublicacao||'')<(a.dataPublicacao||'')?-1:0)}
 const SEL=()=>S.sel||(S.sel=new Set());
-/* ---------- Envio por e-mail (Admin) ---------- */
+/* ---------- Configurações (Admin): Gestão de acesso fica em /usuarios; Envio Diário aqui ---------- */
+function vConfig(){return `<div class="head"><div><h1>Configurações</h1><p>Acesso das pessoas ao sistema e envio diário de normas. Só o Admin vê esta página.</p></div></div>
+  <nav class="abas" aria-label="Configurações"><a href="/usuarios">Gestão de acesso</a><a href="#config" aria-current="page">Envio Diário</a></nav>${vEnvios()}`}
 
 const SELTD='style="width:38px;text-align:center;cursor:pointer"';
 const CB=on=>`<input type="checkbox" tabindex="-1" aria-label="Selecionar"${on?' checked':''} style="pointer-events:none;width:16px;height:16px;accent-color:var(--accent)">`;
@@ -707,7 +713,7 @@ function vEnvios(){
   if(S.dest===undefined&&!S.destErro)carregarDest();
   const l=S.dest||[];
   const rows=l.map((d,i)=>`<tr><td>${esc(d.email)}</td><td>${d.ativo?'<b>Ativo</b>':'<span class="muted">Pausado</span>'}</td><td class="nowrap"><button type="button" class="btn sm" data-act="dest-toggle" data-id="${i}">${d.ativo?'Pausar':'Reativar'}</button> <button type="button" class="btn sm" data-act="dest-del" data-id="${i}">Remover</button></td></tr>`).join('');
-  return `<div class="head"><div><h1>Envio Diário</h1><p>Quem recebe o e-mail diário "Normativos Divulgados", com o link oficial e o PDF de cada norma. Só o Admin vê esta página.</p></div></div>
+  return `<p class="muted" style="margin:0">Quem recebe o e-mail diário "Normativos Divulgados", com o link oficial e o PDF de cada norma.</p>
   <div class="panel" style="padding:16px">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><input type="email" id="destNovo" value="${esc(S.destNovo||'')}" placeholder="nome@empresa.com.br" class="field" aria-label="Novo destinatário" style="flex:1;min-width:240px"><button type="button" class="btn pri" data-act="dest-add">Adicionar</button></div>
     ${S.destErro?`<div class="empty">${esc(S.destErro)}</div>`:S.dest===undefined?'<div class="empty">Carregando…</div>':l.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th>E-mail</th><th>Situação</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Nenhum destinatário cadastrado.</div>'}
