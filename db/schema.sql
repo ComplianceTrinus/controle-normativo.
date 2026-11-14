@@ -203,3 +203,6 @@ ALTER TABLE evidencias ADD COLUMN IF NOT EXISTS excluida_em timestamptz;
 ALTER TABLE evidencias ADD COLUMN IF NOT EXISTS excluida_por text;
 -- Impressão digital (SHA-256) do arquivo de evidência, gravada no envio
 ALTER TABLE evidencias ADD COLUMN IF NOT EXISTS hash text;
+-- Decisão de aplicabilidade: se há plano de ação e o prazo acordado com a área
+ALTER TABLE normas ADD COLUMN IF NOT EXISTS plano_acao text;
+ALTER TABLE normas ADD COLUMN IF NOT EXISTS prazo_acordado date;
