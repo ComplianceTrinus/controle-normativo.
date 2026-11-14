@@ -327,6 +327,64 @@ h2{font-size:16px;font-weight:700}
 .menu .dd a:hover{background:var(--surface-2)}
 .menu .dd a.out{color:var(--crit)}
 .abas{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:-6px}
+.matriz{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg)}
+.matriz summary{cursor:pointer;font-weight:600;font-size:13.5px;color:var(--ink)}
+.mz{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}
+.mzc{display:flex;flex-direction:column;gap:6px;border-radius:10px;padding:10px;background:var(--surface);border-top:3px solid var(--c)}
+.mzc b{font-size:13px;color:var(--c)}
+.mz-b{--c:var(--muted)}.mz-m{--c:var(--warn)}.mz-a{--c:var(--crit)}
+.form .mzc label{flex-direction:row;align-items:flex-start;gap:7px;font-weight:500;font-size:12.5px;color:var(--ink);line-height:1.35}
+.form .mzc label>*{font-size:12.5px}
+.mzc input{margin-top:2px;flex:none}
+.dir{display:block;font-size:12.5px;font-weight:600;margin-top:2px}
+#printRoot{display:none}
+.relsec{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin:0}
+.relsec legend{font-size:12.5px;font-weight:700;padding:0 4px;display:flex;gap:10px;align-items:center}
+.relsec .chk{flex-direction:row;align-items:center;gap:8px;font-size:13px;font-weight:500}
+.lnk{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline}
+@media (max-width:560px){.relsec{grid-template-columns:1fr}}
+@media print{
+  @page{size:A4;margin:12mm}
+  body.printing{background:#fff!important}
+  body.printing>*:not(#printRoot){display:none!important}
+  body.printing #printRoot{display:block}
+}
+.rep{--ink:#191A1C;--muted:#5B6272;--line:#DCE1EA;--surface:#FFFFFF;--s1:#1D4ED8;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#9AA5A0;--ok:#1D7646;--warn:#94600A;--crit:#B3261E;--grid:#E6E9F0;--axis:#C7CDD8;--track:#E6E9F0;
+  color:#191A1C;background:#fff;font:11.5px/1.45 var(--f-body);-webkit-print-color-adjust:exact;print-color-adjust:exact;color-scheme:light}
+.rep-h{background:#2E4CFF;color:#fff;padding:16px 20px;border-radius:10px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+.rep-h img{height:24px;display:block}
+.rep-h h1{font-size:20px;line-height:1.2;margin:10px 0 0;font-weight:800;letter-spacing:-.01em;color:#fff}
+.rep-h .meta{font-size:10.5px;text-align:right;line-height:1.5}
+.rep-f{margin:8px 0 0;font-size:10.5px;color:#5B6272}
+.rep section{break-inside:avoid;margin-top:16px}
+.rep section.long{break-inside:auto}
+.rep h2{font-size:13.5px;margin:0 0 8px;font-weight:800;color:#191A1C;border-bottom:2px solid #2E4CFF;padding-bottom:4px;break-after:avoid}
+.rep .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rep .kpi{border:1px solid #DCE1EA;border-radius:8px;padding:8px 10px}
+.rep .kpi b{display:block;font-size:20px;line-height:1.1}
+.rep .kpi span{font-size:10px;color:#5B6272}
+.rep table{width:100%;border-collapse:collapse;font-size:10px}
+.rep thead{display:table-header-group}
+.rep th{text-align:left;background:#EEF2FB;color:#191A1C;padding:5px 6px;font-weight:700}
+.rep td{padding:5px 6px;border-bottom:1px solid #DCE1EA;vertical-align:top;color:#191A1C}
+.rep tr{break-inside:avoid}
+.rep .muted{color:#5B6272}
+.rep .chart{width:100%;height:auto}
+.retorno{border:2px solid var(--accent);background:var(--accent-soft);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;margin-top:8px;color:var(--ink);box-shadow:0 0 0 4px var(--accent-soft)}
+.retorno .rt-t{font-weight:800;font-size:17px;letter-spacing:-.01em;color:var(--accent)}
+.retorno .rt-q{font-weight:700;font-size:14.5px}
+.retorno .rt-op{display:flex;flex-wrap:wrap;gap:8px}
+.retorno label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:700;color:var(--ink)}
+.retorno .opt{flex-direction:row;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer}
+.retorno .opt:has(input:checked){border-color:var(--accent);color:var(--accent)}
+.retorno .opt input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.retorno .rt-sim{display:flex;flex-direction:column;gap:10px;background:var(--surface);border-radius:10px;padding:12px;border:1.5px dashed var(--accent)}
+.retorno .rt-sim[hidden]{display:none}
+.retorno textarea,.retorno input[type=date]{background:var(--surface)}
+.rt-ok{display:flex;flex-direction:column;gap:6px;font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--ok-soft);border-radius:10px;padding:10px 12px;margin-top:6px}
+.rt-ok .rt-h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;white-space:normal}
+.apl{align-self:flex-start;font-weight:800;font-size:12.5px;padding:3px 10px;border-radius:999px;background:var(--surface)}
+.apl-s{color:var(--ok)}.apl-n{color:var(--muted)}
 .prazo{display:inline-flex;flex-direction:column;gap:1px;padding:8px 12px 8px 11px;border-radius:12px;background:var(--pb);color:var(--pc);border-left:4px solid currentColor;min-width:158px;line-height:1.2}
 .prazo .pl{font-size:11.5px;font-weight:600;opacity:.85}
 .prazo b{font:800 19px/1.15 var(--f-display);letter-spacing:-.02em}
@@ -410,6 +468,7 @@ dialog::backdrop{background:rgba(25,26,28,.55)}
   .menu summary::after{transform:translateY(-2px) rotate(45deg)}
   .menu .dd{bottom:auto;top:calc(100% + 8px);right:auto;min-width:200px}
   .sino{top:12px;right:14px}
+  .mz{grid-template-columns:minmax(0,1fr)}
   .sino .pn{left:auto;right:0;width:min(340px,calc(100vw - 24px))}
   main{padding-block:24px 56px}
   .kpi .v{font-size:32px}
@@ -440,6 +499,19 @@ const ST_NORMA=['Nova','Em análise','Aplicável','Não aplicável','Adequada','
 const ST_COLOR={'Nova':'info','Em análise':'warn','Aplicável':'acc','Não aplicável':'mute','Adequada':'ok','Revogada':'mute'};
 const ST_BAR={'Nova':'var(--info)','Em análise':'var(--warn)','Aplicável':'var(--accent)','Não aplicável':'var(--line)','Adequada':'var(--ok)','Revogada':'var(--muted)'};
 const CRIT=['Alta','Média','Baixa'];
+// Risco jurídico-regulatório (gravado como Alta/Média/Baixa, exibido como Alto/Médio/Baixo)
+const RISCO={Alta:'Alto',Média:'Médio',Baixa:'Baixo'};const rl=v=>RISCO[v]||v||'—';const NIVEL={Baixa:1,Média:2,Alta:3};
+const optsRisco=(sel,blank)=>(blank!=null?`<option value="">${esc(blank)}</option>`:'')+['Baixa','Média','Alta'].map(v=>`<option value="${v}"${v===sel?' selected':''}>${RISCO[v]}</option>`).join('');
+const DIRETRIZ={Baixa:'Tratativa padrão',Média:'Acompanhamento estruturado',Alta:'Prioridade máxima e monitoramento contínuo'};
+const MATRIZ=[['Baixa','b',[['b1','Normativo de caráter orientativo'],['b2','Ajustes simples e de baixa complexidade'],['b3','Baixo impacto regulatório'],['b4','Sem previsão de penalidades'],['b5','Baixo esforço de implementação']]],
+  ['Média','m',[['m1','Possibilidade de advertência do regulador'],['m2','Necessidade de ajustes internos moderados'],['m3','Vulnerabilidades em controles internos'],['m4','Potencial aplicação de multa em caso de descumprimento'],['m5','Prazo de adequação razoável']]],
+  ['Alta','a',[['a1','Previsão de multas pecuniárias e/ou processos administrativos'],['a2','Necessidade de ajustes estruturais, sistêmicos ou operacionais relevantes'],['a3','Risco de restrições operacionais'],['a4','Potencial impacto na continuidade do negócio'],['a5','Possibilidade de sanções graves em cenários de não conformidade']]]];
+function matrizBox(n){const sel=new Set(String(n.criteriosRisco||'').split(';').filter(Boolean));
+  return `<details class="matriz"${sel.size?' open':''}><summary>Matriz de classificação de risco <span class="muted" style="font-weight:400">· considera só o risco jurídico-regulatório; vale o maior nível marcado</span></summary><div class="mz">${MATRIZ.map(([v,k,cs])=>`<div class="mzc mz-${k}"><b>${RISCO[v]}</b>${cs.map(([id,t])=>`<label><input type="checkbox" class="crRisco" value="${id}" data-nivel="${v}"${sel.has(id)?' checked':''}><span>${esc(t)}</span></label>`).join('')}</div>`).join('')}</div></details>`}
+function maxRisco(){let m=null;document.querySelectorAll('.crRisco:checked').forEach(x=>{if(!m||NIVEL[x.dataset.nivel]>NIVEL[m])m=x.dataset.nivel});return m}
+function syncRisco(origem){const sel=$('#nCrit');if(!sel)return;const m=maxRisco();
+  if(m&&(origem==='matriz'||NIVEL[sel.value]<NIVEL[m])){if(origem!=='matriz'&&NIVEL[sel.value]<NIVEL[m])toast(`Pelo princípio do maior risco, a norma fica como ${RISCO[m]} (há critério desse nível marcado).`);sel.value=m}
+  const d=$('#nDir');if(d){d.textContent='Diretriz: '+DIRETRIZ[sel.value];d.style.color=sel.value==='Alta'?'var(--crit)':sel.value==='Média'?'var(--warn)':'var(--muted)'}}
 const ST_ACAO=['Aberta','Em andamento','Concluída','Cancelada'];
 const PERIOD={Mensal:1,Bimestral:2,Trimestral:3,Semestral:6,Anual:12,Eventual:0};
 const ROUTES={recebidas:'Normas recebidas',painel:'Painel',indicadores:'Indicadores',normas:'Normas',acoes:'Planos de ação',obrigacoes:'Obrigações',config:'Configurações'};
@@ -530,14 +602,14 @@ function pendencias(){const it=[];const add=(n,txt,cor,attrs)=>{if(n>0)it.push({
   const acAtr=S.acoes.filter(a=>acaoStatus(a)==='Atrasada').length,acVence=S.acoes.filter(a=>!['Concluída','Cancelada'].includes(a.status)&&d7(a.prazo)).length;
   const ob=S.obrig.filter(o=>!o.concluida),obAtr=ob.filter(o=>obStatus(o)[0]==='Atrasada').length,obVence=ob.filter(o=>d7(o.proximoVencimento)).length;
   const enc=S.enc||[];
-  if(S.isArea){const pend=enc.filter(e=>!e.resposta),late=pend.filter(e=>days(e.prazo)!=null&&days(e.prazo)<0).length;
+  if(S.isArea){const pend=enc.filter(e=>!e.respondidoEm),late=pend.filter(e=>days(e.prazo)!=null&&days(e.prazo)<0).length;
     add(late,pl(late,'norma recebida com prazo vencido','normas recebidas com prazo vencido'),'crit','data-act="goto" data-go="recebidas"');
     add(pend.length-late,pl(pend.length-late,'norma aguardando o seu retorno','normas aguardando o seu retorno'),'warn','data-act="goto" data-go="recebidas"');
   }else{
     const triagem=S.normas.filter(n=>(n.status||'Nova')==='Nova').length;
-    const vencidos=enc.filter(e=>!e.resposta&&days(e.prazo)!=null&&days(e.prazo)<0).length;
+    const vencidos=enc.filter(e=>!e.respondidoEm&&days(e.prazo)!=null&&days(e.prazo)<0).length;
     add(vencidos,pl(vencidos,'encaminhamento sem retorno da área no prazo','encaminhamentos sem retorno das áreas no prazo'),'crit','data-act="goto" data-go="indicadores"');
-    enc.filter(e=>e.resposta&&e.respondidoEm&&days(e.respondidoEm.slice(0,10))!=null&&days(e.respondidoEm.slice(0,10))>=-7).slice(0,5).forEach(e=>{const n=S.normas.find(x=>x.id===e.normaId);if(n)it.push({n:1,txt:`<b>${esc(e.area)}</b> enviou o retorno sobre ${esc(cite(n))}`,html:true,cor:'ok',attrs:`data-act="open-norma" data-id="${esc(n.id)}"`})});
+    enc.filter(e=>e.respondidoEm&&days(e.respondidoEm.slice(0,10))!=null&&days(e.respondidoEm.slice(0,10))>=-7).slice(0,5).forEach(e=>{const n=S.normas.find(x=>x.id===e.normaId);if(n)it.push({n:1,txt:`<b>${esc(e.area)}</b> enviou o retorno sobre ${esc(cite(n))}`,html:true,cor:'ok',attrs:`data-act="open-norma" data-id="${esc(n.id)}"`})});
     add(triagem,pl(triagem,'norma nova para triagem','normas novas para triagem'),'info','data-act="goto" data-go="normas:Nova"');
   }
   add(acAtr,pl(acAtr,'ação atrasada','ações atrasadas'),'crit','data-act="goto" data-go="acoes:Atrasada"');
@@ -555,7 +627,7 @@ function renderNav(){
   const r=route();const late=S.acoes.filter(a=>acaoStatus(a)==='Atrasada').length+S.obrig.filter(o=>obStatus(o)[0]==='Atrasada').length;
   const triage=S.normas.filter(n=>(n.status||'Nova')==='Nova').length;
   const cnt={normas:triage?`<span class="cnt" title="Para triagem">${triage}</span>`:'',acoes:'',obrigacoes:''};
-  const pend=(S.enc||[]).filter(e=>!e.resposta).length;if(S.isArea&&pend)cnt.recebidas=`<span class="cnt${(S.enc||[]).some(e=>!e.resposta&&days(e.prazo)!=null&&days(e.prazo)<0)?' alert':''}" title="Aguardando retorno">${pend}</span>`;
+  const pend=(S.enc||[]).filter(e=>!e.respondidoEm).length;if(S.isArea&&pend)cnt.recebidas=`<span class="cnt${(S.enc||[]).some(e=>!e.respondidoEm&&days(e.prazo)!=null&&days(e.prazo)<0)?' alert':''}" title="Aguardando retorno">${pend}</span>`;
   const la=S.acoes.filter(a=>acaoStatus(a)==='Atrasada').length,lo=S.obrig.filter(o=>obStatus(o)[0]==='Atrasada').length;
   if(la)cnt.acoes=`<span class="cnt alert" title="Atrasadas">${la}</span>`;if(lo)cnt.obrigacoes=`<span class="cnt alert" title="Atrasadas">${lo}</span>`;
   $('#nav').innerHTML=Object.entries(ROUTES).filter(([k])=>routeOk(k)).map(([k,v])=>`<a href="#${k}"${k===r?' aria-current="page"':''}><span>${v}</span>${cnt[k]||''}</a>`).join('');
@@ -630,11 +702,11 @@ function niceStep(max){const raw=max/4;const p=Math.pow(10,Math.floor(Math.log10
 function roundTop(x,y,w,h,r){r=Math.min(r,h,w/2);return `M${x},${y+h}V${y+r}Q${x},${y} ${x+r},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${y+h}Z`}
 const SER=[['BACEN','var(--s1)'],['CMN','var(--s2)'],['CVM','var(--s3)'],['ANBIMA','var(--s4)'],['Outro','var(--s5)']];
 function monthsBack(k){const r=[];const now=new Date();for(let i=k-1;i>=0;i--){const x=new Date(now.getFullYear(),now.getMonth()-i,1);r.push({key:x.getFullYear()+'-'+pad(x.getMonth()+1),m:x.getMonth(),y:x.getFullYear()})}return r}
-function chartMeses(){
-  const data=monthsBack(12).map(m=>{const ns=S.normas.filter(n=>(n.dataPublicacao||'').slice(0,7)===m.key);return{...m,v:SER.map(([o])=>ns.filter(n=>(ORGAOS.includes(n.orgao)&&n.orgao!=='Outro'?n.orgao:'Outro')===o).length),t:ns.length}});
+function chartMeses(lista=S.normas,meses=monthsBack(12),Wfix=0){
+  const data=meses.map(m=>{const ns=lista.filter(n=>(n.dataPublicacao||'').slice(0,7)===m.key);return{...m,v:SER.map(([o])=>ns.filter(n=>(ORGAOS.includes(n.orgao)&&n.orgao!=='Outro'?n.orgao:'Outro')===o).length),t:ns.length}});
   const used=SER.map((s,i)=>i).filter(i=>data.some(d=>d.v[i]));
   const max=Math.max(1,...data.map(d=>d.t)),step=niceStep(max),top=Math.ceil(max/step)*step;
-  const W=Math.max(300,Math.min(1200,Math.round((main.clientWidth||900)-(innerWidth<=760?64:90)))),H=innerWidth<=760?200:240,L=30,R=6,T=18,B=28,pw=W-L-R,ph=H-T-B,band=pw/data.length,bw=Math.min(24,band*.6);
+  const W=Wfix||Math.max(300,Math.min(1200,Math.round((main.clientWidth||900)-(innerWidth<=760?64:90)))),H=Wfix?220:innerWidth<=760?200:240,L=30,R=6,T=18,B=28,pw=W-L-R,ph=H-T-B,band=pw/data.length,bw=Math.min(24,band*.6);
   let g='';for(let v=0;v<=top;v+=step){const y=T+ph-v/top*ph;g+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" class="gl${v===0?' base':''}"/><text x="${L-6}" y="${y+4}" class="tk" text-anchor="end">${v}</text>`}
   let bars='',hits='',labs='';
   data.forEach((d,i)=>{const x=L+band*i+(band-bw)/2;let y=T+ph;const segs=[];SER.forEach(([o,c],k)=>{if(d.v[k])segs.push({o,c,v:d.v[k],h:d.v[k]/top*ph})});
@@ -645,7 +717,7 @@ function chartMeses(){
     hits+=`<rect class="hit" x="${L+band*i}" y="${T}" width="${band}" height="${ph}" data-tip="${esc(tip)}"/>`});
   const tbl=`<details class="tview"><summary>Ver tabela</summary><div class="tblwrap"><table class="tbl"><thead><tr><th>Mês</th>${SER.map(s=>`<th>${s[0]}</th>`).join('')}<th>Total</th></tr></thead><tbody>${data.map(d=>`<tr style="cursor:default"><td>${MESES[d.m]}/${d.y}</td>${d.v.map(v=>`<td class="num">${v}</td>`).join('')}<td class="num"><b>${d.t}</b></td></tr>`).join('')}</tbody></table></div></details>`;
   return `${used.length>1?`<div class="lg">${used.map(i=>`<span><i style="background:${SER[i][1]}"></i>${SER[i][0]}</span>`).join('')}</div>`:''}
-  <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Normas publicadas por mês nos últimos 12 meses, por órgão">${g}${bars}${labs}${hits}</svg>${tbl}`}
+  <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Normas publicadas por mês, por órgão">${g}${bars}${labs}${Wfix?'':hits}</svg>${Wfix?'':tbl}`}
 function hbars(items){const max=Math.max(1,...items.map(i=>i.v));return `<div class="hb">${items.map(i=>`<div class="hb-row" data-tip="${esc(i.label)}: ${i.v}"><span class="hb-l">${esc(i.label)}</span><span class="hb-t"><i style="width:${i.v/max*100}%;background:${i.c}"></i></span><span class="hb-v num">${i.v}</span></div>`).join('')}</div>`}
 function planos(){return S.normas.map(n=>{const ac=S.acoes.filter(a=>a.normaId===n.id&&a.status!=='Cancelada');if(!ac.length)return null;
   const done=ac.filter(a=>a.status==='Concluída').length,late=ac.filter(a=>acaoStatus(a)==='Atrasada').length;
@@ -655,11 +727,13 @@ function planos(){return S.normas.map(n=>{const ac=S.acoes.filter(a=>a.normaId==
   return{n,ac,done,late,prox,ev,sit}}).filter(Boolean).sort((a,b)=>{const r={'Com atraso':0,'Em dia':1,'Concluído':2};return r[a.sit]-r[b.sit]||((a.prox||'9')<(b.prox||'9')?-1:1)})}
 const SIT_C={'Concluído':'ok','Em dia':'acc','Com atraso':'crit'};
 /* ---------- Normas encaminhadas para as áreas ---------- */
-async function loadEnc(){try{S.enc=await apiJson('/api/encaminhamentos')}catch{S.enc=S.enc||[]}render();const el=$('#encList');if(el&&S.dlg&&S.dlg.type==='norma')el.innerHTML=encHist(S.dlg.id)}
+// Uma linha por norma e área: encaminhamentos repetidos ainda pendentes aparecem uma vez só
+const dedupEnc=l=>{const v=new Set();return l.filter(e=>{const k=e.normaId+'|'+norm(e.area)+'|'+(e.respondidoEm||'pendente');if(v.has(k))return false;v.add(k);return true})};
+async function loadEnc(){try{S.enc=dedupEnc(await apiJson('/api/encaminhamentos'))}catch{S.enc=S.enc||[]}render();const el=$('#encList');if(el&&S.dlg&&S.dlg.type==='norma')el.innerHTML=encHist(S.dlg.id)}
 function prazoChip(e){if(!e.prazo)return '';const d=days(e.prazo);let c,t;
-  if(e.resposta){c='ok';t='Retorno enviado'}else if(d<0){c='crit';t=`Atrasado há ${-d} dia${d<-1?'s':''}`}else if(d===0){c='warn';t='Vence hoje'}else if(d<=3){c='warn';t=`Faltam ${d} dia${d>1?'s':''}`}else{c='acc';t=`Faltam ${d} dias`}
+  if(e.respondidoEm){c='ok';t='Retorno enviado'}else if(d<0){c='crit';t=`Atrasado há ${-d} dia${d<-1?'s':''}`}else if(d===0){c='warn';t='Vence hoje'}else if(d<=3){c='warn';t=`Faltam ${d} dia${d>1?'s':''}`}else{c='acc';t=`Faltam ${d} dias`}
   return `<div class="prazo p-${c}"><span class="pl">Prazo para retorno</span><b>${esc(fmtD(e.prazo))}</b><span class="pt">${t}</span></div>`}
-function encStatus(e){if(e.resposta)return['Respondida','ok'];const d=days(e.prazo);if(d==null)return['Aguardando retorno','info'];if(d<0)return[`Atrasada ${-d}d`,'crit'];if(d===0)return['Vence hoje','warn'];if(d<=3)return[`Vence em ${d}d`,'warn'];return['Aguardando retorno','info']}
+function encStatus(e){if(e.respondidoEm)return['Respondida','ok'];const d=days(e.prazo);if(d==null)return['Aguardando retorno','info'];if(d<0)return[`Atrasada ${-d}d`,'crit'];if(d===0)return['Vence hoje','warn'];if(d<=3)return[`Vence em ${d}d`,'warn'];return['Aguardando retorno','info']}
 function vRecebidas(){const loading=S.enc===undefined;const l=S.enc||[];ensureNames(l.map(e=>e.por));
   const rows=l.map(e=>{const n=S.normas.find(x=>x.id===e.normaId);if(!n)return '';return `<tr data-act="open-norma" data-id="${esc(n.id)}"><td class="nowrap num">${esc(fmtDT(e.em))}</td><td>${og(n.orgao)}</td><td><div class="cite">${esc(cite(n))}</div><div class="sub">${esc(e.area)}</div></td><td><div class="clip">${esc(n.ementa)}</div></td><td><div class="clip">${esc(e.mensagem||'—')}</div><div class="sub">por ${esc(nameOf(e.por))}</div></td><td class="nowrap">${prazoChip(e)}</td></tr>`}).join('');
   return `<div class="head"><div><h1>Normas recebidas</h1><p>Normas que o Compliance encaminhou para a sua área. Você tem 10 dias corridos para avaliar: abra a norma, leia e envie o retorno da área.</p></div></div>
@@ -670,11 +744,24 @@ function encHist(id){const l=(S.enc||[]).filter(e=>e.normaId===id);if(!l.length)
     <div class="meta">Encaminhada em ${esc(fmtDT(e.em))} por ${esc(nameOf(e.por))}</div>
     <div style="margin:4px 0 2px">${prazoChip(e)}</div>
     ${e.mensagem?`<div style="font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere"><b>Orientação:</b> ${esc(e.mensagem)}</div>`:''}
-    ${e.resposta?`<div style="font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--ok-soft);border-radius:8px;padding:8px 10px"><b>Retorno da área</b> (${esc(nameOf(e.respondidoPor))}, ${esc(fmtDT(e.respondidoEm))}):<br>${esc(e.resposta)}</div>`
-      :S.isArea?`<div style="display:flex;flex-direction:column;gap:6px;margin-top:4px"><textarea id="resp-${esc(e.id)}" class="field" rows="3" maxlength="4000" placeholder="Retorno da área: a norma se aplica? Quais impactos e providências?" aria-label="Retorno da área ${esc(e.area)}"></textarea><div><button type="button" class="btn sm pri" data-act="enc-resp" data-id="${esc(e.id)}">Enviar retorno</button></div></div>`:''}
+    ${e.respondidoEm?retornoView(e):S.isArea?retornoForm(e):''}
   </div>`).join('')}
-async function respEnc(t){const id=t.dataset.id;const el=$('#resp-'+id);const resposta=(el&&el.value||'').trim();if(!resposta){toast('Escreva o retorno da área.','crit');return}
-  t.disabled=true;try{await apiJson('/api/encaminhamentos/'+encodeURIComponent(id)+'/responder',{method:'POST',body:JSON.stringify({resposta})});await loadEnc();toast('Retorno enviado ao Compliance.')}catch(e){toast(e.message,'crit')}finally{t.disabled=false}}
+function retornoView(e){return `<div class="rt-ok"><div class="rt-h"><b>Retorno da área</b><span class="muted">${esc(nameOf(e.respondidoPor))}, ${esc(fmtDT(e.respondidoEm))}</span></div>
+  ${e.aplicavel===true?'<span class="apl apl-s">Aplicável à área</span>':e.aplicavel===false?'<span class="apl apl-n">Não aplicável à área</span>':''}
+  ${e.planoSugerido?`<div><b>Plano de ação sugerido:</b> ${esc(e.planoSugerido)}</div><div><b>Data sugerida:</b> ${esc(fmtD(e.dataSugerida))}</div>`:''}
+  ${e.resposta?`<div><b>${e.aplicavel===false?'Justificativa':'Comentários'}:</b> ${esc(e.resposta)}</div>`:''}</div>`}
+function retornoForm(e){const id=esc(e.id);return `<div class="retorno"><div class="rt-t">Retorno da área</div>
+  <div class="rt-q">A norma é aplicável à sua área?</div>
+  <div class="rt-op" role="radiogroup" aria-label="A norma é aplicável à sua área?"><label class="opt"><input type="radio" name="apl-${id}" value="sim"> Sim, é aplicável</label><label class="opt"><input type="radio" name="apl-${id}" value="nao"> Não é aplicável</label></div>
+  <div class="rt-sim" id="sim-${id}" hidden><label>Plano de ação sugerido<textarea id="plano-${id}" class="field" rows="3" maxlength="4000" placeholder="O que a área propõe fazer para se adequar"></textarea></label><label>Data sugerida para concluir<input type="date" id="data-${id}" class="field"></label></div>
+  <label><span id="lj-${id}">Comentários</span><textarea id="resp-${id}" class="field" rows="3" maxlength="4000" placeholder="Análise da área, impactos e observações"></textarea></label>
+  <div><button type="button" class="btn pri" data-act="enc-resp" data-id="${id}">Enviar retorno</button></div></div>`}
+async function respEnc(t){const id=t.dataset.id;const op=document.querySelector(`input[name="apl-${CSS.escape(id)}"]:checked`);const v=x=>{const el=document.getElementById(x+'-'+id);return el?el.value.trim():''};
+  if(!op){toast('Marque se a norma é aplicável ou não.','crit');return}
+  const body={aplicavel:op.value,resposta:v('resp'),planoSugerido:v('plano'),dataSugerida:v('data')};
+  if(op.value==='sim'&&(!body.planoSugerido||!body.dataSugerida)){toast('Preencha o plano de ação sugerido e a data.','crit');return}
+  if(op.value==='nao'&&!body.resposta){toast('Explique por que a norma não é aplicável.','crit');return}
+  t.disabled=true;try{await apiJson('/api/encaminhamentos/'+encodeURIComponent(id)+'/responder',{method:'POST',body:JSON.stringify(body)});await loadEnc();toast('Retorno enviado ao Compliance.')}catch(e){toast(e.message,'crit')}finally{t.disabled=false}}
 function prazoEnc(){const h=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date());const d=new Date(h+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+10);return d.toISOString().slice(0,10)}
 function encBox(id){const pode=!ro()&&!S.isArea;if(S.isArea&&!(S.enc||[]).some(e=>e.normaId===id))return '';
   return `<div class="box"><header><h3>${S.isArea?'Encaminhada para a sua área':'Encaminhar para área'}</h3></header><div class="list" id="encList">${encHist(id)}</div>${pode?`<div class="pad" style="display:flex;flex-direction:column;gap:8px;color:var(--ink)"><div style="display:flex;flex-wrap:wrap;gap:4px 12px" role="group" aria-label="Áreas">${(S.areas||[]).map(a=>`<label style="display:inline-flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" class="encArea" value="${esc(a)}">${esc(a)}</label>`).join('')}</div><textarea id="encMsg" class="field" rows="2" maxlength="2000" placeholder="O que a área precisa avaliar (opcional)" aria-label="Orientação para a área"></textarea><div class="muted" style="font-size:12.5px">Prazo automático para o retorno: <b>${esc(fmtD(prazoEnc()))}</b> (10 dias corridos, contados a partir do dia seguinte ao envio).</div><div><button type="button" class="btn sm pri" data-act="enc-send" data-id="${esc(id)}">Encaminhar e avisar por e-mail</button></div></div>`:''}</div>`}
@@ -683,24 +770,26 @@ async function sendEnc(t){const id=t.dataset.id;const areas=[...document.querySe
   try{const r=await apiJson('/api/normas/'+encodeURIComponent(id)+'/encaminhar',{method:'POST',body:JSON.stringify({areas,mensagem})});
     document.querySelectorAll('.encArea:checked').forEach(x=>{x.checked=false});if(msgEl)msgEl.value='';await loadEnc();
     toast(`Norma encaminhada para ${r.areas.join(', ')}, com prazo até ${fmtD(r.prazo)}.`+(r.avisados.length?` E-mail enviado para ${r.avisados.length} pessoa${r.avisados.length>1?'s':''}.`:'')+(r.semDestinatario?' Ninguém dessa área está cadastrado para receber o e-mail.':''));
+    if(r.repetidas&&r.repetidas.length)toast(`Não reenviada para ${r.repetidas.join(', ')}: a área ainda não respondeu o encaminhamento anterior.`);
     if(r.falhas&&r.falhas.length)toast(`O e-mail não chegou a ${r.falhas.length} pessoa${r.falhas.length>1?'s':''}: ${r.falhas[0].erro}`,'crit')}
   catch(e){toast(e.message,'crit')}finally{t.disabled=false}}
 /* ---------- Indicadores por área: normas encaminhadas e planos de ação ---------- */
 const diaBRT=iso=>{try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date(iso))}catch{return ''}};
-function porArea(){
+function porArea(encL=S.enc||[],acL=S.acoes,raw=false){
   const lista=[...(S.areas||[])];const add=a=>{if(a&&!lista.some(x=>norm(x)===norm(a)))lista.push(a)};
-  (S.enc||[]).forEach(e=>add(e.area));S.acoes.forEach(a=>add(a.area));
+  encL.forEach(e=>add(e.area));acL.forEach(a=>add(a.area));
   const k=a=>norm(a||'');
-  const en=lista.map(ar=>{const l=(S.enc||[]).filter(e=>k(e.area)===k(ar));const resp=l.filter(e=>e.resposta);
-    const late=l.filter(e=>!e.resposta&&days(e.prazo)!=null&&days(e.prazo)<0).length;
+  const en=lista.map(ar=>{const l=encL.filter(e=>k(e.area)===k(ar));const resp=l.filter(e=>e.respondidoEm);
+    const late=l.filter(e=>!e.respondidoEm&&days(e.prazo)!=null&&days(e.prazo)<0).length;
     return{ar,tot:l.length,pend:l.length-resp.length-late,late,conc:resp.length,noPrazo:resp.filter(e=>!e.prazo||diaBRT(e.respondidoEm)<=e.prazo).length}}).filter(r=>r.tot);
-  const grupos=[...lista.map(ar=>({ar,l:S.acoes.filter(a=>k(a.area)===k(ar))})),{ar:'Sem área definida',l:S.acoes.filter(a=>!k(a.area))}];
+  const grupos=[...lista.map(ar=>({ar,l:acL.filter(a=>k(a.area)===k(ar))})),{ar:'Sem área definida',l:acL.filter(a=>!k(a.area))}];
   const ac=grupos.map(({ar,l})=>{l=l.filter(a=>a.status!=='Cancelada');const conc=l.filter(a=>a.status==='Concluída');
     return{ar,tot:l.length,pend:l.filter(a=>acaoStatus(a)==='Aberta').length,and:l.filter(a=>acaoStatus(a)==='Em andamento').length,late:l.filter(a=>acaoStatus(a)==='Atrasada').length,conc:conc.length,noPrazo:conc.filter(a=>!a.prazo||!a.concluidaEm||a.concluidaEm.slice(0,10)<=a.prazo).length}}).filter(r=>r.tot);
   const n=(v,cls)=>`<td class="num"${v&&cls?` style="color:var(--${cls});font-weight:700"`:''}>${v}</td>`;
   const pct=(a,b)=>b?`${a} <span class="muted">(${Math.round(a*100/b)}%)</span>`:'—';
   const tN=en.length?`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Área</th><th>Encaminhadas</th><th>Pendentes</th><th>Atrasadas</th><th>Concluídas</th><th>Concluídas no prazo</th></tr></thead><tbody>${en.map(r=>`<tr style="cursor:default"><td><b>${esc(r.ar)}</b></td>${n(r.tot)}${n(r.pend,'warn')}${n(r.late,'crit')}${n(r.conc,'ok')}<td class="num">${pct(r.noPrazo,r.conc)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nenhuma norma encaminhada para as áreas ainda.</div>';
   const tA=ac.length?`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Área</th><th>Ações</th><th>Pendentes</th><th>Em andamento</th><th>Atrasadas</th><th>Concluídas</th><th>Concluídas no prazo</th></tr></thead><tbody>${ac.map(r=>`<tr style="cursor:default"><td><b>${esc(r.ar)}</b></td>${n(r.tot)}${n(r.pend)}${n(r.and)}${n(r.late,'crit')}${n(r.conc,'ok')}<td class="num">${pct(r.noPrazo,r.conc)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nenhuma ação registrada ainda.</div>';
+  if(raw)return{tN,tA};
   return `<section class="panel"><header><h2>Normas analisadas por área</h2><span class="muted">Encaminhadas pelo Compliance · prazo de 10 dias corridos</span></header>${tN}</section>
   <section class="panel"><header><h2>Planos de ação por área</h2><span class="muted">Pendente = aberta, ainda não iniciada</span></header>${tA}</section>`}
 function vIndicArea(){const vo=!!(S.me&&S.me.verObrigacoes);const loading=!S.loaded.acoes||(vo&&!S.loaded.obrig);const ac=S.acoes;
@@ -738,7 +827,7 @@ function vIndic(){
     return{o,tot:x.length,nova:st('Nova'),an:st('Em análise'),apl:st('Aplicável')+st('Adequada'),plano:x.filter(n=>S.acoes.some(a=>a.normaId===n.id)).length,na:st('Não aplicável')}}).filter(Boolean);
   const pl=planos().filter(p=>!S.pf||p.sit===S.pf);const semPlano=ns.filter(n=>n.status==='Aplicável'&&!S.acoes.some(a=>a.normaId===n.id)).length;
   return `<div class="head"><div><h1>Indicadores</h1><p>Volume de normas recebidas, situação da triagem e andamento dos planos de ação.</p></div>
-    <div class="actions">${S.downloads&&window.XLSX?`<button class="btn" data-act="export-planos">Exportar planos</button>`:''}</div></div>
+    <div class="actions"><button class="btn pri" data-act="relatorio">Relatório em PDF</button>${S.downloads&&window.XLSX?`<button class="btn" data-act="export-planos">Exportar planos</button>`:''}</div></div>
   <div class="stats">
     ${num('Normas acompanhadas',ns.length,`${ns.filter(n=>(n.status||'Nova')==='Nova').length} para triagem · ${ns.filter(n=>n.status==='Em análise').length} em análise`)}
     ${num('Normas com plano de ação',aplPlano,`de ${apl.length} aplicáve${apl.length===1?'l':'is'}${semPlano?` · <span class="late-txt">${semPlano} sem plano</span>`:''}`)}
@@ -755,10 +844,10 @@ function vIndic(){
     ${org.length?`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Órgão</th><th>Total</th><th>Para triagem</th><th>Em análise</th><th>Aplicáveis</th><th>Com plano de ação</th><th>Não aplicáveis</th></tr></thead><tbody>${org.map(r=>`<tr data-act="goto" data-go="normas:" data-orgao="${esc(r.o)}"><td>${og(r.o)}</td><td class="num"><b>${r.tot}</b></td><td class="num">${r.nova}</td><td class="num">${r.an}</td><td class="num">${r.apl}</td><td class="num">${r.plano}</td><td class="num">${r.na}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Sem normas cadastradas.</div>'}</section>
   <section class="panel"><header><h2>Normas com plano de ação</h2><div class="toolbar"><select id="pf" aria-label="Situação do plano">${opts(['Com atraso','Em dia','Concluído'],S.pf||'','Todas as situações')}</select></div></header>
     ${semPlano?`<div class="body" style="border-bottom:1px solid var(--line);font-size:13.5px"><span class="late-txt">${semPlano} norma${semPlano===1?' aplicável está':'s aplicáveis estão'} sem plano de ação.</span> <a href="#normas" data-act="goto" data-go="normas:Aplicável">Ver normas aplicáveis</a></div>`:''}
-    ${pl.length?`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Norma</th><th>Criticidade</th><th>Andamento</th><th>Próximo prazo</th><th>Atrasadas</th><th>Evidências</th><th>Situação</th></tr></thead><tbody>${pl.map(p=>`<tr data-act="open-norma" data-id="${esc(p.n.id)}"><td>${og(p.n.orgao)} <span class="cite">${esc(cite(p.n))}</span><div class="sub clip">${esc(p.n.ementa)}</div></td><td><span class="crit crit-${esc(p.n.criticidade||'Média')}">${esc(p.n.criticidade||'—')}</span></td><td><div class="prog"><div class="meter"><i style="width:${p.done/p.ac.length*100}%"></i></div><span class="num sub">${p.done}/${p.ac.length}</span></div></td><td class="nowrap num">${prazoTxt(p.prox,!p.prox)}</td><td class="num">${p.late?`<span class="late-txt">${p.late}</span>`:'0'}</td><td class="num">${p.ev}</td><td>${pill(p.sit,SIT_C[p.sit])}</td></tr>`).join('')}</tbody></table></div>`
+    ${pl.length?`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Norma</th><th>Risco</th><th>Andamento</th><th>Próximo prazo</th><th>Atrasadas</th><th>Evidências</th><th>Situação</th></tr></thead><tbody>${pl.map(p=>`<tr data-act="open-norma" data-id="${esc(p.n.id)}"><td>${og(p.n.orgao)} <span class="cite">${esc(cite(p.n))}</span><div class="sub clip">${esc(p.n.ementa)}</div></td><td><span class="crit crit-${esc(p.n.criticidade||'Média')}">${esc(rl(p.n.criticidade))}</span></td><td><div class="prog"><div class="meter"><i style="width:${p.done/p.ac.length*100}%"></i></div><span class="num sub">${p.done}/${p.ac.length}</span></div></td><td class="nowrap num">${prazoTxt(p.prox,!p.prox)}</td><td class="num">${p.late?`<span class="late-txt">${p.late}</span>`:'0'}</td><td class="num">${p.ev}</td><td>${pill(p.sit,SIT_C[p.sit])}</td></tr>`).join('')}</tbody></table></div>`
     :`<div class="empty">${loading?'Carregando…':S.pf?'Nenhum plano nesta situação.':'Nenhuma norma tem plano de ação ainda. Abra uma norma aplicável e registre as ações de adequação.'}</div>`}</section>`;
 }
-function exportPlanos(){const rows=planos().map(p=>({'Órgão':p.n.orgao,'Norma':cite(p.n),'Ementa':p.n.ementa,'Criticidade':p.n.criticidade||'','Status da norma':p.n.status||'Nova','Ações':p.ac.length,'Concluídas':p.done,'Atrasadas':p.late,'Próximo prazo':p.prox?fmtD(p.prox):'','Evidências':p.ev,'Situação do plano':p.sit}));saveXlsx(rows,'Planos de ação','normas-com-plano-'+today()+'.xlsx')}
+function exportPlanos(){const rows=planos().map(p=>({'Órgão':p.n.orgao,'Norma':cite(p.n),'Ementa':p.n.ementa,'Risco':rl(p.n.criticidade),'Status da norma':p.n.status||'Nova','Ações':p.ac.length,'Concluídas':p.done,'Atrasadas':p.late,'Próximo prazo':p.prox?fmtD(p.prox):'','Evidências':p.ev,'Situação do plano':p.sit}));saveXlsx(rows,'Planos de ação','normas-com-plano-'+today()+'.xlsx')}
 async function saveCfg(){const t=parseInt(val('cfgTri'),10),a=parseInt(val('cfgAn'),10);if(!(t>0&&a>0)){toast('Informe prazos em dias úteis maiores que zero.','crit');return}
   const old=cfg();try{await S.db.doc('sistema/config').set({slaTriagem:t,slaAnalise:a,atualizadoEm:new Date().toISOString(),atualizadoPor:S.meId||null});await log('Alterou','Configuração','Prazos de SLA',`Triagem: ${old.slaTriagem} → ${t} d.u.; Análise: ${old.slaAnalise} → ${a} d.u.`);toast('Prazos de SLA salvos.')}catch(e){onWriteErr(e)}}
 
@@ -798,18 +887,18 @@ function vEnvios(){
 function vNormas(){
   const list=filtNormas();const loading=!S.loaded.normas;const podeSel=!!(S.canWrite&&S.db);const sel=SEL();const nSel=list.filter(n=>sel.has(n.id)).length;const allSel=list.length>0&&nSel===list.length;
   const rows=list.map(n=>{const ac=S.acoes.filter(a=>a.normaId===n.id);const open=ac.filter(a=>!['Concluída','Cancelada'].includes(a.status)).length;const done=['Adequada','Não aplicável','Revogada'].includes(n.status);
-    return `<tr data-act="open-norma" data-id="${esc(n.id)}">${podeSel?`<td ${SELTD} data-act="sel-norma" data-id="${esc(n.id)}">${CB(sel.has(n.id))}</td>`:''}<td>${og(n.orgao)}</td><td><div class="cite">${esc(cite(n))}</div><div class="sub num">${esc(fmtD(n.dataPublicacao))}${n.tema?' · '+esc(n.tema):''}</div></td><td><div class="clip">${esc(n.ementa)}</div></td><td>${stPill(n.status)}</td><td><span class="crit crit-${esc(n.criticidade||'Média')}">${esc(n.criticidade||'—')}</span></td><td>${esc(n.responsavel||'—')}${n.area?`<div class="sub">${esc(n.area)}</div>`:''}</td><td class="nowrap num">${prazoTxt(n.prazoAdequacao,done)}</td><td class="num nowrap">${ac.length?`${open} aberta${open===1?'':'s'}<div class="sub">${ac.length} no total</div>`:'<span class="muted">—</span>'}</td></tr>`}).join('');
+    return `<tr data-act="open-norma" data-id="${esc(n.id)}">${podeSel?`<td ${SELTD} data-act="sel-norma" data-id="${esc(n.id)}">${CB(sel.has(n.id))}</td>`:''}<td>${og(n.orgao)}</td><td><div class="cite">${esc(cite(n))}</div><div class="sub num">${esc(fmtD(n.dataPublicacao))}${n.tema?' · '+esc(n.tema):''}</div></td><td><div class="clip">${esc(n.ementa)}</div></td><td>${stPill(n.status)}</td><td><span class="crit crit-${esc(n.criticidade||'Média')}">${esc(rl(n.criticidade))}</span></td><td>${esc(n.responsavel||'—')}${n.area?`<div class="sub">${esc(n.area)}</div>`:''}</td><td class="nowrap num">${prazoTxt(n.prazoAdequacao,done)}</td><td class="num nowrap">${ac.length?`${open} aberta${open===1?'':'s'}<div class="sub">${ac.length} no total</div>`:'<span class="muted">—</span>'}</td></tr>`}).join('');
   const f=S.nf;
   return `<div class="head"><div><h1>Normas</h1><p>Normativos do Bacen, CMN, CVM e ANBIMA acompanhados pela área, com triagem, aplicabilidade e prazo de adequação.</p></div>
     <div class="actions">${S.downloads&&window.XLSX?`<button class="btn" data-act="export-normas">Exportar Excel</button>`:''}${S.canWrite&&S.db?`<button class="btn" data-act="import">Importar planilha</button><button class="btn pri" data-act="new-norma">Nova norma</button>`:''}</div></div>
   <div class="toolbar"><input type="search" id="nq" placeholder="Buscar por número, ementa, tema ou responsável" value="${esc(f.q)}" aria-label="Buscar normas">
     <select id="no" aria-label="Órgão">${opts(ORGAOS,f.orgao,'Todos os órgãos')}</select>
     <select id="ns" aria-label="Status">${opts(ST_NORMA,f.status,'Todos os status')}</select>
-    <select id="nc" aria-label="Criticidade">${opts(CRIT,f.crit,'Qualquer criticidade')}</select>
+    <select id="nc" aria-label="Risco">${optsRisco(f.crit,'Qualquer risco')}</select>
     ${f.q||f.orgao||f.status||f.crit?`<button class="btn sm" data-act="clear-nf">Limpar filtros</button>`:''}</div>
   ${podeSel&&nSel?`<div role="region" aria-label="Ações em massa" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;margin:4px 0 8px;border:1px solid var(--line);border-radius:10px"><b style="margin-right:4px">${nSel} selecionada${nSel===1?'':'s'}</b><button class="btn sm" data-act="bulk-status" data-status="Aplicável">Marcar como Aplicável</button><button class="btn sm" data-act="bulk-status" data-status="Não aplicável">Marcar como Não aplicável</button><button class="btn sm" data-act="sel-clear">Limpar seleção</button></div>`:''}
   <div class="chips muted">Fontes oficiais: ${FONTES.map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${t}</a>`).join(' · ')}</div>
-  ${list.length?`<div class="tblwrap"><table class="tbl"><thead><tr>${podeSel?`<th ${SELTD} data-act="sel-all" title="Selecionar todas as normas filtradas">${CB(allSel)}</th>`:''}<th>Órgão</th><th>Norma</th><th>Ementa</th><th>Status</th><th>Criticidade</th><th>Responsável</th><th>Prazo adequação</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table></div>
+  ${list.length?`<div class="tblwrap"><table class="tbl"><thead><tr>${podeSel?`<th ${SELTD} data-act="sel-all" title="Selecionar todas as normas filtradas">${CB(allSel)}</th>`:''}<th>Órgão</th><th>Norma</th><th>Ementa</th><th>Status</th><th>Risco</th><th>Responsável</th><th>Prazo adequação</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="muted" style="font-size:13px">${list.length} de ${S.normas.length} normas</div>`
   :`<div class="panel"><div class="empty">${loading?'Carregando normas…':S.normas.length?'Nenhuma norma corresponde aos filtros.':'Nenhuma norma cadastrada ainda. Cadastre a primeira ou importe a planilha que a equipe já usa.'}${!loading&&!S.normas.length&&S.canWrite&&S.db?`<div class="actions"><button class="btn pri" data-act="new-norma">Cadastrar norma</button><button class="btn" data-act="import">Importar planilha</button></div>`:''}</div></div>`}`;
 }
@@ -857,6 +946,65 @@ function vAudit(){
 }
 
 /* ---------- Diálogos ---------- */
+/* ---------- Relatório em PDF: o usuário escolhe período, filtros e seções; o navegador salva em PDF ---------- */
+const REL_SEC=[['resumo','Resumo em números'],['meses','Gráfico: normas publicadas por mês'],['situacao','Gráfico: situação das normas'],['risco','Gráfico: normas por risco'],['orgao','Tabela: normas por órgão'],['prazo','Gráfico: ações por prazo'],['areaNormas','Tabela: normas analisadas por área'],['areaPlanos','Tabela: planos de ação por área'],['retornos','Lista: retornos das áreas'],['normas','Lista: normas do período'],['planos','Lista: planos de ação'],['obrig','Lista: obrigações regulatórias']];
+function relDe(){const d=new Date();d.setMonth(d.getMonth()-11,1);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-01'}
+function dRelatorio(){const ar=[...(S.areas||[])];
+  return `<form class="dlg" data-form="relatorio"><header><div class="t"><h2>Relatório em PDF</h2></div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
+  <div class="content"><div class="form">
+    <p class="muted" style="margin:0;font-size:13px">Considera as normas publicadas no período. A situação das normas, ações e retornos é a de hoje.</p>
+    <div class="g2"><label>Publicadas a partir de<input type="date" id="rDe" value="${relDe()}"></label><label>Data de corte<input type="date" id="rAte" value="${today()}"></label></div>
+    <div class="g3"><label>Órgão<select id="rOrg"><option value="">Todos</option>${ORGAOS.map(o=>`<option>${esc(o)}</option>`).join('')}</select></label>
+      <label>Área<select id="rArea"><option value="">Todas</option>${ar.map(a=>`<option>${esc(a)}</option>`).join('')}</select></label>
+      <label>Risco<select id="rRisco"><option value="">Todos</option><option value="Alta">Alto</option><option value="Média">Médio</option><option value="Baixa">Baixo</option></select></label></div>
+    <fieldset class="relsec"><legend>Gráficos e informações <button type="button" class="lnk" data-act="rel-todos">Desmarcar todos</button></legend>
+      ${REL_SEC.map(([k,l])=>`<label class="chk"><input type="checkbox" name="rSec" value="${k}" checked> ${esc(l)}</label>`).join('')}</fieldset>
+  </div></div>
+  <footer><span></span><div style="display:flex;gap:8px"><button type="button" class="btn" data-act="close">Cancelar</button><button type="button" class="btn pri" data-act="rel-gerar">Gerar PDF</button></div></footer></form>`}
+function mesesEntre(de,ate){const r=[];const a=pISO(de)||new Date(),b=pISO(ate)||new Date();let x=new Date(a.getFullYear(),a.getMonth(),1);while(x<=b&&r.length<120){r.push({key:x.getFullYear()+'-'+pad(x.getMonth()+1),m:x.getMonth(),y:x.getFullYear()});x=new Date(x.getFullYear(),x.getMonth()+1,1)}return r.slice(-36)}
+function relatorioHTML(o){const k=a=>norm(a||''),noArea=x=>!o.area||k(x)===k(o.area);
+  const dentro=d=>d&&(!o.de||d>=o.de)&&(!o.ate||d<=o.ate);
+  const encAll=(S.enc||[]).filter(e=>noArea(e.area));
+  let ns=S.normas.filter(n=>dentro((n.dataPublicacao||(n.criadoEm||'').slice(0,10)))&&(!o.orgao||n.orgao===o.orgao)&&(!o.risco||n.criticidade===o.risco));
+  if(o.area)ns=ns.filter(n=>S.acoes.some(a=>a.normaId===n.id&&noArea(a.area))||encAll.some(e=>e.normaId===n.id));
+  const ids=new Set(ns.map(n=>n.id));
+  const ac=S.acoes.filter(a=>noArea(a.area)&&(a.normaId?ids.has(a.normaId):!o.orgao&&!o.risco&&dentro((a.criadoEm||'').slice(0,10))));
+  const enc=encAll.filter(e=>ids.has(e.normaId));
+  const ob=S.obrig.filter(x=>noArea(x.area)&&(!o.orgao||x.orgao===o.orgao)&&(dentro(x.proximoVencimento)||(!x.concluida&&days(x.proximoVencimento)!=null&&days(x.proximoVencimento)<0)));
+  const has=x=>o.sec.has(x),T=(h,body,cls='')=>`<section class="${cls}"><h2>${h}</h2>${body}</section>`,vazio=t=>`<p class="muted">${t}</p>`;
+  const nm=id=>{const n=S.normas.find(x=>x.id===id);return n?cite(n):'—'};
+  const st=s=>ns.filter(n=>(n.status||'Nova')===s).length;
+  const aberta=ac.filter(a=>a.status==='Aberta'||a.status==='Em andamento').length,atr=ac.filter(a=>acaoStatus(a)==='Atrasada').length;
+  const apl=ns.filter(n=>n.status==='Aplicável'||n.status==='Adequada');
+  const b={np:0,ca:0,ed:0,v7:0,a30:0,a30p:0};for(const a of ac){if(a.status==='Cancelada')continue;if(a.status==='Concluída'){(a.prazo&&a.concluidaEm&&a.concluidaEm>a.prazo)?b.ca++:b.np++;continue}const d=days(a.prazo);if(d==null||d>7)b.ed++;else if(d>=0)b.v7++;else if(d>=-30)b.a30++;else b.a30p++}
+  const filtros=[`Publicação de ${o.de?fmtD(o.de):'início'} até ${fmtD(o.ate||today())}`,o.orgao&&`Órgão: ${o.orgao}`,o.area&&`Área: ${o.area}`,o.risco&&`Risco: ${rl(o.risco)}`].filter(Boolean).join(' · ');
+  const logo=(document.querySelector('.side .logo')||{}).src||'';
+  let h=`<header class="rep-h"><div>${logo?`<img src="${logo}" alt="Trinus">`:''}<h1>Relatório de controle normativo</h1></div><div class="meta">Data de corte ${esc(fmtD(o.ate||today()))}<br>Gerado em ${esc(fmtDT(new Date().toISOString()))}<br>por ${esc((S.me&&S.me.name)||'')}</div></header><p class="rep-f">${esc(filtros)}</p>`;
+  if(has('resumo')){const kp=(v,l)=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`;const resp=enc.filter(e=>e.respondidoEm).length;
+    h+=T('Resumo',`<div class="kpis">${kp(ns.length,'Normas publicadas no período')}${kp(st('Nova')+st('Em análise'),'Em triagem ou análise')}${kp(apl.length,'Aplicáveis ou adequadas')}${kp(apl.filter(n=>S.acoes.some(a=>a.normaId===n.id)).length,'Aplicáveis com plano de ação')}${kp(aberta,'Ações em aberto')}${kp(atr,'Ações atrasadas')}${kp(enc.length,'Encaminhamentos às áreas')}${kp(resp,'Retornos recebidos')}${kp(enc.length-resp,'Retornos pendentes')}</div>`)}
+  if(has('meses'))h+=T('Normas publicadas por mês',ns.length?chartMeses(ns,mesesEntre(o.de||(ns.map(n=>n.dataPublicacao).filter(Boolean).sort()[0]),o.ate||today()),700):vazio('Nenhuma norma no período.'));
+  if(has('situacao'))h+=T('Situação das normas',hbars(ST_NORMA.map(s=>({label:s,v:st(s),c:'var(--s1)'}))));
+  if(has('risco'))h+=T('Normas por risco jurídico-regulatório',hbars([['Alta','var(--crit)'],['Média','var(--warn)'],['Baixa','var(--ok)']].map(([r,c])=>({label:rl(r),v:ns.filter(n=>n.criticidade===r).length,c})).concat([{label:'Sem classificação',v:ns.filter(n=>!n.criticidade).length,c:'var(--s5)'}])));
+  if(has('orgao')){const rows=ORGAOS.map(g=>{const x=ns.filter(n=>n.orgao===g);if(!x.length)return '';const c=s=>x.filter(n=>(n.status||'Nova')===s).length;return `<tr><td><b>${g}</b></td><td class="num">${x.length}</td><td class="num">${c('Nova')+c('Em análise')}</td><td class="num">${c('Aplicável')+c('Adequada')}</td><td class="num">${c('Não aplicável')}</td><td class="num">${x.filter(n=>S.acoes.some(a=>a.normaId===n.id)).length}</td></tr>`}).join('');
+    h+=T('Normas por órgão',rows?`<table><thead><tr><th>Órgão</th><th>Normas</th><th>Em triagem</th><th>Aplicáveis</th><th>Não aplicáveis</th><th>Com plano</th></tr></thead><tbody>${rows}</tbody></table>`:vazio('Nenhuma norma no período.'))}
+  if(has('prazo'))h+=T('Ações por prazo',ac.length?hbars([{label:'Concluídas no prazo',v:b.np,c:'var(--ok)'},{label:'Concluídas com atraso',v:b.ca,c:'var(--warn)'},{label:'Em aberto, em dia',v:b.ed,c:'var(--s1)'},{label:'Vencem em até 7 dias',v:b.v7,c:'var(--warn)'},{label:'Atrasadas até 30 dias',v:b.a30,c:'var(--crit)'},{label:'Atrasadas há mais de 30 dias',v:b.a30p,c:'var(--crit)'}]):vazio('Nenhuma ação no período.'));
+  if(has('areaNormas')||has('areaPlanos')){const pa=porArea(enc,ac,true);if(has('areaNormas'))h+=T('Normas analisadas por área',pa.tN);if(has('areaPlanos'))h+=T('Planos de ação por área',pa.tA)}
+  if(has('retornos'))h+=T('Retornos das áreas',enc.length?`<table><thead><tr><th>Norma</th><th>Área</th><th>Enviada</th><th>Prazo</th><th>Situação</th><th>Aplicável</th><th>Plano sugerido</th><th>Data sugerida</th></tr></thead><tbody>${enc.map(e=>`<tr><td>${esc(nm(e.normaId))}</td><td>${esc(e.area)}</td><td>${esc(fmtD(diaBRT(e.em)))}</td><td>${esc(fmtD(e.prazo))}</td><td>${esc(encStatus(e)[0])}</td><td>${e.aplicavel===true?'Sim':e.aplicavel===false?'Não':'—'}</td><td>${esc(e.planoSugerido||e.resposta||'—')}</td><td>${e.dataSugerida?esc(fmtD(e.dataSugerida)):'—'}</td></tr>`).join('')}</tbody></table>`:vazio('Nenhum encaminhamento no período.'),'long');
+  if(has('normas')){const l=[...ns].sort((a,b)=>(b.dataPublicacao||'').localeCompare(a.dataPublicacao||''));
+    h+=T(`Normas do período (${l.length})`,l.length?`<table><thead><tr><th>Publicação</th><th>Norma</th><th>Ementa</th><th>Risco</th><th>Status</th></tr></thead><tbody>${l.map(n=>`<tr><td>${esc(fmtD(n.dataPublicacao))}</td><td><b>${esc(cite(n))}</b></td><td>${esc(String(n.ementa||'').slice(0,260))}${String(n.ementa||'').length>260?'…':''}</td><td>${esc(rl(n.criticidade))}</td><td>${esc(n.status||'Nova')}</td></tr>`).join('')}</tbody></table>`:vazio('Nenhuma norma no período.'),'long')}
+  if(has('planos')){const l=ac.filter(a=>a.status!=='Cancelada').sort((a,b)=>(a.prazo||'9').localeCompare(b.prazo||'9'));
+    h+=T(`Planos de ação (${l.length})`,l.length?`<table><thead><tr><th>Norma</th><th>Ação</th><th>Área</th><th>Responsável</th><th>Prazo</th><th>Situação</th></tr></thead><tbody>${l.map(a=>`<tr><td>${esc(a.normaId?nm(a.normaId):'—')}</td><td>${esc(String(a.descricao||'').slice(0,260))}</td><td>${esc(a.area||'—')}</td><td>${esc(a.responsavel||'—')}</td><td>${esc(fmtD(a.prazo))}</td><td>${esc(acaoStatus(a))}</td></tr>`).join('')}</tbody></table>`:vazio('Nenhuma ação no período.'),'long')}
+  if(has('obrig')){const l=[...ob].sort((a,b)=>(a.proximoVencimento||'9').localeCompare(b.proximoVencimento||'9'));
+    h+=T(`Obrigações regulatórias (${l.length})`,l.length?`<table><thead><tr><th>Obrigação</th><th>Órgão</th><th>Periodicidade</th><th>Área</th><th>Vencimento</th><th>Situação</th></tr></thead><tbody>${l.map(x=>`<tr><td><b>${esc(x.titulo)}</b></td><td>${esc(x.orgao||'—')}</td><td>${esc(x.periodicidade||'—')}</td><td>${esc(x.area||'—')}</td><td>${esc(fmtD(x.proximoVencimento))}</td><td>${esc(obStatus(x)[0])}</td></tr>`).join('')}</tbody></table>`:vazio('Nenhuma obrigação com vencimento no período.'),'long')}
+  return `<div class="rep">${h}<p class="rep-f" style="margin-top:18px">Controle Normativo · Trinus Co</p></div>`}
+let tituloAntes='';
+function gerarRel(){const v=id=>($('#'+id)||{}).value||'';const o={de:v('rDe'),ate:v('rAte')||today(),orgao:v('rOrg'),area:v('rArea'),risco:v('rRisco'),sec:new Set([...document.querySelectorAll('input[name=rSec]:checked')].map(x=>x.value))};
+  if(!o.sec.size){toast('Marque pelo menos um gráfico ou informação.','crit');return}
+  if(o.de&&o.de>o.ate){toast('A data inicial é posterior à data de corte.','crit');return}
+  let root=document.getElementById('printRoot');if(!root){root=document.createElement('div');root.id='printRoot';document.body.appendChild(root)}
+  root.innerHTML=relatorioHTML(o);closeDlg();document.body.classList.add('printing');tituloAntes=document.title;document.title='Relatorio-normativo-'+o.ate;
+  setTimeout(()=>window.print(),80)}
+addEventListener('afterprint',()=>{if(!document.body.classList.contains('printing'))return;document.body.classList.remove('printing');if(tituloAntes)document.title=tituloAntes});
 function openDlg(state){S.dlg=state;dlg.className=state.narrow?'narrow':'';drawDlg();if(!dlg.open)dlg.showModal()}
 function closeDlg(){S.dlg=null;S.importRows=null;if(dlg.open)dlg.close()}
 dlg.addEventListener('close',()=>{S.dlg=null});
@@ -864,7 +1012,7 @@ function areaSel(id,v){const l=[...(S.areas||[])];if(v&&!l.some(a=>norm(a)===nor
   return `<select id="${id}"><option value="">Selecione a área</option>${l.map(a=>`<option${norm(a)===norm(v||'')?' selected':''}>${esc(a)}</option>`).join('')}</select>`}
 function drawDlgKeep(){['aArea','oArea'].forEach(id=>{const el=$('#'+id);if(el&&el.tagName==='SELECT'){const v=el.value;el.outerHTML=areaSel(id,v)}})}
 function drawDlg(){const d=S.dlg;if(!d)return;
-  const m={norma:dNorma,acao:dAcao,obrig:dObrig,envio:dEnvio,import:dImport}[d.type];dlg.innerHTML=m(d);}
+  const m={norma:dNorma,acao:dAcao,obrig:dObrig,envio:dEnvio,import:dImport,relatorio:dRelatorio}[d.type];dlg.innerHTML=m(d);}
 function refreshDialog(){const d=S.dlg;if(!d||!dlg.open)return;
   if(d.type==='norma'&&d.id){const el=$('#dlgAcoes');if(el)el.innerHTML=normaAcoes(d.id)}
   if(d.type==='acao'&&d.id){const el=$('#evList');if(el)el.innerHTML=evList(S.acoes.find(a=>a.id===d.id))}
@@ -881,7 +1029,8 @@ function dNorma(d){const n=d.id?S.normas.find(x=>x.id===d.id)||{}:{orgao:'BACEN'
     <div class="g3"><label>Publicação<input type="date" id="nPub" value="${esc(n.dataPublicacao)}"></label><label>Início de vigência<input type="date" id="nVig" value="${esc(n.vigencia)}"></label><label>Prazo de adequação<input type="date" id="nPrazo" value="${esc(n.prazoAdequacao)}"></label></div>
     <label>Ementa<textarea id="nEmenta" rows="3" required placeholder="Resumo do que a norma dispõe">${esc(n.ementa)}</textarea></label>
     <div class="g2"><label>Tema<input id="nTema" list="temas" value="${esc(n.tema)}" placeholder="ex.: PLD/FT, Crédito, Fundos"><datalist id="temas">${temas.map(t=>`<option value="${esc(t)}">`).join('')}</datalist></label><label>Link oficial<input type="url" id="nLink" value="${esc(n.link)}" placeholder="https://"></label></div>
-    <div class="g2"><label>Status<select id="nStatus">${opts(ST_NORMA,n.status||'Nova')}</select></label><label>Criticidade<select id="nCrit">${opts(CRIT,n.criticidade||'Média')}</select></label></div>
+    <div class="g2"><label>Status<select id="nStatus">${opts(ST_NORMA,n.status||'Nova')}</select></label><label>Risco jurídico-regulatório<select id="nCrit">${optsRisco(n.criticidade||'Média')}</select><span class="dir" id="nDir" style="color:${(n.criticidade||'Média')==='Alta'?'var(--crit)':(n.criticidade||'Média')==='Média'?'var(--warn)':'var(--muted)'}">Diretriz: ${DIRETRIZ[n.criticidade||'Média']}</span></label></div>
+    ${matrizBox(n)}
     <div class="g2"><label>Responsável<input id="nResp" value="${esc(n.responsavel)}" placeholder="Nome do analista"></label><label>Áreas impactadas<input id="nArea" value="${esc(n.area)}" placeholder="ex.: Crédito, TI, Jurídico"></label></div>
     <label>Análise de aplicabilidade e observações<textarea id="nObs" rows="5" placeholder="Por que a norma se aplica (ou não), impactos, revogações relacionadas">${esc(n.observacoes)}</textarea></label>
   </fieldset></div>
@@ -944,7 +1093,7 @@ function dImport(){const rows=S.importRows;
     <div class="prev"><table class="tbl"><thead><tr><th></th><th>Norma</th><th>Publicação</th><th>Ementa</th><th>Status</th></tr></thead><tbody>${rows.slice(0,60).map(r=>`<tr style="cursor:default"><td>${r._err?pill('Erro','crit'):r._dup?pill('Já existe','mute'):pill('Nova','ok')}</td><td class="nowrap">${og(r.orgao)} ${esc(cite(r))}</td><td class="num nowrap">${esc(fmtD(r.dataPublicacao))}</td><td><div class="clip">${esc(r._err||r.ementa)}</div></td><td>${esc(r.status)}</td></tr>`).join('')}</tbody></table></div>`}
   return `<form class="dlg" data-form="import"><header><div class="t"><h2>Importar planilha de normas</h2><span class="muted">Excel (.xlsx) ou CSV, uma norma por linha</span></div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
   <div class="content single"><div class="form">
-    ${window.XLSX?`<label class="drop" for="impFile"><span>Escolher arquivo</span><span style="font-size:12px">Colunas reconhecidas: Órgão, Tipo, Número, Data publicação, Vigência, Ementa, Tema, Status, Criticidade, Responsável, Área, Prazo adequação, Link, Observações</span><input type="file" id="impFile" accept=".xlsx,.xls,.csv"></label>`:`<div class="banner warn">O leitor de planilhas não carregou. Recarregue a página e tente de novo.</div>`}
+    ${window.XLSX?`<label class="drop" for="impFile"><span>Escolher arquivo</span><span style="font-size:12px">Colunas reconhecidas: Órgão, Tipo, Número, Data publicação, Vigência, Ementa, Tema, Status, Risco, Responsável, Área, Prazo adequação, Link, Observações</span><input type="file" id="impFile" accept=".xlsx,.xls,.csv"></label>`:`<div class="banner warn">O leitor de planilhas não carregou. Recarregue a página e tente de novo.</div>`}
     ${S.downloads&&window.XLSX?`<div><button type="button" class="btn sm" data-act="template">Baixar modelo em Excel</button></div>`:''}
     ${prev}</div></div>
   <footer><span></span><div class="r"><button type="button" class="btn" data-act="close">Cancelar</button>${rows&&rows.some(r=>!r._dup&&!r._err)?`<button class="btn pri" type="submit"${S.busy?' disabled':''}>${S.busy?'Importando…':'Importar '+rows.filter(r=>!r._dup&&!r._err).length+' normas'}</button>`:''}</div></footer></form>`}
@@ -952,11 +1101,11 @@ function dImport(){const rows=S.importRows;
 /* ---------- Gravações ---------- */
 const val=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
 const stamp=isNew=>{const t=new Date().toISOString();return isNew?{criadoEm:t,criadoPor:S.meId||null,atualizadoEm:t,atualizadoPor:S.meId||null}:{atualizadoEm:t,atualizadoPor:S.meId||null}};
-const NL={orgao:'Órgão',tipo:'Tipo',numero:'Número',dataPublicacao:'Publicação',vigencia:'Vigência',prazoAdequacao:'Prazo',ementa:'Ementa',tema:'Tema',link:'Link',status:'Status',criticidade:'Criticidade',responsavel:'Responsável',area:'Áreas',observacoes:'Análise'};
+const NL={orgao:'Órgão',tipo:'Tipo',numero:'Número',dataPublicacao:'Publicação',vigencia:'Vigência',prazoAdequacao:'Prazo',ementa:'Ementa',tema:'Tema',link:'Link',status:'Status',criticidade:'Risco',responsavel:'Responsável',area:'Áreas',observacoes:'Análise'};
 const AL={normaId:'Norma',descricao:'Ação',gap:'Gap',responsavel:'Responsável',area:'Área',prazo:'Prazo',status:'Status',observacoes:'Comentários'};
 const OL={titulo:'Obrigação',orgao:'Órgão',periodicidade:'Periodicidade',proximoVencimento:'Vencimento',canal:'Canal',normaId:'Norma',responsavel:'Responsável',area:'Área',descricao:'Descrição'};
 
-async function saveNorma(){const d=S.dlg;const data={orgao:val('nOrgao'),tipo:val('nTipo'),numero:val('nNumero'),dataPublicacao:val('nPub'),vigencia:val('nVig'),prazoAdequacao:val('nPrazo'),ementa:val('nEmenta'),tema:val('nTema'),link:val('nLink'),status:val('nStatus'),criticidade:val('nCrit'),responsavel:val('nResp'),area:val('nArea'),observacoes:val('nObs')};
+async function saveNorma(){const d=S.dlg;const data={orgao:val('nOrgao'),tipo:val('nTipo'),numero:val('nNumero'),dataPublicacao:val('nPub'),vigencia:val('nVig'),prazoAdequacao:val('nPrazo'),ementa:val('nEmenta'),tema:val('nTema'),link:val('nLink'),status:val('nStatus'),criticidade:val('nCrit'),criteriosRisco:[...document.querySelectorAll('.crRisco:checked')].map(x=>x.value).join(';'),responsavel:val('nResp'),area:val('nArea'),observacoes:val('nObs')};
   if(!data.numero||!data.ementa){toast('Preencha o número e a ementa da norma.','crit');return}
   data.chave=chave(data);const dup=S.normas.find(n=>n.chave===data.chave&&n.id!==d.id);if(dup){toast(cite(dup)+' já está cadastrada.','crit');return}
   try{if(d.id){const old=S.normas.find(n=>n.id===d.id)||{};const df=diff(old,data,NL);if(!df){toast('Nenhuma alteração para salvar.');return}
@@ -1023,7 +1172,7 @@ async function removeEv(i){const d=S.dlg;const a=S.acoes.find(x=>x.id===d.id);if
   try{await S.db.doc('acoes/'+a.id).update({evidencias:ev,...stamp(false)});if(S.assets){try{await S.assets.delete(e.id)}catch{}}await log('Removeu evidência','Ação',a.descricao.slice(0,80),e.nome);toast('Evidência removida.')}catch(err){onWriteErr(err)}}
 
 /* ---------- Importação / exportação ---------- */
-const COLMAP={orgao:'orgao',orgaoregulador:'orgao',regulador:'orgao',tipo:'tipo',tiponorma:'tipo',numero:'numero',n:'numero',no:'numero',datapublicacao:'dataPublicacao',publicacao:'dataPublicacao',data:'dataPublicacao',vigencia:'vigencia',iniciovigencia:'vigencia',iniciodevigencia:'vigencia',ementa:'ementa',assunto:'ementa',resumo:'ementa',descricao:'ementa',tema:'tema',status:'status',situacao:'status',criticidade:'criticidade',prioridade:'criticidade',responsavel:'responsavel',area:'area',areas:'area',areasimpactadas:'area',prazo:'prazoAdequacao',prazoadequacao:'prazoAdequacao',prazodeadequacao:'prazoAdequacao',link:'link',url:'link',observacoes:'observacoes',obs:'observacoes',analise:'observacoes'};
+const COLMAP={orgao:'orgao',orgaoregulador:'orgao',regulador:'orgao',tipo:'tipo',tiponorma:'tipo',numero:'numero',n:'numero',no:'numero',datapublicacao:'dataPublicacao',publicacao:'dataPublicacao',data:'dataPublicacao',vigencia:'vigencia',iniciovigencia:'vigencia',iniciodevigencia:'vigencia',ementa:'ementa',assunto:'ementa',resumo:'ementa',descricao:'ementa',tema:'tema',status:'status',situacao:'status',criticidade:'criticidade',risco:'criticidade',riscojuridicoregulatorio:'criticidade',prioridade:'criticidade',responsavel:'responsavel',area:'area',areas:'area',areasimpactadas:'area',prazo:'prazoAdequacao',prazoadequacao:'prazoAdequacao',prazodeadequacao:'prazoAdequacao',link:'link',url:'link',observacoes:'observacoes',obs:'observacoes',analise:'observacoes'};
 function toISO(v){if(v==null||v==='')return '';if(v instanceof Date&&!isNaN(v))return isoOf(v);if(typeof v==='number'&&window.XLSX){const p=XLSX.SSF.parse_date_code(v);if(p)return p.y+'-'+pad(p.m)+'-'+pad(p.d)}
   const s=String(v).trim();let m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)return m[3]+'-'+pad(m[2])+'-'+pad(m[1]);m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return m[1]+'-'+m[2]+'-'+m[3];return ''}
 function pick(list,v,def){const n=norm(v);return list.find(x=>norm(x)===n)||def}
@@ -1032,7 +1181,7 @@ async function readImport(file){try{const buf=await file.arrayBuffer();const wb=
   if(!raw.length){toast('A planilha está vazia.','crit');return}
   const seen=new Set(S.normas.map(n=>n.chave));
   S.importRows=raw.map(r=>{const o={};for(const k in r){const f=COLMAP[norm(k).replace(/[^a-z0-9]/g,'')];if(f&&o[f]==null)o[f]=r[k]}
-    const n={orgao:orgaoOf(o.orgao),tipo:pick(TIPOS,o.tipo,o.tipo?'Outro':'Resolução'),numero:String(o.numero??'').trim(),dataPublicacao:toISO(o.dataPublicacao),vigencia:toISO(o.vigencia),prazoAdequacao:toISO(o.prazoAdequacao),ementa:String(o.ementa??'').trim(),tema:String(o.tema??'').trim(),status:pick(ST_NORMA,o.status,'Nova'),criticidade:pick(CRIT,o.criticidade,'Média'),responsavel:String(o.responsavel??'').trim(),area:String(o.area??'').trim(),link:String(o.link??'').trim(),observacoes:String(o.observacoes??'').trim()};
+    const n={orgao:orgaoOf(o.orgao),tipo:pick(TIPOS,o.tipo,o.tipo?'Outro':'Resolução'),numero:String(o.numero??'').trim(),dataPublicacao:toISO(o.dataPublicacao),vigencia:toISO(o.vigencia),prazoAdequacao:toISO(o.prazoAdequacao),ementa:String(o.ementa??'').trim(),tema:String(o.tema??'').trim(),status:pick(ST_NORMA,o.status,'Nova'),criticidade:(k=>k.startsWith('alt')?'Alta':k.startsWith('bai')?'Baixa':'Média')(norm(o.criticidade||'')),responsavel:String(o.responsavel??'').trim(),area:String(o.area??'').trim(),link:String(o.link??'').trim(),observacoes:String(o.observacoes??'').trim()};
     if(!n.orgao)n._err='Órgão não informado';else if(!n.numero)n._err='Número não informado';else if(!n.ementa)n._err='Ementa não informada';
     n.chave=chave(n);if(!n._err&&seen.has(n.chave))n._dup=true;else if(!n._err)seen.add(n.chave);return n});
   drawDlg()}catch(e){toast('Não foi possível ler o arquivo. Confira se é um .xlsx ou .csv válido.','crit')}}
@@ -1042,11 +1191,11 @@ async function runImport(){const rows=(S.importRows||[]).filter(r=>!r._dup&&!r._
   catch(e){S.busy=false;onWriteErr(e);if(ok)toast(ok+' normas foram importadas antes do erro.','crit');S.importRows=null;drawDlg()}}
 async function saveXlsx(rows,sheet,filename){if(!S.downloads||!window.XLSX)return;const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheet);
   const out=XLSX.write(wb,{type:'array',bookType:'xlsx'});try{await S.downloads.save({filename,data:new Uint8Array(out)})}catch(e){if(e&&e.code!=='declined')toast('Não foi possível gerar o arquivo.','crit')}}
-function exportNormas(){const rows=filtNormas().map(n=>({'Órgão':n.orgao,'Tipo':n.tipo,'Número':n.numero,'Norma':cite(n),'Data publicação':fmtD(n.dataPublicacao),'Vigência':n.vigencia?fmtD(n.vigencia):'','Ementa':n.ementa,'Tema':n.tema||'','Status':n.status||'Nova','Criticidade':n.criticidade||'','Responsável':n.responsavel||'','Área':n.area||'','Prazo adequação':n.prazoAdequacao?fmtD(n.prazoAdequacao):'','Ações abertas':S.acoes.filter(a=>a.normaId===n.id&&!['Concluída','Cancelada'].includes(a.status)).length,'Link':n.link||'','Observações':n.observacoes||''}));
+function exportNormas(){const rows=filtNormas().map(n=>({'Órgão':n.orgao,'Tipo':n.tipo,'Número':n.numero,'Norma':cite(n),'Data publicação':fmtD(n.dataPublicacao),'Vigência':n.vigencia?fmtD(n.vigencia):'','Ementa':n.ementa,'Tema':n.tema||'','Status':n.status||'Nova','Risco':rl(n.criticidade),'Responsável':n.responsavel||'','Área':n.area||'','Prazo adequação':n.prazoAdequacao?fmtD(n.prazoAdequacao):'','Ações abertas':S.acoes.filter(a=>a.normaId===n.id&&!['Concluída','Cancelada'].includes(a.status)).length,'Link':n.link||'','Observações':n.observacoes||''}));
   saveXlsx(rows,'Normas','normas-'+today()+'.xlsx')}
 function exportAcoes(){const rows=S.acoes.map(a=>{const n=S.normas.find(x=>x.id===a.normaId);return{'Norma':n?cite(n):'','Órgão':n?n.orgao:'','Ação':a.descricao,'Gap':a.gap||'','Responsável':a.responsavel||'','Área':a.area||'','Prazo':a.prazo?fmtD(a.prazo):'','Status':acaoStatus(a),'Concluída em':a.concluidaEm?fmtD(a.concluidaEm):'','Evidências':(a.evidencias||[]).map(e=>e.nome).join('; ')}});
   saveXlsx(rows,'Planos de ação','planos-de-acao-'+today()+'.xlsx')}
-function template(){saveXlsx([{'Órgão':'CVM','Tipo':'Resolução','Número':'50','Data publicação':'31/08/2021','Vigência':'','Ementa':'EXEMPLO — apague esta linha. Dispõe sobre a prevenção à lavagem de dinheiro no mercado de valores mobiliários.','Tema':'PLD/FT','Status':'Em análise','Criticidade':'Alta','Responsável':'','Área':'','Prazo adequação':'','Link':'https://conteudo.cvm.gov.br/legislacao/resolucoes/resol050.html','Observações':''}],'Normas','modelo-importacao-normas.xlsx')}
+function template(){saveXlsx([{'Órgão':'CVM','Tipo':'Resolução','Número':'50','Data publicação':'31/08/2021','Vigência':'','Ementa':'EXEMPLO — apague esta linha. Dispõe sobre a prevenção à lavagem de dinheiro no mercado de valores mobiliários.','Tema':'PLD/FT','Status':'Em análise','Risco':'Alto','Responsável':'','Área':'','Prazo adequação':'','Link':'https://conteudo.cvm.gov.br/legislacao/resolucoes/resol050.html','Observações':''}],'Normas','modelo-importacao-normas.xlsx')}
 
 /* ---------- Eventos ---------- */
 function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
@@ -1061,6 +1210,9 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
   if(act==='save-cfg')return saveCfg();
   if(act==='run-captura'){t.disabled=true;window.CN_executarCaptura().then(r=>toast(r.mensagem||'Atualização iniciada.')).catch(e=>toast(errMsg(e),'crit'));return}
   if(act==='export-planos')return exportPlanos();
+  if(act==='relatorio')return openDlg({type:'relatorio',narrow:true});
+  if(act==='rel-gerar')return gerarRel();
+  if(act==='rel-todos'){const c=[...document.querySelectorAll('input[name=rSec]')];const on=c.some(x=>!x.checked);c.forEach(x=>x.checked=on);t.textContent=on?'Desmarcar todos':'Marcar todos';return}
   if(act==='goto'){const[r,f]=t.dataset.go.split(':');if(r==='normas'){S.nf={q:'',orgao:t.dataset.orgao||'',status:f||'',crit:''}}if(r==='acoes'){S.af={q:'',status:f||''}}location.hash=r;render();return}
   if(act==='new-norma')return openDlg({type:'norma'});
   if(act==='open-norma')return openDlg({type:'norma',id});
@@ -1085,7 +1237,9 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
 }
 main.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(t){e.preventDefault();handleAct(t,e)}});
 dlg.addEventListener('click',e=>{if(e.target===dlg)return closeDlg();const t=e.target.closest('[data-act]');if(t&&t.tagName!=='A'){e.preventDefault();handleAct(t,e)}});
-dlg.addEventListener('submit',e=>{e.preventDefault();if(!S.db)return;const f=e.target.dataset.form;({norma:saveNorma,acao:saveAcao,obrig:saveObrig,envio:saveEnvio,import:runImport})[f]()});
+dlg.addEventListener('submit',e=>{e.preventDefault();if(!S.db)return;const f=e.target.dataset.form;({norma:saveNorma,acao:saveAcao,obrig:saveObrig,envio:saveEnvio,import:runImport,relatorio:gerarRel})[f]()});
+document.addEventListener('change',e=>{const n=e.target.name||'';if(!n.startsWith('apl-'))return;const id=n.slice(4),sim=e.target.value==='sim';const box=document.getElementById('sim-'+id);if(box)box.hidden=!sim;const lj=document.getElementById('lj-'+id);if(lj)lj.textContent=sim?'Comentários (opcional)':'Justificativa (obrigatória)'});
+dlg.addEventListener('change',e=>{if(e.target.classList&&e.target.classList.contains('crRisco'))syncRisco('matriz');else if(e.target.id==='nCrit')syncRisco('select')});
 dlg.addEventListener('change',e=>{if(e.target.id==='evFile'&&e.target.files.length){uploadEv([...e.target.files]);e.target.value=''}if(e.target.id==='impFile'&&e.target.files[0]){readImport(e.target.files[0]);e.target.value=''}});
 main.addEventListener('input',e=>{if(e.target.id==='destNovo')S.destNovo=e.target.value});
 main.addEventListener('input',e=>{const id=e.target.id;if(id==='nq'){S.nf.q=e.target.value;render()}if(id==='aq'){S.af.q=e.target.value;render()}});
