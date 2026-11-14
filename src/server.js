@@ -205,7 +205,7 @@ app.post('/api/normas/:id/encaminhar', escrita, async (req, res) => {
     let areas = (await dados.listarAreas()).filter(a => marcadas.has(dados.normArea(a)));
     if (!areas.length) return res.status(400).json({ erro: 'Escolha pelo menos uma área.' });
     const mensagem = String(b.mensagem || '').trim().slice(0, 2000);
-    const n = (await q('SELECT id, tipo, orgao, numero, ementa, link, data_publicacao FROM normas WHERE id = $1', [req.params.id])).rows[0];
+    const n = (await q('SELECT id, tipo, orgao, numero, ementa, link, data_publicacao FROM normas WHERE id = $1 AND excluido_em IS NULL', [req.params.id])).rows[0];
     if (!n) return res.status(404).json({ erro: 'Norma não encontrada. Ela pode ter sido excluída.' });
     const quem = usuario(req);
     // Não duplica: área que ainda não respondeu esta norma não recebe de novo
@@ -281,7 +281,24 @@ app.patch('/api/c/:col/:id', escrita, async (req, res) => {
   try { await dados.atualizar(req.params.col, req.params.id, req.body || {}, usuario(req)); res.json({ ok: true }); } catch (e) { tratarErro(res, e); }
 });
 app.delete('/api/c/:col/:id', admin, async (req, res) => {
-  try { await dados.excluir(req.params.col, req.params.id); res.json({ ok: true }); } catch (e) { tratarErro(res, e); }
+  try {
+    await dados.excluir(req.params.col, req.params.id, usuario(req));
+    await dados.registrarAuditoria({ acao: 'Moveu para a lixeira', tipo: { normas: 'Norma', acoes: 'Ação', obrigacoes: 'Obrigação' }[req.params.col] || req.params.col, ref: req.params.id, detalhe: '' }, usuario(req).id);
+    res.json({ ok: true });
+  } catch (e) { tratarErro(res, e); }
+});
+// Lixeira (só Admin): consultar e restaurar. Não há exclusão definitiva pelo sistema.
+app.get('/api/admin/lixeira', admin, async (req, res) => {
+  try { res.json(await dados.listarLixeira()); } catch (e) { tratarErro(res, e); }
+});
+app.post('/api/admin/lixeira/restaurar', admin, async (req, res) => {
+  try {
+    const col = String((req.body && req.body.col) || ''), id = String((req.body && req.body.id) || '');
+    if (!['normas', 'acoes', 'obrigacoes', 'evidencias'].includes(col) || !id) return res.status(400).json({ erro: 'Item inválido.' });
+    const nome = await dados.restaurar(col, id);
+    await dados.registrarAuditoria({ acao: 'Restaurou da lixeira', tipo: { normas: 'Norma', acoes: 'Ação', obrigacoes: 'Obrigação', evidencias: 'Evidência' }[col], ref: String(nome || id).slice(0, 120), detalhe: '' }, usuario(req).id);
+    res.json({ ok: true });
+  } catch (e) { tratarErro(res, e); }
 });
 
 app.get('/api/sistema/:id', async (req, res) => {
@@ -398,15 +415,18 @@ app.post('/api/evidencias', colaboracao, (req, res) => {
     const id = req.file.filename || crypto.randomUUID().replace(/-/g, '');
     const nome = Buffer.from(req.file.originalname, 'latin1').toString('utf8').slice(0, 250);
     try {
-      await q('INSERT INTO evidencias (id, nome, tipo, tamanho, enviado_por, conteudo) VALUES ($1, $2, $3, $4, $5, $6)',
-        [id, nome, TIPOS_EVIDENCIA[ext], req.file.size, usuario(req).id, req.file.buffer || null]);
-      res.status(201).json({ id, url: '/_blob/' + id, sizeBytes: req.file.size, contentType: TIPOS_EVIDENCIA[ext] });
+      const bytes = req.file.buffer || fs.readFileSync(req.file.path);
+      const hash = crypto.createHash('sha256').update(bytes).digest('hex');
+      await q('INSERT INTO evidencias (id, nome, tipo, tamanho, enviado_por, conteudo, hash) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        [id, nome, TIPOS_EVIDENCIA[ext], req.file.size, usuario(req).id, req.file.buffer || null, hash]);
+      res.status(201).json({ id, url: '/_blob/' + id, sizeBytes: req.file.size, contentType: TIPOS_EVIDENCIA[ext], hash });
     } catch (e) { if (req.file.path) fs.unlink(req.file.path, () => {}); tratarErro(res, e); }
   });
 });
 app.delete('/api/evidencias/:id', admin, async (req, res) => {
-  const r = await q('DELETE FROM evidencias WHERE id = $1 RETURNING id', [req.params.id]);
-  fs.unlink(path.join(config.uploadDir, path.basename(req.params.id)), () => {});
+  // Vai para a lixeira: o arquivo continua guardado
+  const r = await q('UPDATE evidencias SET excluida_em = now(), excluida_por = $2 WHERE id = $1 AND excluida_em IS NULL RETURNING nome', [req.params.id, usuario(req).id]);
+  if (r.rowCount) await dados.registrarAuditoria({ acao: 'Moveu para a lixeira', tipo: 'Evidência', ref: r.rows[0].nome, detalhe: '' }, usuario(req).id);
   res.json({ deleted: r.rowCount > 0 });
 });
 app.get('/_blob/:id', async (req, res) => {
