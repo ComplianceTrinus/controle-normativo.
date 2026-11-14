@@ -512,6 +512,7 @@ app.post('/api/comentarios', colaboracao, async (req, res) => {
 app.get('/', (req, res) => {
   const pend = lerCookie(req, 'cn_norma');
   if (pend) { res.clearCookie('cn_norma'); if (!req.query.norma && NORMA_ID.test(pend)) return res.redirect('/?norma=' + encodeURIComponent(pend)); }
+  res.set('Cache-Control', 'no-cache');
   res.type('html').send(indexHtml);
 });
 app.use(express.static(PUBLIC, { index: false, maxAge: '1h' }));
