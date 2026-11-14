@@ -429,6 +429,8 @@ dialog.lateral .dlg .content{flex:1}
 .retorno .rt-sim{display:flex;flex-direction:column;gap:10px;background:var(--surface);border-radius:10px;padding:12px;border:1.5px dashed var(--accent)}
 .retorno .rt-sim[hidden]{display:none}
 .form .dec{display:flex;flex-direction:column;gap:12px;min-width:0}
+.form .aplbox{display:flex;flex-direction:column;gap:12px;padding:14px;border:1px solid var(--line);border-radius:12px;margin-top:4px}
+.form .aplbox h3{margin:0;font-size:14px}
 .retorno textarea,.retorno input[type=date]{background:var(--surface)}
 .rt-ok{display:flex;flex-direction:column;gap:6px;font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--ok-soft);border-radius:10px;padding:10px 12px;margin-top:6px}
 .rt-ok .rt-h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;white-space:normal}
@@ -576,7 +578,7 @@ const EV_TYPES={pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'ima
 /* ---------- Estado ---------- */
 const S={db:null,user:null,assets:null,downloads:null,me:null,meId:null,isAdmin:false,canWrite:true,role:'',
   dbState:'loading',loaded:{},normas:[],acoes:[],obrig:[],audit:[],names:{},
-  nf:{q:'',orgao:'',status:'',crit:''},af:{q:'',status:''},auf:{tipo:''},
+  nf:{q:'',orgao:'',status:'',crit:'',apl:''},af:{q:'',status:''},auf:{tipo:''},
   dlg:null,importRows:null,busy:false};
 const $=s=>document.querySelector(s);
 const main=$('#main'), dlg=$('#dlg');
@@ -741,11 +743,18 @@ function vPainel(){
 /* ---------- Indicadores ---------- */
 const DECIDIDO=['Aplicável','Não aplicável','Adequada','Revogada'];
 const aplStatus=s=>s==='Aplicável'||s==='Adequada';
-const decAberta=s=>DECIDIDO.includes(s||'Nova');
-const obsLabel=s=>s==='Não aplicável'?'Justificativa da não aplicabilidade':s==='Revogada'?'Observações':'Análise de aplicabilidade e observações';
-function decSync(){const st=val('nStatus'),pl=val('nPlano');const sh=(id,v)=>{const e=$('#'+id);if(e)e.hidden=!v};
-  sh('nDec',decAberta(st));sh('nApl',aplStatus(st));sh('lArea',aplStatus(st));sh('lPrazoAc',aplStatus(st)&&pl==='Sim');
-  const l=$('#lObs');if(l)l.textContent=obsLabel(st)}
+const APLIC=['Aplicável','Não aplicável'];
+const ST_FORM=['Nova','Em análise','Analisada','Adequada','Revogada'];
+const aplicOf=n=>n.aplicabilidade||(aplStatus(n.status)?'Aplicável':n.status==='Não aplicável'?'Não aplicável':'');
+const stForm=n=>['Aplicável','Não aplicável'].includes(n.status)?'Analisada':(n.status||'Nova');
+const GAP_AUTO='Plano acordado na análise de aplicabilidade';
+const obsLabel=a=>a==='Não aplicável'?'Justificativa da não aplicabilidade':'Análise de aplicabilidade e observações';
+function decSync(origem){const st=$('#nStatus'),ap=$('#nAplic');if(!st||!ap)return;
+  if(origem==='aplic'){if(ap.value&&['Nova','Em análise'].includes(st.value))st.value='Analisada';if(!ap.value&&st.value==='Analisada')st.value='Em análise'}
+  if(origem==='status'){if(st.value==='Adequada'&&!ap.value)ap.value='Aplicável';if(['Nova','Em análise'].includes(st.value))ap.value=''}
+  const a=ap.value,pl=val('nPlano'),sh=(id,v)=>{const e=$('#'+id);if(e)e.hidden=!v};
+  sh('nDec',!!a||['Adequada','Revogada'].includes(st.value));sh('nApl',a==='Aplicável');sh('lArea',a==='Aplicável');sh('lPlano',a==='Aplicável');sh('nPlanoBox',a==='Aplicável'&&pl==='Sim');
+  const l=$('#lObs');if(l)l.textContent=obsLabel(a)}
 function cfg(){return Object.assign({slaTriagem:5,slaAnalise:30},S.cfg||{})}
 function bizDays(a,b){const A=pISO(a),B=pISO(b);if(!A||!B)return null;if(B<=A)return 0;let n=0;const d=new Date(A);while(d<B){d.setDate(d.getDate()+1);const w=d.getDay();if(w!==0&&w!==6)n++}return n}
 function baseDate(n){return (n.criadoEm?isoOf(new Date(n.criadoEm)):'')||n.dataPublicacao||today()}
@@ -916,7 +925,9 @@ async function saveCfg(){const t=parseInt(val('cfgTri'),10),a=parseInt(val('cfgA
   const old=cfg();try{await S.db.doc('sistema/config').set({...(S.cfg||{}),slaTriagem:t,slaAnalise:a,atualizadoEm:new Date().toISOString(),atualizadoPor:S.meId||null});await log('Alterou','Configuração','Prazos de SLA',`Triagem: ${old.slaTriagem} → ${t} d.u.; Análise: ${old.slaAnalise} → ${a} d.u.`);toast('Prazos de SLA salvos.')}catch(e){onWriteErr(e)}}
 
 /* ---------- Normas ---------- */
-function filtNormas(){const f=S.nf,q=norm(f.q);return S.normas.filter(n=>(!f.orgao||n.orgao===f.orgao)&&(!f.status||(n.status||'Nova')===f.status)&&(!f.crit||n.criticidade===f.crit)&&(!q||norm([cite(n),n.ementa,n.tema,n.responsavel,n.area,n.numero].join(' ')).includes(q)))
+const FILT_APL=[['apl','Aplicável'],['apl-com','Aplicável com plano'],['apl-sem','Aplicável sem plano'],['nao','Não aplicável'],['pend','Aplicabilidade a definir']];
+function filtApl(n,k){const a=aplicOf(n);return k==='apl'?a==='Aplicável':k==='apl-com'?a==='Aplicável'&&n.planoAcao==='Sim':k==='apl-sem'?a==='Aplicável'&&n.planoAcao==='Não':k==='nao'?a==='Não aplicável':k==='pend'?!a:true}
+function filtNormas(){const f=S.nf,q=norm(f.q);return S.normas.filter(n=>(!f.orgao||n.orgao===f.orgao)&&(!f.status||(n.status||'Nova')===f.status)&&(!f.crit||n.criticidade===f.crit)&&(!f.apl||filtApl(n,f.apl))&&(!q||norm([cite(n),n.ementa,n.tema,n.responsavel,n.area,n.numero].join(' ')).includes(q)))
   .sort((a,b)=>(b.dataPublicacao||'')>(a.dataPublicacao||'')?1:(b.dataPublicacao||'')<(a.dataPublicacao||'')?-1:0)}
 const SEL=()=>S.sel||(S.sel=new Set());
 /* ---------- Configurações (Admin): usuários, áreas e envio diário ---------- */
@@ -1033,7 +1044,7 @@ async function runLote(){const d=S.dlg;const alvo=selVis();if(!alvo.length){clos
 async function bulkStatus(status,just=''){const alvo=selVis();if(!alvo.length)return;
   let ok=0,ign=0;
   for(const old of alvo){const de=old.status||'Nova';if(de===status){ign++;continue}
-    const data={status};if(!old.triadaEm&&de==='Nova')data.triadaEm=today();if(DECIDIDO.includes(status)&&!old.analisadaEm&&!DECIDIDO.includes(de))data.analisadaEm=today();
+    const data={status};if(APLIC.includes(status))data.aplicabilidade=status;if(status==='Não aplicável'){data.planoAcao='';data.planoInicio='';data.prazoAcordado='';data.planoDescricao=''}if(!old.triadaEm&&de==='Nova')data.triadaEm=today();if(DECIDIDO.includes(status)&&!old.analisadaEm&&!DECIDIDO.includes(de))data.analisadaEm=today();
     if(just)data.observacoes=(old.observacoes?old.observacoes+'\n':'')+`[${fmtD(today())}] Não aplicável: ${just}`;
     try{await S.db.doc('normas/'+old.id).update({...data,...stamp(false)});await log('Alterou','Norma',cite(old),(diff(old,{...old,status},NL)||('Status: '+de+' → '+status))+' (alteração em massa)'+(just?' · Justificativa: '+just:''));ok++}
     catch(e){onWriteErr(e);break}}
@@ -1070,7 +1081,8 @@ function vNormas(){
     <select id="no" aria-label="Órgão">${opts(ORGAOS,f.orgao,'Todos os órgãos')}</select>
     <select id="ns" aria-label="Status">${opts(ST_NORMA,f.status,'Todos os status')}</select>
     <select id="nc" aria-label="Risco">${optsRisco(f.crit,'Qualquer risco')}</select>
-    ${f.q||f.orgao||f.status||f.crit?`<button class="btn sm" data-act="clear-nf">Limpar filtros</button>`:''}</div>
+    <select id="na" aria-label="Aplicabilidade"><option value="">Qualquer aplicabilidade</option>${FILT_APL.map(([k,t])=>`<option value="${k}"${f.apl===k?' selected':''}>${t}</option>`).join('')}</select>
+    ${f.q||f.orgao||f.status||f.crit||f.apl?`<button class="btn sm" data-act="clear-nf">Limpar filtros</button>`:''}</div>
   ${podeSel&&nSel?`<div role="region" aria-label="Ações em massa" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;margin:4px 0 8px;border:1px solid var(--line);border-radius:10px"><b style="margin-right:4px">${nSel} selecionada${nSel===1?'':'s'}</b><button class="btn sm" data-act="bulk-status" data-status="Aplicável">Marcar como Aplicável</button><button class="btn sm" data-act="lote-nao">Marcar como Não aplicável</button><button class="btn sm" data-act="lote-enc">Encaminhar para área</button><button class="btn sm" data-act="sel-clear">Limpar seleção</button></div>`:''}
   <div class="chips muted">Fontes oficiais: ${FONTES.map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${t}</a>`).join(' · ')}</div>
   ${list.length?`<div class="tblwrap"><table class="tbl"><thead><tr>${podeSel?`<th ${SELTD} data-act="sel-all" title="Selecionar todas as normas filtradas">${CB(allSel)}</th>`:''}<th>Órgão</th><th>Norma</th><th>Ementa</th><th>Status</th><th>Risco</th><th>Responsável</th><th>Prazo adequação</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -1205,7 +1217,7 @@ function dNormaArea(n,d){
   <div class="content area-first"><div class="nresumo">
     ${n.link?linkNorma(n):`<div class="banner warn">O Compliance ainda não informou o link oficial desta norma.</div>`}
     <div class="box"><header><h3>Sobre a norma</h3></header><div class="pad"><dl class="nfat">
-      ${f('Norma',esc(cite(n)))}${f('Tema',esc(n.tema||''))}${f('Publicação',n.dataPublicacao?esc(fmtD(n.dataPublicacao)):'')}${f('Início de vigência',n.vigencia?esc(fmtD(n.vigencia)):'')}${f('Prazo de adequação',n.prazoAdequacao?esc(fmtD(n.prazoAdequacao)):'')}${f('Prazo acordado com a área',n.planoAcao==='Sim'&&n.prazoAcordado?esc(fmtD(n.prazoAcordado)):'')}
+      ${f('Norma',esc(cite(n)))}${f('Tema',esc(n.tema||''))}${f('Publicação',n.dataPublicacao?esc(fmtD(n.dataPublicacao)):'')}${f('Início de vigência',n.vigencia?esc(fmtD(n.vigencia)):'')}${f('Prazo de adequação',n.prazoAdequacao?esc(fmtD(n.prazoAdequacao)):'')}${f('Plano acordado',n.planoAcao==='Sim'&&n.planoDescricao?esc(n.planoDescricao):'','full')}${f('Período do plano',n.planoAcao==='Sim'&&n.prazoAcordado?esc((n.planoInicio?fmtD(n.planoInicio)+' a ':'até ')+fmtD(n.prazoAcordado)):'')}
       ${f('Ementa',esc(n.ementa||''),'full')}</dl></div></div></div>
   <div class="side-col">${encBox(d.id)}<div class="box"><header><h3>Plano de ação</h3></header><div class="list" id="dlgAcoes">${normaAcoes(d.id)}</div></div>${comBox('n',d.id)}</div></div>
   <footer><span></span><div class="r"><button type="button" class="btn" data-act="close">Fechar</button></div></footer></form>`}
@@ -1218,18 +1230,23 @@ function dNorma(d){const n=d.id?S.normas.find(x=>x.id===d.id)||{}:{orgao:'BACEN'
     <div class="g3"><label>Publicação<input type="date" id="nPub" value="${esc(n.dataPublicacao)}"></label><label>Início de vigência<input type="date" id="nVig" value="${esc(n.vigencia)}"></label><label>Prazo de adequação<input type="date" id="nPrazo" value="${esc(n.prazoAdequacao)}"></label></div>
     <label>Ementa<textarea id="nEmenta" rows="3" required placeholder="Resumo do que a norma dispõe">${esc(n.ementa)}</textarea></label>
     <div class="g2"><label>Tema<input id="nTema" list="temas" value="${esc(n.tema)}" placeholder="ex.: PLD/FT, Crédito, Fundos"><datalist id="temas">${temas.map(t=>`<option value="${esc(t)}">`).join('')}</datalist></label><label>Link oficial<input type="url" id="nLink" value="${esc(n.link)}" placeholder="https://"></label></div>
-    <div class="g2"><label>Status<select id="nStatus">${opts(ST_NORMA,n.status||'Nova')}</select></label><span></span></div>
-    <div id="nDec" class="dec"${decAberta(n.status)?'':' hidden'}>
-    <div id="nApl" class="dec"${aplStatus(n.status)?'':' hidden'}>
-    <div class="g2"><label>Tem plano de ação?<select id="nPlano"><option value="">Selecione</option>${opts(['Sim','Não'],n.planoAcao||'')}</select></label><label id="lPrazoAc"${n.planoAcao==='Sim'?'':' hidden'}>Prazo acordado com a área<input type="date" id="nPrazoAc" value="${esc(n.prazoAcordado)}"></label></div>
+    <div class="g2"><label>Status<select id="nStatus">${opts(ST_FORM,stForm(n))}</select></label><span></span></div>
+    <div id="nDec" class="dec"${aplicOf(n)||['Adequada','Revogada'].includes(n.status)?'':' hidden'}>
+    <div id="nApl" class="dec"${aplicOf(n)==='Aplicável'?'':' hidden'}>
     <div class="g2"><label>Risco jurídico-regulatório<select id="nCrit">${optsRisco(n.criticidade||'Média')}</select><span class="dir" id="nDir" style="color:${(n.criticidade||'Média')==='Alta'?'var(--crit)':(n.criticidade||'Média')==='Média'?'var(--warn)':'var(--muted)'}">Diretriz: ${DIRETRIZ[n.criticidade||'Média']}</span></label><span></span></div>
     ${matrizBox(n)}
     </div>
-    <div class="g2"><label>Responsável<input id="nResp" value="${esc(n.responsavel)}" placeholder="Nome do analista"></label><label id="lArea"${aplStatus(n.status)?'':' hidden'}>Áreas impactadas<input id="nArea" value="${esc(n.area)}" placeholder="ex.: Crédito, TI, Jurídico"></label></div>
-    <label><span id="lObs">${obsLabel(n.status)}</span><textarea id="nObs" rows="5" placeholder="Por que a norma se aplica (ou não), impactos, revogações relacionadas">${esc(n.observacoes)}</textarea></label>
+    <div class="g2"><label>Responsável<input id="nResp" value="${esc(n.responsavel)}" placeholder="Nome do analista"></label><label id="lArea"${aplicOf(n)==='Aplicável'?'':' hidden'}>Áreas impactadas<input id="nArea" value="${esc(n.area)}" placeholder="ex.: Crédito, TI, Jurídico"></label></div>
+    <label><span id="lObs">${obsLabel(aplicOf(n))}</span><textarea id="nObs" rows="5" placeholder="Por que a norma se aplica (ou não), impactos, revogações relacionadas">${esc(n.observacoes)}</textarea></label>
+    </div>
+    <div class="aplbox"><h3>Aplicabilidade</h3>
+    <div class="g2"><label>A norma é aplicável?<select id="nAplic"><option value="">A definir</option>${opts(APLIC,aplicOf(n))}</select></label><label id="lPlano"${aplicOf(n)==='Aplicável'?'':' hidden'}>Tem plano de ação?<select id="nPlano"><option value="">Selecione</option>${opts(['Sim','Não'],n.planoAcao||'')}</select></label></div>
+    <div id="nPlanoBox" class="dec"${aplicOf(n)==='Aplicável'&&n.planoAcao==='Sim'?'':' hidden'}>
+    <div class="g2"><label>Data de início<input type="date" id="nPlanoIni" value="${esc(n.planoInicio)}"></label><label>Data fim<input type="date" id="nPrazoAc" value="${esc(n.prazoAcordado)}"></label></div>
+    <label>Plano acordado com a área<textarea id="nPlanoDesc" rows="3" maxlength="4000" placeholder="O que foi combinado com a área para se adequar">${esc(n.planoDescricao)}</textarea></label></div>
     </div>
   </fieldset></div>
-  <div class="side-col">${d.id?`${linkNorma(n)}<div class="box"><header><h3>Plano de ação</h3>${!ro()?`<button type="button" class="btn sm" data-act="new-acao" data-norma="${esc(d.id)}">Nova ação</button>`:''}</header><div class="list" id="dlgAcoes">${normaAcoes(d.id)}</div></div>
+  <div class="side-col">${d.id?`${linkNorma(n)}${S.acoes.some(a=>a.normaId===d.id)?`<div class="box"><header><h3>Plano de ação</h3>${!ro()?`<button type="button" class="btn sm" data-act="new-acao" data-norma="${esc(d.id)}">Nova ação</button>`:''}</header><div class="list" id="dlgAcoes">${normaAcoes(d.id)}</div></div>`:''}
     ${S.isArea?'':encBox(d.id)}
     ${comBox('n',d.id)}
     ${facts(n)}`
@@ -1296,24 +1313,38 @@ function dImport(){const rows=S.importRows;
 /* ---------- Gravações ---------- */
 const val=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
 const stamp=isNew=>{const t=new Date().toISOString();return isNew?{criadoEm:t,criadoPor:S.meId||null,atualizadoEm:t,atualizadoPor:S.meId||null}:{atualizadoEm:t,atualizadoPor:S.meId||null}};
-const NL={orgao:'Órgão',tipo:'Tipo',numero:'Número',dataPublicacao:'Publicação',vigencia:'Vigência',prazoAdequacao:'Prazo',ementa:'Ementa',tema:'Tema',link:'Link',status:'Status',criticidade:'Risco',responsavel:'Responsável',area:'Áreas',observacoes:'Análise',planoAcao:'Plano de ação',prazoAcordado:'Prazo acordado'};
+const NL={orgao:'Órgão',tipo:'Tipo',numero:'Número',dataPublicacao:'Publicação',vigencia:'Vigência',prazoAdequacao:'Prazo',ementa:'Ementa',tema:'Tema',link:'Link',status:'Status',criticidade:'Risco',responsavel:'Responsável',area:'Áreas',observacoes:'Análise',aplicabilidade:'Aplicabilidade',planoAcao:'Plano de ação',planoInicio:'Início do plano',prazoAcordado:'Fim do plano',planoDescricao:'Plano acordado'};
 const AL={normaId:'Norma',descricao:'Ação',gap:'Gap',responsavel:'Responsável',area:'Área',prazo:'Prazo',status:'Status',observacoes:'Comentários'};
 const OL={titulo:'Obrigação',orgao:'Órgão',periodicidade:'Periodicidade',proximoVencimento:'Vencimento',canal:'Canal',normaId:'Norma',responsavel:'Responsável',area:'Área',descricao:'Descrição'};
 
-async function saveNorma(){const d=S.dlg;const data={orgao:val('nOrgao'),tipo:val('nTipo'),numero:val('nNumero'),dataPublicacao:val('nPub'),vigencia:val('nVig'),prazoAdequacao:val('nPrazo'),ementa:val('nEmenta'),tema:val('nTema'),link:val('nLink'),status:val('nStatus'),criticidade:val('nCrit'),criteriosRisco:[...document.querySelectorAll('.crRisco:checked')].map(x=>x.value).join(';'),responsavel:val('nResp'),area:val('nArea'),observacoes:val('nObs'),planoAcao:val('nPlano'),prazoAcordado:val('nPrazoAc')};
+async function saveNorma(){const d=S.dlg;const data={orgao:val('nOrgao'),tipo:val('nTipo'),numero:val('nNumero'),dataPublicacao:val('nPub'),vigencia:val('nVig'),prazoAdequacao:val('nPrazo'),ementa:val('nEmenta'),tema:val('nTema'),link:val('nLink'),status:val('nStatus'),criticidade:val('nCrit'),criteriosRisco:[...document.querySelectorAll('.crRisco:checked')].map(x=>x.value).join(';'),responsavel:val('nResp'),area:val('nArea'),observacoes:val('nObs'),aplicabilidade:val('nAplic'),planoAcao:val('nPlano'),planoInicio:val('nPlanoIni'),prazoAcordado:val('nPrazoAc'),planoDescricao:val('nPlanoDesc')};
   if(!data.numero||!data.ementa){toast('Preencha o número e a ementa da norma.','crit');return}
-  if(!aplStatus(data.status)){if(DECIDIDO.includes(data.status)){data.planoAcao='';data.prazoAcordado=''}}
-  else{if(!data.planoAcao){toast('Informe se a norma tem plano de ação.','crit');$('#nPlano').focus();return}
-    if(data.planoAcao==='Sim'&&!data.prazoAcordado){toast('Informe o prazo acordado com a área.','crit');$('#nPrazoAc').focus();return}
-    if(data.planoAcao==='Não')data.prazoAcordado=''}
+  const erro=(m,id)=>{toast(m,'crit');const e=$('#'+id);if(e)e.focus()};const ap=data.aplicabilidade;
+  if(data.status==='Adequada'&&ap==='Não aplicável')return erro('Uma norma não aplicável não pode ficar como Adequada.','nStatus');
+  if(data.status==='Adequada'&&!ap)data.aplicabilidade='Aplicável';
+  if(data.status==='Analisada'&&!ap)return erro('Informe se a norma é aplicável.','nAplic');
+  if(['Nova','Em análise'].includes(data.status)&&ap)data.status='Analisada';
+  if(data.status==='Analisada')data.status=data.aplicabilidade;
+  if(data.aplicabilidade==='Aplicável'){if(!data.planoAcao)return erro('Informe se a norma tem plano de ação.','nPlano');
+    if(data.planoAcao==='Sim'){if(!data.planoInicio)return erro('Informe a data de início do plano.','nPlanoIni');if(!data.prazoAcordado)return erro('Informe a data fim do plano.','nPrazoAc');
+      if(data.prazoAcordado<data.planoInicio)return erro('A data fim não pode ser anterior à data de início.','nPrazoAc');if(!data.planoDescricao)return erro('Descreva o plano acordado com a área.','nPlanoDesc')}
+    else{data.planoInicio='';data.prazoAcordado='';data.planoDescricao=''}}
+  else{data.planoAcao='';data.planoInicio='';data.prazoAcordado='';data.planoDescricao=''}
   data.chave=chave(data);const dup=S.normas.find(n=>n.chave===data.chave&&n.id!==d.id);if(dup){toast(cite(dup)+' já está cadastrada.','crit');return}
   try{if(d.id){const old=S.normas.find(n=>n.id===d.id)||{};const df=diff(old,data,NL);if(!df){toast('Nenhuma alteração para salvar.');return}
       if(data.status!=='Nova'&&!old.triadaEm&&(old.status||'Nova')==='Nova')data.triadaEm=today();
       if(DECIDIDO.includes(data.status)&&!old.analisadaEm&&!DECIDIDO.includes(old.status||'Nova'))data.analisadaEm=today();
-      await S.db.doc('normas/'+d.id).update({...data,...stamp(false)});await log('Alterou','Norma',cite(data),df);toast('Norma atualizada.')}
+      await S.db.doc('normas/'+d.id).update({...data,...stamp(false)});await log('Alterou','Norma',cite(data),df);await syncPlano(d.id,data);toast('Norma atualizada.')}
     else{if(data.status!=='Nova')data.triadaEm=today();if(DECIDIDO.includes(data.status))data.analisadaEm=today();
-      const ref=S.db.collection('normas').doc();await ref.set({...data,origem:'Cadastro manual',...stamp(true)});await log('Cadastrou','Norma',cite(data),data.ementa.slice(0,120));toast('Norma cadastrada. Registre agora o plano de ação, se aplicável.');S.dlg={type:'norma',id:ref.id};drawDlg()}
+      const ref=S.db.collection('normas').doc();await ref.set({...data,origem:'Cadastro manual',...stamp(true)});await log('Cadastrou','Norma',cite(data),data.ementa.slice(0,120));await syncPlano(ref.id,data);toast('Norma cadastrada. Registre agora o plano de ação, se aplicável.');S.dlg={type:'norma',id:ref.id};drawDlg()}
   }catch(e){onWriteErr(e)}}
+/* Plano acordado na ficha da norma vira (ou atualiza) uma ação em Planos de ação */
+async function syncPlano(id,n){if(n.aplicabilidade!=='Aplicável'||n.planoAcao!=='Sim'||!n.planoDescricao)return;
+  const ini=n.planoInicio?'Início previsto: '+fmtD(n.planoInicio):'';const a=S.acoes.find(x=>x.normaId===id&&x.gap===GAP_AUTO);const ref=cite(n)+' · '+n.planoDescricao.slice(0,80);
+  try{if(a){const upd={};if(a.descricao!==n.planoDescricao)upd.descricao=n.planoDescricao;if((a.prazo||'')!==n.prazoAcordado)upd.prazo=n.prazoAcordado;if(ini&&a.observacoes!==ini&&(!a.observacoes||/^Início previsto:/.test(a.observacoes)))upd.observacoes=ini;
+      if(Object.keys(upd).length){await S.db.doc('acoes/'+a.id).update({...upd,...stamp(false)});await log('Alterou','Ação',ref,'Atualizada pelo plano acordado na ficha da norma')}}
+    else{const r=S.db.collection('acoes').doc();await r.set({normaId:id,descricao:n.planoDescricao,gap:GAP_AUTO,area:n.area||'',responsavel:'',prazo:n.prazoAcordado,status:'Aberta',observacoes:ini,evidencias:[],...stamp(true)});await log('Criou','Ação',ref,'Prazo '+fmtD(n.prazoAcordado)+' · criada pelo plano acordado na ficha da norma')}}
+  catch(e){onWriteErr(e)}}
 async function saveAcao(){const d=S.dlg;const data={normaId:val('aNorma'),descricao:val('aDesc'),gap:val('aGap'),responsavel:val('aResp'),area:val('aArea'),prazo:val('aPrazo'),status:val('aStatus'),observacoes:val('aObs')};
   if(!data.descricao){toast('Descreva a ação.','crit');return}
   const n=S.normas.find(x=>x.id===data.normaId);const ref=(n?cite(n)+' · ':'')+data.descricao.slice(0,80);
@@ -1390,7 +1421,7 @@ async function runImport(){const rows=(S.importRows||[]).filter(r=>!r._dup&&!r._
   catch(e){S.busy=false;onWriteErr(e);if(ok)toast(ok+' normas foram importadas antes do erro.','crit');S.importRows=null;drawDlg()}}
 async function saveXlsx(rows,sheet,filename){if(!S.downloads||!window.XLSX)return;const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheet);
   const out=XLSX.write(wb,{type:'array',bookType:'xlsx'});try{await S.downloads.save({filename,data:new Uint8Array(out)})}catch(e){if(e&&e.code!=='declined')toast('Não foi possível gerar o arquivo.','crit')}}
-function exportNormas(){const rows=filtNormas().map(n=>({'Órgão':n.orgao,'Tipo':n.tipo,'Número':n.numero,'Norma':cite(n),'Data publicação':fmtD(n.dataPublicacao),'Vigência':n.vigencia?fmtD(n.vigencia):'','Ementa':n.ementa,'Tema':n.tema||'','Status':n.status||'Nova','Risco':rl(n.criticidade),'Responsável':n.responsavel||'','Área':n.area||'','Prazo adequação':n.prazoAdequacao?fmtD(n.prazoAdequacao):'','Plano de ação':n.planoAcao||'','Prazo acordado':n.prazoAcordado?fmtD(n.prazoAcordado):'','Ações abertas':S.acoes.filter(a=>a.normaId===n.id&&!['Concluída','Cancelada'].includes(a.status)).length,'Link':n.link||'','Observações':n.observacoes||''}));
+function exportNormas(){const rows=filtNormas().map(n=>({'Órgão':n.orgao,'Tipo':n.tipo,'Número':n.numero,'Norma':cite(n),'Data publicação':fmtD(n.dataPublicacao),'Vigência':n.vigencia?fmtD(n.vigencia):'','Ementa':n.ementa,'Tema':n.tema||'','Status':n.status||'Nova','Risco':rl(n.criticidade),'Responsável':n.responsavel||'','Área':n.area||'','Prazo adequação':n.prazoAdequacao?fmtD(n.prazoAdequacao):'','Aplicabilidade':aplicOf(n),'Plano de ação':n.planoAcao||'','Início do plano':n.planoInicio?fmtD(n.planoInicio):'','Fim do plano':n.prazoAcordado?fmtD(n.prazoAcordado):'','Plano acordado':n.planoDescricao||'','Ações abertas':S.acoes.filter(a=>a.normaId===n.id&&!['Concluída','Cancelada'].includes(a.status)).length,'Link':n.link||'','Observações':n.observacoes||''}));
   saveXlsx(rows,'Normas','normas-'+today()+'.xlsx')}
 function exportAcoes(){const rows=S.acoes.map(a=>{const n=S.normas.find(x=>x.id===a.normaId);return{'Norma':n?cite(n):'','Órgão':n?n.orgao:'','Ação':a.descricao,'Gap':a.gap||'','Responsável':a.responsavel||'','Área':a.area||'','Prazo':a.prazo?fmtD(a.prazo):'','Status':acaoStatus(a),'Concluída em':a.concluidaEm?fmtD(a.concluidaEm):'','Evidências':(a.evidencias||[]).map(e=>e.nome).join('; ')}});
   saveXlsx(rows,'Planos de ação','planos-de-acao-'+today()+'.xlsx')}
@@ -1433,12 +1464,12 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
   if(act==='open-norma')return openDlg({type:'norma',id});
   if(act==='usar-retorno'){const e=(S.enc||[]).find(x=>x.id===id);if(!e||!$('#nStatus'))return;
     const set=(i,v)=>{const el=$('#'+i);if(el)el.value=v};
-    if(e.aplicavel===false){set('nStatus','Não aplicável');if(e.resposta&&!val('nObs'))set('nObs',`Retorno da área ${e.area}: ${e.resposta}`)}
-    else{if(!aplStatus(val('nStatus')))set('nStatus','Aplicável');const comPlano=e.impacto!=='ajuste';set('nPlano',comPlano?'Sim':'Não');
-      if(comPlano&&e.dataSugerida)set('nPrazoAc',e.dataSugerida);
-      if(e.planoSugerido&&!val('nObs'))set('nObs',`Retorno da área ${e.area}: ${e.planoSugerido}`);
+    if(e.aplicavel===false){set('nAplic','Não aplicável');if(e.resposta&&!val('nObs'))set('nObs',`Retorno da área ${e.area}: ${e.resposta}`)}
+    else{set('nAplic','Aplicável');const comPlano=e.impacto!=='ajuste';set('nPlano',comPlano?'Sim':'Não');
+      if(comPlano){if(e.dataSugerida)set('nPrazoAc',e.dataSugerida);if(!val('nPlanoIni'))set('nPlanoIni',today());if(e.planoSugerido&&!val('nPlanoDesc'))set('nPlanoDesc',e.planoSugerido)}
+      else if(e.planoSugerido&&!val('nObs'))set('nObs',`Retorno da área ${e.area} (o que muda): ${e.planoSugerido}`);
       const ar=$('#nArea');if(ar&&!(ar.value||'').split(',').some(x=>norm(x)===norm(e.area)))ar.value=[ar.value.trim(),e.area].filter(Boolean).join(', ')}
-    decSync();toast('Ficha preenchida com o retorno da área. Revise e clique em Salvar norma.');const f=$('#nStatus');if(f)f.scrollIntoView({block:'center',behavior:'smooth'});return}
+    decSync('aplic');toast('Ficha preenchida com o retorno da área. Revise e clique em Salvar norma.');const f=$('#nAplic');if(f)f.scrollIntoView({block:'center',behavior:'smooth'});return}
   if(act==='acao-retorno'){const e=(S.enc||[]).find(x=>x.id===id);if(!e)return;return openDlg({type:'acao',normaId:e.normaId,from:e.normaId,pre:{descricao:e.planoSugerido,area:e.area,prazo:e.dataSugerida||'',gap:'Plano sugerido pela área '+e.area}})}
   if(act==='new-acao')return openDlg({type:'acao',normaId:t.dataset.norma||'',from:t.dataset.norma||''});
   if(act==='open-acao')return openDlg({type:'acao',id,from:t.dataset.from||''});
@@ -1449,7 +1480,7 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
   if(act==='export-normas')return exportNormas();
   if(act==='export-acoes')return exportAcoes();
   if(act==='template')return template();
-  if(act==='clear-nf'){S.nf={q:'',orgao:'',status:'',crit:''};return render()}
+  if(act==='clear-nf'){S.nf={q:'',orgao:'',status:'',crit:'',apl:''};return render()}
   if(act==='clear-af'){S.af={q:'',status:''};return render()}
   if(act==='com-add')return addCom(t);
   if(act==='enc-send')return sendEnc(t);
@@ -1464,13 +1495,13 @@ dlg.addEventListener('click',e=>{if(e.target===dlg)return closeDlg();const t=e.t
 dlg.addEventListener('submit',e=>{e.preventDefault();if(!S.db)return;const f=e.target.dataset.form;(({norma:saveNorma,acao:saveAcao,obrig:saveObrig,envio:saveEnvio,import:runImport,relatorio:gerarRel,usuario:saveUsuario,areaRen:saveAreaRen,lote:runLote})[f]||(()=>{}))()});
 document.addEventListener('change',e=>{const n=e.target.name||'';if(!n.startsWith('apl-'))return;const id=n.slice(4),v=e.target.value;const g=x=>document.getElementById(x+'-'+id);if(g('sim'))g('sim').hidden=v!=='sim';if(g('aj'))g('aj').hidden=v!=='ajuste';if(g('lj'))g('lj').textContent=v==='nao'?'Justificativa (obrigatória)':'Comentários (opcional)'});
 dlg.addEventListener('change',e=>{if(e.target.name==='uPerfil'){const b=$('#uAreasBox');if(b)b.hidden=e.target.value!=='Área responsável'}});
-dlg.addEventListener('change',e=>{if(e.target.classList&&e.target.classList.contains('crRisco'))syncRisco('matriz');else if(e.target.id==='nCrit')syncRisco('select');else if(e.target.id==='nStatus'||e.target.id==='nPlano')decSync()});
+dlg.addEventListener('change',e=>{if(e.target.classList&&e.target.classList.contains('crRisco'))syncRisco('matriz');else if(e.target.id==='nCrit')syncRisco('select');else if(e.target.id==='nStatus')decSync('status');else if(e.target.id==='nAplic')decSync('aplic');else if(e.target.id==='nPlano')decSync()});
 dlg.addEventListener('change',e=>{if(e.target.id==='evFile'&&e.target.files.length){uploadEv([...e.target.files]);e.target.value=''}if(e.target.id==='impFile'&&e.target.files[0]){readImport(e.target.files[0]);e.target.value=''}});
 main.addEventListener('input',e=>{if(e.target.id==='destNovo')S.destNovo=e.target.value});
 main.addEventListener('input',e=>{const rg=e.target.dataset&&e.target.dataset.rg;if(rg&&S.regrasEd&&(rg==='palavras'||rg==='tema')){S.regrasEd[+e.target.dataset.i][rg]=e.target.value;return}});
 main.addEventListener('change',e=>{const rg=e.target.dataset&&e.target.dataset.rg;if(!rg||!S.regrasEd)return;const r=S.regrasEd[+e.target.dataset.i];if(rg==='risco')r.risco=e.target.value;if(rg==='area'){const v=e.target.value;r.areas=(r.areas||[]).filter(x=>norm(x)!==norm(v));if(e.target.checked)r.areas.push(v)}});
 main.addEventListener('input',e=>{const id=e.target.id;if(id==='nq'){S.nf.q=e.target.value;render()}if(id==='aq'){S.af.q=e.target.value;render()}if(id==='uq'){S.cfgF.q=e.target.value;render()}});
-main.addEventListener('change',e=>{const id=e.target.id,v=e.target.value;if(id==='no')S.nf.orgao=v;else if(id==='ns')S.nf.status=v;else if(id==='nc')S.nf.crit=v;else if(id==='as')S.af.status=v;else if(id==='auf')S.auf.tipo=v;else if(id==='pf')S.pf=v;else if(id==='up')S.cfgF.perfil=v;else if(id==='usit')S.cfgF.sit=v;else return;render()});
+main.addEventListener('change',e=>{const id=e.target.id,v=e.target.value;if(id==='no')S.nf.orgao=v;else if(id==='ns')S.nf.status=v;else if(id==='nc')S.nf.crit=v;else if(id==='na')S.nf.apl=v;else if(id==='as')S.af.status=v;else if(id==='auf')S.auf.tipo=v;else if(id==='pf')S.pf=v;else if(id==='up')S.cfgF.perfil=v;else if(id==='usit')S.cfgF.sit=v;else return;render()});
 const tipEl=$('#tip');
 main.addEventListener('mousemove',e=>{const t=e.target.closest('[data-tip]');if(!t){tipEl.hidden=true;return}tipEl.textContent=t.dataset.tip;tipEl.hidden=false;
   const w=tipEl.offsetWidth,h=tipEl.offsetHeight;let x=e.clientX+14,y=e.clientY-h-10;if(x+w>innerWidth-8)x=e.clientX-w-14;if(y<8)y=e.clientY+16;tipEl.style.left=x+'px';tipEl.style.top=y+'px'});
