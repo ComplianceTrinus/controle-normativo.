@@ -16,7 +16,7 @@ const contas = require('./contas');
 const { importarBackup } = require('./importacao');
 const dados = require('./colecoes');
 const { executarCaptura } = require('./captura');
-const { enviarResumo, statusEnvio, enviarEncaminhamento } = require('./email');
+const { enviarResumo, statusEnvio, enviarEncaminhamento, enviarAviso } = require('./email');
 
 validar();
 if (config.armazenamento === 'disco') fs.mkdirSync(config.uploadDir, { recursive: true });
@@ -254,6 +254,17 @@ app.post('/api/encaminhamentos/:id/responder', colaboracao, async (req, res) => 
     await q('UPDATE encaminhamentos SET resposta = $3, aplicavel = $4, plano_sugerido = $5, data_sugerida = $6, respondido_em = now(), respondido_por = $7, impacto = $8 WHERE norma_id = $1 AND area = $2 AND respondido_em IS NULL',
       [e.norma_id, e.area, resposta || null, apl, apl ? plano : null, apl && dataOk ? data : null, usuario(req).id, impacto]);
     await dados.registrarAuditoria({ acao: 'Respondeu', tipo: 'Norma', ref: `${e.tipo} ${e.orgao === 'BACEN' ? 'BCB' : e.orgao} nº ${e.numero}`, detalhe: `Retorno da área ${e.area}: ${opc === 'sim' ? 'aplicável, com plano de ação' : opc === 'ajuste' ? 'aplicável, sem plano de ação' : 'não aplicável'}${apl ? ` · ${opc === 'ajuste' ? 'o que muda' : 'plano sugerido'}: ${plano.slice(0, 300)}${dataOk ? ' · até ' + data.split('-').reverse().join('/') : ''}` : ''}${resposta ? ' · ' + resposta.slice(0, 300) : ''}` }, usuario(req).id);
+    // Avisa quem encaminhou (Compliance) que a área respondeu
+    try {
+      const quem = (await q('SELECT DISTINCT u.email FROM encaminhamentos x JOIN usuarios u ON u.id = x.por WHERE x.norma_id = $1 AND x.area = $2 AND u.ativo AND u.email IS NOT NULL', [e.norma_id, e.area])).rows.map(r => r.email.toLowerCase());
+      const ref = `${e.tipo} ${e.orgao === 'BACEN' ? 'BCB' : e.orgao} nº ${e.numero}`;
+      const linhas = [['Resposta', opc === 'sim' ? 'Aplicável, com plano de ação' : opc === 'ajuste' ? 'Aplicável, sem plano de ação' : 'Não aplicável']];
+      if (apl) linhas.push([opc === 'ajuste' ? 'O que muda para a área' : 'Plano de ação sugerido', plano]);
+      if (dataOk) linhas.push([opc === 'ajuste' ? 'Data prevista' : 'Data sugerida', data.split('-').reverse().join('/')]);
+      if (resposta) linhas.push([opc === 'nao' ? 'Justificativa' : 'Comentários', resposta]);
+      linhas.push(['Respondido por', usuario(req).nome || '']);
+      await enviarAviso(quem, { assunto: `Retorno da área ${e.area}: ${ref}`, titulo: `${e.area} respondeu`, subtitulo: ref, linhas, link: config.baseUrl + '/?norma=' + encodeURIComponent(e.norma_id) });
+    } catch (err) { console.error('[aviso retorno]', err.message); }
     res.json({ ok: true });
   } catch (err) { tratarErro(res, err); }
 });
@@ -325,7 +336,29 @@ let capturaRodando = false;
 async function rodarCaptura(origem) {
   if (capturaRodando) return { ignorada: true };
   capturaRodando = true;
-  try { return await executarCaptura({ origem }); } finally { capturaRodando = false; }
+  let r = null, erro = null;
+  try { r = await executarCaptura({ origem }); } catch (e) { erro = e; } finally { capturaRodando = false; }
+  await alertaCaptura(r, erro).catch(e => console.error('[alerta captura]', e.message));
+  if (erro) throw erro;
+  return r;
+}
+// Alerta o Admin se a captura falhar ou passar 2 dias úteis sem encontrar normas (um aviso por dia, no máximo)
+const diaSP = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+function diasUteisEntre(de, ate) { let n = 0; const d = new Date(de + 'T12:00:00Z'), f = new Date(ate + 'T12:00:00Z'); while (d < f) { d.setUTCDate(d.getUTCDate() + 1); const w = d.getUTCDay(); if (w && w !== 6) n++; } return n; }
+async function alertaCaptura(r, erro) {
+  if (r && r.ignorada) return;
+  const hoje = diaSP(), st = (await dados.lerSistema('alertaCaptura')) || {};
+  if (r && r.novas > 0) st.ultimaComNovas = hoje;
+  if (!st.ultimaComNovas) st.ultimaComNovas = hoje;
+  const falhas = erro ? [erro.message] : (r && r.falhas) || [];
+  const semNovas = diasUteisEntre(st.ultimaComNovas, hoje);
+  const motivo = falhas.length ? 'A captura teve falhas: ' + falhas.join(' | ').slice(0, 600) : semNovas >= 2 ? `Nenhuma norma nova encontrada há ${semNovas} dias úteis (desde ${st.ultimaComNovas.split('-').reverse().join('/')}).` : '';
+  if (motivo && st.ultimoAlerta !== hoje) {
+    const para = (await q("SELECT email FROM usuarios WHERE perfil = 'Admin' AND ativo AND email IS NOT NULL")).rows.map(x => x.email.toLowerCase());
+    await enviarAviso(para, { assunto: 'Atenção: captura automática de normas', titulo: 'Verifique a captura de normas', linhas: [['O que aconteceu', motivo], ['Fontes que responderam', r && r.fontes && r.fontes.length ? r.fontes.join(', ') : 'nenhuma']], link: config.baseUrl + '/#normas' });
+    st.ultimoAlerta = hoje;
+  }
+  await dados.gravarSistema('alertaCaptura', st);
 }
 app.post('/api/captura/executar', admin, async (req, res) => {
   const execucao = rodarCaptura('manual:' + usuario(req).id);
