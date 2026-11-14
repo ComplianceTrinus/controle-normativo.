@@ -190,3 +190,16 @@ ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS plano_sugerido text;
 ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS data_sugerida date;
 -- Tipo de impacto quando aplicável: 'plano' (requer plano de ação) ou 'ajuste' (só ajustes pontuais)
 ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS impacto text;
+-- Segregação de funções: quem validou a conclusão da ação
+ALTER TABLE acoes ADD COLUMN IF NOT EXISTS concluida_por text;
+-- Lixeira: nada é apagado de vez (normas, ações, obrigações e evidências)
+ALTER TABLE normas ADD COLUMN IF NOT EXISTS excluido_em timestamptz;
+ALTER TABLE normas ADD COLUMN IF NOT EXISTS excluido_por text;
+ALTER TABLE acoes ADD COLUMN IF NOT EXISTS excluido_em timestamptz;
+ALTER TABLE acoes ADD COLUMN IF NOT EXISTS excluido_por text;
+ALTER TABLE obrigacoes ADD COLUMN IF NOT EXISTS excluido_em timestamptz;
+ALTER TABLE obrigacoes ADD COLUMN IF NOT EXISTS excluido_por text;
+ALTER TABLE evidencias ADD COLUMN IF NOT EXISTS excluida_em timestamptz;
+ALTER TABLE evidencias ADD COLUMN IF NOT EXISTS excluida_por text;
+-- Impressão digital (SHA-256) do arquivo de evidência, gravada no envio
+ALTER TABLE evidencias ADD COLUMN IF NOT EXISTS hash text;
