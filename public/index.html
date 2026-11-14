@@ -386,6 +386,17 @@ h2{font-size:16px;font-weight:700}
 .retorno .opt small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:1px}
 @media (min-width:981px){.dlg .content.area-first{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}}
 .dlg .content.area-first .side-col{order:-1}
+.nresumo{display:flex;flex-direction:column;gap:14px;min-width:0}
+.nlink{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-radius:14px;background:var(--accent);color:#fff;text-decoration:none;box-shadow:0 14px 30px -16px rgba(46,76,255,.9)}
+.nlink:hover{background:#2340E6}
+.nlink:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.nlink b{display:block;font-size:16px;font-weight:800;letter-spacing:-.01em}
+.nlink small{display:block;font-size:12.5px;opacity:.85;overflow-wrap:anywhere;margin-top:2px}
+.nlink svg{flex:none}
+.nfat{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px;margin:0}
+.nfat dt{font-size:12px;font-weight:600;color:var(--muted)}
+.nfat dd{margin:2px 0 0;font-size:13.5px;color:var(--ink);line-height:1.45}
+.nfat .full{grid-column:1/-1}
 .retorno .rt-sim{display:flex;flex-direction:column;gap:10px;background:var(--surface);border-radius:10px;padding:12px;border:1.5px dashed var(--accent)}
 .retorno .rt-sim[hidden]{display:none}
 .retorno textarea,.retorno input[type=date]{background:var(--surface)}
@@ -1033,7 +1044,19 @@ const ro=()=>!S.canWrite||!S.db;
 function delBtn(kind){return S.isAdmin&&S.db?`<button type="button" class="btn danger" data-act="del" data-kind="${kind}">Excluir</button>`:'<span></span>'}
 function facts(o){ensureNames([o.criadoPor,o.atualizadoPor]);return `<dl class="facts">${o.criadoEm?`<dt>Cadastrada</dt><dd>${esc(fmtDT(o.criadoEm))} por ${esc(nameOf(o.criadoPor))}</dd>`:''}${o.atualizadoEm?`<dt>Última alteração</dt><dd>${esc(fmtDT(o.atualizadoEm))} por ${esc(nameOf(o.atualizadoPor))}</dd>`:''}${o.origem?`<dt>Origem</dt><dd>${esc(o.origem)}</dd>`:''}</dl>`}
 
+// Área responsável: só leitura da norma, com o link oficial em destaque (sem campos internos do Compliance)
+function dNormaArea(n,d){let host='';try{host=new URL(n.link).hostname.replace(/^www\./,'')}catch{}
+  const f=(t,v,cls='')=>v?`<div class="${cls}"><dt>${t}</dt><dd>${v}</dd></div>`:'';
+  return `<form class="dlg" id="fNorma" data-form="norma"><header><div class="t"><div>${og(n.orgao)}</div><h2>${esc(cite(n))}</h2></div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
+  <div class="content area-first"><div class="nresumo">
+    ${n.link?`<a class="nlink" href="${esc(n.link)}" target="_blank" rel="noopener"><span><b>Ler o texto oficial da norma</b><small>${esc(host||n.link)}</small></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a>`:`<div class="banner warn">O Compliance ainda não informou o link oficial desta norma.</div>`}
+    <div class="box"><header><h3>Sobre a norma</h3></header><div class="pad"><dl class="nfat">
+      ${f('Norma',esc(cite(n)))}${f('Tema',esc(n.tema||''))}${f('Publicação',n.dataPublicacao?esc(fmtD(n.dataPublicacao)):'')}${f('Início de vigência',n.vigencia?esc(fmtD(n.vigencia)):'')}${f('Prazo de adequação',n.prazoAdequacao?esc(fmtD(n.prazoAdequacao)):'')}
+      ${f('Ementa',esc(n.ementa||''),'full')}</dl></div></div></div>
+  <div class="side-col">${encBox(d.id)}<div class="box"><header><h3>Plano de ação</h3></header><div class="list" id="dlgAcoes">${normaAcoes(d.id)}</div></div>${comBox('n',d.id)}</div></div>
+  <footer><span></span><div class="r"><button type="button" class="btn" data-act="close">Fechar</button></div></footer></form>`}
 function dNorma(d){const n=d.id?S.normas.find(x=>x.id===d.id)||{}:{orgao:'BACEN',tipo:'Resolução',status:'Nova',criticidade:'Média',dataPublicacao:today()};
+  if(S.isArea&&d.id)return dNormaArea(n,d);
   const temas=[...new Set(S.normas.map(x=>x.tema).filter(Boolean))].sort();
   return `<form class="dlg" id="fNorma" data-form="norma"><header><div class="t">${d.id?`<div>${og(n.orgao)} ${stPill(n.status)}</div><h2>${esc(cite(n))}</h2>`:'<h2>Nova norma</h2>'}</div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
   <div class="content${S.isArea&&d.id?' area-first':''}"><div class="form"><fieldset ${ro()?'disabled':''}>
