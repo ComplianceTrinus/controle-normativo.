@@ -796,7 +796,8 @@ const aplTxt=e=>e.aplicavel===false?'Não aplicável':e.aplicavel!==true?'—':e
 function retornoView(e){const aj=e.impacto==='ajuste';return `<div class="rt-ok"><div class="rt-h"><b>Retorno da área</b><span class="muted">${esc(nameOf(e.respondidoPor))}, ${esc(fmtDT(e.respondidoEm))}</span></div>
   ${e.aplicavel==null?'':`<span class="apl ${e.aplicavel?'apl-s':'apl-n'}">${aplTxt(e)}</span>`}
   ${e.planoSugerido?`<div><b>${aj?'O que muda para a área':'Plano de ação sugerido'}:</b> ${esc(e.planoSugerido)}</div>${e.dataSugerida?`<div><b>${aj?'Data prevista':'Data sugerida'}:</b> ${esc(fmtD(e.dataSugerida))}</div>`:''}`:''}
-  ${e.resposta?`<div><b>${e.aplicavel===false?'Justificativa':'Comentários'}:</b> ${esc(e.resposta)}</div>`:''}</div>`}
+  ${e.resposta?`<div><b>${e.aplicavel===false?'Justificativa':'Comentários'}:</b> ${esc(e.resposta)}</div>`:''}
+  ${e.aplicavel===true&&e.impacto!=='ajuste'&&e.planoSugerido&&!ro()&&!S.isArea?`<div style="white-space:normal"><button type="button" class="btn sm pri" data-act="acao-retorno" data-id="${esc(e.id)}">Criar ação com este plano</button></div>`:''}</div>`}
 const RT_OPS=[['sim','Aplicável, com plano de ação'],['ajuste','Aplicável, sem plano de ação'],['nao','Não aplicável']];
 function retornoForm(e){const id=esc(e.id);return `<div class="retorno"><div class="rt-t">Retorno da área</div>
   <div class="rt-q">A norma é aplicável à sua área?</div>
@@ -1164,7 +1165,7 @@ function normaAcoes(id){const ac=S.acoes.filter(a=>a.normaId===id).sort((a,b)=>(
   if(!ac.length)return `<div class="pad">Nenhuma ação registrada para esta norma.</div>`;
   return ac.map(a=>{const st=acaoStatus(a);return `<div class="it" data-act="open-acao" data-id="${esc(a.id)}" data-from="${esc(id)}"><div class="top"><b>${esc(a.descricao)}</b>${pill(st,AC_COLOR[st])}</div><div class="meta">${a.responsavel?esc(a.responsavel)+' · ':''}Prazo ${esc(fmtD(a.prazo))}${(a.evidencias||[]).length?' · '+a.evidencias.length+' evidência'+(a.evidencias.length>1?'s':''):''}</div></div>`}).join('')}
 
-function dAcao(d){const a=d.id?S.acoes.find(x=>x.id===d.id)||{}:{status:'Aberta',normaId:d.normaId||''};
+function dAcao(d){const a=d.id?S.acoes.find(x=>x.id===d.id)||{}:{status:'Aberta',normaId:d.normaId||'',...(d.pre||{})};
   const ns=[...S.normas].sort((x,y)=>cite(x).localeCompare(cite(y),'pt-BR'));
   return `<form class="dlg" data-form="acao"><header><div class="t">${d.id?`<div>${pill(acaoStatus(a),AC_COLOR[acaoStatus(a)])}</div>`:''}<h2>${d.id?'Ação de adequação':'Nova ação de adequação'}</h2></div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
   <div class="content"><div class="form"><fieldset ${ro()?'disabled':''}>
@@ -1345,6 +1346,7 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
   if(act==='goto'){const[r,f]=t.dataset.go.split(':');if(r==='normas'){S.nf={q:'',orgao:t.dataset.orgao||'',status:f||'',crit:''}}if(r==='acoes'){S.af={q:'',status:f||''}}location.hash=r;render();return}
   if(act==='new-norma')return openDlg({type:'norma'});
   if(act==='open-norma')return openDlg({type:'norma',id});
+  if(act==='acao-retorno'){const e=(S.enc||[]).find(x=>x.id===id);if(!e)return;return openDlg({type:'acao',normaId:e.normaId,from:e.normaId,pre:{descricao:e.planoSugerido,area:e.area,prazo:e.dataSugerida||'',gap:'Plano sugerido pela área '+e.area}})}
   if(act==='new-acao')return openDlg({type:'acao',normaId:t.dataset.norma||'',from:t.dataset.norma||''});
   if(act==='open-acao')return openDlg({type:'acao',id,from:t.dataset.from||''});
   if(act==='new-obrig')return openDlg({type:'obrig'});
