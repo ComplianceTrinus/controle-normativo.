@@ -377,11 +377,15 @@ h2{font-size:16px;font-weight:700}
 .retorno{border:2px solid var(--accent);background:var(--accent-soft);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;margin-top:8px;color:var(--ink);box-shadow:0 0 0 4px var(--accent-soft)}
 .retorno .rt-t{font-weight:800;font-size:17px;letter-spacing:-.01em;color:var(--accent)}
 .retorno .rt-q{font-weight:700;font-size:14.5px}
-.retorno .rt-op{display:flex;flex-wrap:wrap;gap:8px}
+.retorno .rt-op{display:flex;flex-direction:column;gap:8px}
 .retorno label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:700;color:var(--ink)}
 .retorno .opt{flex-direction:row;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer}
 .retorno .opt:has(input:checked){border-color:var(--accent);color:var(--accent)}
-.retorno .opt input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.retorno .opt input{accent-color:var(--accent);width:16px;height:16px;margin:0;flex:none}
+.retorno .opt b{display:block;font-weight:700}
+.retorno .opt small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:1px}
+@media (min-width:981px){.dlg .content.area-first{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}}
+.dlg .content.area-first .side-col{order:-1}
 .retorno .rt-sim{display:flex;flex-direction:column;gap:10px;background:var(--surface);border-radius:10px;padding:12px;border:1.5px dashed var(--accent)}
 .retorno .rt-sim[hidden]{display:none}
 .retorno textarea,.retorno input[type=date]{background:var(--surface)}
@@ -750,20 +754,24 @@ function encHist(id){const l=(S.enc||[]).filter(e=>e.normaId===id);if(!l.length)
     ${e.mensagem?`<div style="font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere"><b>Orientação:</b> ${esc(e.mensagem)}</div>`:''}
     ${e.respondidoEm?retornoView(e):S.isArea?retornoForm(e):''}
   </div>`).join('')}
-function retornoView(e){return `<div class="rt-ok"><div class="rt-h"><b>Retorno da área</b><span class="muted">${esc(nameOf(e.respondidoPor))}, ${esc(fmtDT(e.respondidoEm))}</span></div>
-  ${e.aplicavel===true?'<span class="apl apl-s">Aplicável à área</span>':e.aplicavel===false?'<span class="apl apl-n">Não aplicável à área</span>':''}
-  ${e.planoSugerido?`<div><b>Plano de ação sugerido:</b> ${esc(e.planoSugerido)}</div><div><b>Data sugerida:</b> ${esc(fmtD(e.dataSugerida))}</div>`:''}
+const aplTxt=e=>e.aplicavel===false?'Não aplicável':e.aplicavel!==true?'—':e.impacto==='ajuste'?'Aplicável, só ajustes pontuais':'Aplicável, requer plano de ação';
+function retornoView(e){const aj=e.impacto==='ajuste';return `<div class="rt-ok"><div class="rt-h"><b>Retorno da área</b><span class="muted">${esc(nameOf(e.respondidoPor))}, ${esc(fmtDT(e.respondidoEm))}</span></div>
+  ${e.aplicavel==null?'':`<span class="apl ${e.aplicavel?'apl-s':'apl-n'}">${aplTxt(e)}</span>`}
+  ${e.planoSugerido?`<div><b>${aj?'Ajustes previstos':'Plano de ação sugerido'}:</b> ${esc(e.planoSugerido)}</div>${e.dataSugerida?`<div><b>${aj?'Data prevista':'Data sugerida'}:</b> ${esc(fmtD(e.dataSugerida))}</div>`:''}`:''}
   ${e.resposta?`<div><b>${e.aplicavel===false?'Justificativa':'Comentários'}:</b> ${esc(e.resposta)}</div>`:''}</div>`}
+const RT_OPS=[['sim','Sim, requer plano de ação','Mudança relevante em processos, sistemas ou controles'],['ajuste','Sim, só ajustes pontuais','Templates, ajustes finos de texto ou procedimento, sem plano de ação'],['nao','Não é aplicável','A norma não se aplica às atividades da área']];
 function retornoForm(e){const id=esc(e.id);return `<div class="retorno"><div class="rt-t">Retorno da área</div>
   <div class="rt-q">A norma é aplicável à sua área?</div>
-  <div class="rt-op" role="radiogroup" aria-label="A norma é aplicável à sua área?"><label class="opt"><input type="radio" name="apl-${id}" value="sim"> Sim, é aplicável</label><label class="opt"><input type="radio" name="apl-${id}" value="nao"> Não é aplicável</label></div>
+  <div class="rt-op" role="radiogroup" aria-label="A norma é aplicável à sua área?">${RT_OPS.map(([v,t,h])=>`<label class="opt"><input type="radio" name="apl-${id}" value="${v}"><span><b>${t}</b><small>${h}</small></span></label>`).join('')}</div>
   <div class="rt-sim" id="sim-${id}" hidden><label>Plano de ação sugerido<textarea id="plano-${id}" class="field" rows="3" maxlength="4000" placeholder="O que a área propõe fazer para se adequar"></textarea></label><label>Data sugerida para concluir<input type="date" id="data-${id}" class="field"></label></div>
-  <label><span id="lj-${id}">Comentários</span><textarea id="resp-${id}" class="field" rows="3" maxlength="4000" placeholder="Análise da área, impactos e observações"></textarea></label>
+  <div class="rt-sim" id="aj-${id}" hidden><label>Ajustes previstos<textarea id="ajuste-${id}" class="field" rows="3" maxlength="4000" placeholder="ex.: atualizar o template do contrato, revisar um parágrafo do procedimento"></textarea></label><label>Data prevista (opcional)<input type="date" id="dataaj-${id}" class="field"></label></div>
+  <label><span id="lj-${id}">Comentários (opcional)</span><textarea id="resp-${id}" class="field" rows="3" maxlength="4000" placeholder="Análise da área, impactos e observações"></textarea></label>
   <div><button type="button" class="btn pri" data-act="enc-resp" data-id="${id}">Enviar retorno</button></div></div>`}
 async function respEnc(t){const id=t.dataset.id;const op=document.querySelector(`input[name="apl-${CSS.escape(id)}"]:checked`);const v=x=>{const el=document.getElementById(x+'-'+id);return el?el.value.trim():''};
   if(!op){toast('Marque se a norma é aplicável ou não.','crit');return}
-  const body={aplicavel:op.value,resposta:v('resp'),planoSugerido:v('plano'),dataSugerida:v('data')};
+  const aj=op.value==='ajuste';const body={aplicavel:op.value,resposta:v('resp'),planoSugerido:v(aj?'ajuste':'plano'),dataSugerida:v(aj?'dataaj':'data')};
   if(op.value==='sim'&&(!body.planoSugerido||!body.dataSugerida)){toast('Preencha o plano de ação sugerido e a data.','crit');return}
+  if(aj&&!body.planoSugerido){toast('Descreva os ajustes que a área vai fazer.','crit');return}
   if(op.value==='nao'&&!body.resposta){toast('Explique por que a norma não é aplicável.','crit');return}
   t.disabled=true;try{await apiJson('/api/encaminhamentos/'+encodeURIComponent(id)+'/responder',{method:'POST',body:JSON.stringify(body)});await loadEnc();toast('Retorno enviado ao Compliance.')}catch(e){toast(e.message,'crit')}finally{t.disabled=false}}
 function prazoEnc(){const h=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date());const d=new Date(h+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+10);return d.toISOString().slice(0,10)}
@@ -993,7 +1001,7 @@ function relatorioHTML(o){const k=a=>norm(a||''),noArea=x=>!o.area||k(x)===k(o.a
     h+=T('Normas por órgão',rows?`<table><thead><tr><th>Órgão</th><th>Normas</th><th>Em triagem</th><th>Aplicáveis</th><th>Não aplicáveis</th><th>Com plano</th></tr></thead><tbody>${rows}</tbody></table>`:vazio('Nenhuma norma no período.'))}
   if(has('prazo'))h+=T('Ações por prazo',ac.length?hbars([{label:'Concluídas no prazo',v:b.np,c:'var(--ok)'},{label:'Concluídas com atraso',v:b.ca,c:'var(--warn)'},{label:'Em aberto, em dia',v:b.ed,c:'var(--s1)'},{label:'Vencem em até 7 dias',v:b.v7,c:'var(--warn)'},{label:'Atrasadas até 30 dias',v:b.a30,c:'var(--crit)'},{label:'Atrasadas há mais de 30 dias',v:b.a30p,c:'var(--crit)'}]):vazio('Nenhuma ação no período.'));
   if(has('areaNormas')||has('areaPlanos')){const pa=porArea(enc,ac,true);if(has('areaNormas'))h+=T('Normas analisadas por área',pa.tN);if(has('areaPlanos'))h+=T('Planos de ação por área',pa.tA)}
-  if(has('retornos'))h+=T('Retornos das áreas',enc.length?`<table><thead><tr><th>Norma</th><th>Área</th><th>Enviada</th><th>Prazo</th><th>Situação</th><th>Aplicável</th><th>Plano sugerido</th><th>Data sugerida</th></tr></thead><tbody>${enc.map(e=>`<tr><td>${esc(nm(e.normaId))}</td><td>${esc(e.area)}</td><td>${esc(fmtD(diaBRT(e.em)))}</td><td>${esc(fmtD(e.prazo))}</td><td>${esc(encStatus(e)[0])}</td><td>${e.aplicavel===true?'Sim':e.aplicavel===false?'Não':'—'}</td><td>${esc(e.planoSugerido||e.resposta||'—')}</td><td>${e.dataSugerida?esc(fmtD(e.dataSugerida)):'—'}</td></tr>`).join('')}</tbody></table>`:vazio('Nenhum encaminhamento no período.'),'long');
+  if(has('retornos'))h+=T('Retornos das áreas',enc.length?`<table><thead><tr><th>Norma</th><th>Área</th><th>Enviada</th><th>Prazo</th><th>Situação</th><th>Aplicabilidade</th><th>Plano ou ajustes</th><th>Data</th></tr></thead><tbody>${enc.map(e=>`<tr><td>${esc(nm(e.normaId))}</td><td>${esc(e.area)}</td><td>${esc(fmtD(diaBRT(e.em)))}</td><td>${esc(fmtD(e.prazo))}</td><td>${esc(encStatus(e)[0])}</td><td>${esc(aplTxt(e))}</td><td>${esc(e.planoSugerido||e.resposta||'—')}</td><td>${e.dataSugerida?esc(fmtD(e.dataSugerida)):'—'}</td></tr>`).join('')}</tbody></table>`:vazio('Nenhum encaminhamento no período.'),'long');
   if(has('normas')){const l=[...ns].sort((a,b)=>(b.dataPublicacao||'').localeCompare(a.dataPublicacao||''));
     h+=T(`Normas do período (${l.length})`,l.length?`<table><thead><tr><th>Publicação</th><th>Norma</th><th>Ementa</th><th>Risco</th><th>Status</th></tr></thead><tbody>${l.map(n=>`<tr><td>${esc(fmtD(n.dataPublicacao))}</td><td><b>${esc(cite(n))}</b></td><td>${esc(String(n.ementa||'').slice(0,260))}${String(n.ementa||'').length>260?'…':''}</td><td>${esc(rl(n.criticidade))}</td><td>${esc(n.status||'Nova')}</td></tr>`).join('')}</tbody></table>`:vazio('Nenhuma norma no período.'),'long')}
   if(has('planos')){const l=ac.filter(a=>a.status!=='Cancelada').sort((a,b)=>(a.prazo||'9').localeCompare(b.prazo||'9'));
@@ -1028,7 +1036,7 @@ function facts(o){ensureNames([o.criadoPor,o.atualizadoPor]);return `<dl class="
 function dNorma(d){const n=d.id?S.normas.find(x=>x.id===d.id)||{}:{orgao:'BACEN',tipo:'Resolução',status:'Nova',criticidade:'Média',dataPublicacao:today()};
   const temas=[...new Set(S.normas.map(x=>x.tema).filter(Boolean))].sort();
   return `<form class="dlg" id="fNorma" data-form="norma"><header><div class="t">${d.id?`<div>${og(n.orgao)} ${stPill(n.status)}</div><h2>${esc(cite(n))}</h2>`:'<h2>Nova norma</h2>'}</div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
-  <div class="content"><div class="form"><fieldset ${ro()?'disabled':''}>
+  <div class="content${S.isArea&&d.id?' area-first':''}"><div class="form"><fieldset ${ro()?'disabled':''}>
     <div class="g3"><label>Órgão<select id="nOrgao">${opts(ORGAOS,n.orgao)}</select></label><label>Tipo<select id="nTipo">${opts(TIPOS,n.tipo)}</select></label><label>Número<input id="nNumero" value="${esc(n.numero)}" placeholder="ex.: 4.595" required></label></div>
     <div class="g3"><label>Publicação<input type="date" id="nPub" value="${esc(n.dataPublicacao)}"></label><label>Início de vigência<input type="date" id="nVig" value="${esc(n.vigencia)}"></label><label>Prazo de adequação<input type="date" id="nPrazo" value="${esc(n.prazoAdequacao)}"></label></div>
     <label>Ementa<textarea id="nEmenta" rows="3" required placeholder="Resumo do que a norma dispõe">${esc(n.ementa)}</textarea></label>
@@ -1038,8 +1046,8 @@ function dNorma(d){const n=d.id?S.normas.find(x=>x.id===d.id)||{}:{orgao:'BACEN'
     <div class="g2"><label>Responsável<input id="nResp" value="${esc(n.responsavel)}" placeholder="Nome do analista"></label><label>Áreas impactadas<input id="nArea" value="${esc(n.area)}" placeholder="ex.: Crédito, TI, Jurídico"></label></div>
     <label>Análise de aplicabilidade e observações<textarea id="nObs" rows="5" placeholder="Por que a norma se aplica (ou não), impactos, revogações relacionadas">${esc(n.observacoes)}</textarea></label>
   </fieldset></div>
-  <div class="side-col">${d.id?`<div class="box"><header><h3>Plano de ação</h3>${!ro()?`<button type="button" class="btn sm" data-act="new-acao" data-norma="${esc(d.id)}">Nova ação</button>`:''}</header><div class="list" id="dlgAcoes">${normaAcoes(d.id)}</div></div>
-    ${encBox(d.id)}
+  <div class="side-col">${d.id?`${S.isArea?encBox(d.id):''}<div class="box"><header><h3>Plano de ação</h3>${!ro()?`<button type="button" class="btn sm" data-act="new-acao" data-norma="${esc(d.id)}">Nova ação</button>`:''}</header><div class="list" id="dlgAcoes">${normaAcoes(d.id)}</div></div>
+    ${S.isArea?'':encBox(d.id)}
     ${comBox('n',d.id)}
     ${n.link?`<a class="btn" href="${esc(n.link)}" target="_blank" rel="noopener">Abrir texto oficial</a>`:''}${facts(n)}`
     :`<div class="box"><div class="pad">Depois de salvar, registre aqui o plano de ação da norma.</div></div><div class="chips muted">Consultar: ${FONTES.map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${t}</a>`).join(' · ')}</div>`}</div></div>
@@ -1242,7 +1250,7 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
 main.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(t){e.preventDefault();handleAct(t,e)}});
 dlg.addEventListener('click',e=>{if(e.target===dlg)return closeDlg();const t=e.target.closest('[data-act]');if(t&&t.tagName!=='A'){e.preventDefault();handleAct(t,e)}});
 dlg.addEventListener('submit',e=>{e.preventDefault();if(!S.db)return;const f=e.target.dataset.form;({norma:saveNorma,acao:saveAcao,obrig:saveObrig,envio:saveEnvio,import:runImport,relatorio:gerarRel})[f]()});
-document.addEventListener('change',e=>{const n=e.target.name||'';if(!n.startsWith('apl-'))return;const id=n.slice(4),sim=e.target.value==='sim';const box=document.getElementById('sim-'+id);if(box)box.hidden=!sim;const lj=document.getElementById('lj-'+id);if(lj)lj.textContent=sim?'Comentários (opcional)':'Justificativa (obrigatória)'});
+document.addEventListener('change',e=>{const n=e.target.name||'';if(!n.startsWith('apl-'))return;const id=n.slice(4),v=e.target.value;const g=x=>document.getElementById(x+'-'+id);if(g('sim'))g('sim').hidden=v!=='sim';if(g('aj'))g('aj').hidden=v!=='ajuste';if(g('lj'))g('lj').textContent=v==='nao'?'Justificativa (obrigatória)':'Comentários (opcional)'});
 dlg.addEventListener('change',e=>{if(e.target.classList&&e.target.classList.contains('crRisco'))syncRisco('matriz');else if(e.target.id==='nCrit')syncRisco('select')});
 dlg.addEventListener('change',e=>{if(e.target.id==='evFile'&&e.target.files.length){uploadEv([...e.target.files]);e.target.value=''}if(e.target.id==='impFile'&&e.target.files[0]){readImport(e.target.files[0]);e.target.value=''}});
 main.addEventListener('input',e=>{if(e.target.id==='destNovo')S.destNovo=e.target.value});
