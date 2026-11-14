@@ -104,6 +104,15 @@ app.get('/api/cron/email', async (req, res) => {
   catch (err) { console.error('[email]', err); res.status(err.status || 500).json({ erro: err.message }); }
 });
 
+// Link de norma vindo do e-mail: guarda por 30 min para abrir a norma depois do login
+const NORMA_ID = /^[A-Za-z0-9_.-]{1,80}$/;
+const lerCookie = (req, nome) => { const m = (req.headers.cookie || '').match(new RegExp('(?:^|;\\s*)' + nome + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; };
+app.use((req, res, next) => {
+  if (req.path === '/' && NORMA_ID.test(String(req.query.norma || '')) && !(req.session && req.session.usuario)) {
+    res.cookie('cn_norma', String(req.query.norma), { maxAge: 30 * 60 * 1000, httpOnly: true, sameSite: 'lax', secure: config.baseUrl.startsWith('https://') });
+  }
+  next();
+});
 app.use(contas.router);
 app.use(auth.router);
 app.use(auth.exigirLogin);
@@ -250,6 +259,7 @@ app.post('/api/encaminhamentos/:id/responder', colaboracao, async (req, res) => 
 });
 
 // Lista de áreas (escolha nas ações e obrigações)
+app.use('/api/admin', admin, contas.apiAdmin);
 app.get('/api/areas', async (req, res) => {
   try { res.json(await dados.listarAreas()); } catch (e) { tratarErro(res, e); }
 });
@@ -446,7 +456,11 @@ app.post('/api/comentarios', colaboracao, async (req, res) => {
 });
 
 // ---- Página ----
-app.get('/', (req, res) => res.type('html').send(indexHtml));
+app.get('/', (req, res) => {
+  const pend = lerCookie(req, 'cn_norma');
+  if (pend) { res.clearCookie('cn_norma'); if (!req.query.norma && NORMA_ID.test(pend)) return res.redirect('/?norma=' + encodeURIComponent(pend)); }
+  res.type('html').send(indexHtml);
+});
 app.use(express.static(PUBLIC, { index: false, maxAge: '1h' }));
 
 app.use((err, req, res, next) => {
