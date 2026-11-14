@@ -387,6 +387,29 @@ h2{font-size:16px;font-weight:700}
 @media (min-width:981px){.dlg .content.area-first{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}}
 .dlg .content.area-first .side-col{order:-1}
 .nresumo{display:flex;flex-direction:column;gap:14px;min-width:0}
+dialog.lateral{margin:0 0 0 auto;height:100dvh;max-height:100dvh;width:min(480px,100vw);border-radius:20px 0 0 20px}
+dialog.lateral .dlg{height:100%;max-height:100dvh}
+dialog.lateral .dlg .content{flex:1}
+.dlg>footer .l{min-width:0}
+.form .perfis{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.form .perfis legend{font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:4px}
+.form .pcard{flex-direction:row;align-items:center;gap:8px;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--ink);font-size:13.5px;cursor:pointer}
+.form .pcard:has(input:checked){border-color:var(--accent);color:var(--accent)}
+.form .pcard input{min-height:0;width:16px;height:16px;margin:0;accent-color:var(--accent)}
+.uareas{display:flex;flex-direction:column;gap:8px}
+.uareas[hidden]{display:none}
+.uareas .lbl{font-size:12.5px;font-weight:600;color:var(--muted)}
+.chipsel{display:flex;flex-wrap:wrap;gap:6px}
+.chipsel label{flex-direction:row;cursor:pointer}
+.chipsel input{position:absolute;opacity:0;width:1px;height:1px}
+.chipsel span{border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:13px;color:var(--ink);font-weight:500}
+.chipsel input:checked+span{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.chipsel input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.form .chk{flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-weight:500}
+.form .chk input{min-height:0;width:16px;height:16px;margin:0}
+.senha-box{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1.5px dashed var(--accent);border-radius:12px;padding:14px 16px;background:var(--accent-soft)}
+.senha-box code{font:700 18px/1.2 var(--f-mono);letter-spacing:.04em;color:var(--ink);flex:1}
+.tag{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600}
 .nlink{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-radius:14px;background:var(--accent);color:#fff;text-decoration:none;box-shadow:0 14px 30px -16px rgba(46,76,255,.9)}
 .nlink:hover{background:#2340E6}
 .nlink:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
@@ -597,6 +620,11 @@ const routeOk=h=>!!ROUTES[h]&&(!ADMIN_ROUTES.includes(h)||S.isAdmin)&&(!S.isArea
 const route=()=>{let h=location.hash.slice(1);if(h==='envios')h='config';return routeOk(h)?h:(S.isArea?'recebidas':'normas')};
 
 /* ---------- Render ---------- */
+// Link do e-mail (/?norma=ID): abre a norma assim que os dados carregam
+let normaLink=new URLSearchParams(location.search).get('norma');
+function abrirNormaDoLink(){if(!normaLink||!S.loaded||!S.loaded.normas||S.dlg)return;const id=normaLink;normaLink=null;
+  history.replaceState(null,'',location.pathname+location.hash);
+  if(S.normas.some(n=>n.id===id))openDlg({type:'norma',id});else toast('Não encontramos essa norma entre as que você pode ver.','crit')}
 let raf=0;function render(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;doRender()})}
 function doRender(){
   const a=document.activeElement;const fid=a&&a.id&&main.contains(a)?a.id:null;let ss=null;try{ss=fid?a.selectionStart:null}catch{}
@@ -605,14 +633,13 @@ function doRender(){
   const views={recebidas:vRecebidas,indicadores:vIndic,normas:vNormas,acoes:vAcoes,obrigacoes:vObrig,config:vConfig};
   main.innerHTML=`<div class="wrap">${banner()}${r==='normas'?capTxt():''}${views[r]()}</div>`;
   if(fid){const el=document.getElementById(fid);if(el){el.focus();try{if(ss!=null)el.setSelectionRange(ss,ss)}catch{}}}
-  refreshDialog();
+  refreshDialog();abrirNormaDoLink();
 }
 function capTxt(){const c=S.captura;if(!c||!c.ultimaExecucao)return '';const ok=c.status!=='erro';
   return `<div class="cap"><span class="dot ${ok?'ok':'bad'}"></span><span><b>Atualização automática diária</b> · última execução ${esc(fmtDT(c.ultimaExecucao))}${c.novas!=null?` · ${c.novas} ${c.novas===1?'norma nova':'normas novas'}`:''}${c.fontes?` · ${esc(c.fontes)}`:''}${c.detalhe?`<span class="muted"> · ${esc(c.detalhe)}</span>`:''}</span>${c.novas?`<a href="#normas" data-act="goto" data-go="normas:Nova">Ver para triagem</a>`:''}${S.isAdmin&&window.CN_SERVIDOR?`<button class="btn sm" data-act="run-captura">Atualizar agora</button>`:''}</div>`}
 function banner(){
   if(S.dbState==='off')return `<div class="banner warn"><div><b>Banco de dados indisponível nesta visualização.</b> Não foi possível conectar ao servidor. Recarregue a página; se continuar, avise o suporte de TI.</div></div>`;
-  if(S.dbState==='ready'&&S.isArea){const ar=(S.me&&S.me.areas)||[];return ar.length?`<div class="banner"><div><b>Área: ${esc(ar.join(', '))}.</b> Aqui estão as normas encaminhadas pelo Compliance e os planos de ação da sua área. Você pode comentar e anexar evidências nas ações; alterações são feitas pelo Compliance.</div></div>`:`<div class="banner warn"><div><b>Nenhuma área definida para o seu acesso.</b> Peça ao administrador para indicar a sua área na tela de Usuários.</div></div>`}
-  if(S.dbState==='ready'&&!S.canWrite)return `<div class="banner"><div><b>Acesso somente leitura.</b> Você pode consultar normas, planos e obrigações. Para editar, peça ao administrador o perfil Analista.</div></div>`;
+  if(S.dbState==='ready'&&S.isArea){const ar=(S.me&&S.me.areas)||[];return ar.length?'':`<div class="banner warn"><div><b>Nenhuma área definida para o seu acesso.</b> Peça ao administrador para indicar a sua área na tela de Usuários.</div></div>`}
   return '';
 }
 /* ---------- Sino de pendências ---------- */
@@ -691,7 +718,7 @@ function vPainel(){
   const recentes=[...S.normas].sort((a,b)=>(b.dataPublicacao||'')>(a.dataPublicacao||'')?1:-1).slice(0,6);
   const semPlano=S.normas.filter(n=>n.status==='Aplicável'&&!S.acoes.some(a=>a.normaId===n.id));
   const mini=list=>`<ul class="agenda">${list.map(n=>`<li data-act="open-norma" data-id="${esc(n.id)}"><div class="d">${esc(fmtD(n.dataPublicacao).slice(0,5))}<small>${esc((n.dataPublicacao||'').slice(0,4))}</small></div><div class="t"><b>${esc(cite(n))}</b><span>${esc(n.ementa||'')}</span></div>${og(n.orgao)}</li>`).join('')}</ul>`;
-  return `<div class="head"><div><h1>Painel de conformidade</h1><p>Situação das normas acompanhadas pelo Compliance, prazos de adequação e obrigações regulatórias.</p></div>
+  return `<div class="head"><div><h1>Painel de conformidade</h1></div>
     <div class="actions">${S.canWrite&&S.db?`<button class="btn pri" data-act="new-norma">Nova norma</button>`:''}</div></div>
   <div class="kpis">${kp(triage,'Normas para triagem','normas:Nova',triage?'warn':'')}${kp(analise,'Em análise de aplicabilidade','normas:Em análise')}${kp(late,'Ações atrasadas','acoes:Atrasada',late?'crit':'')}${kp(ob30,'Obrigações em até 30 dias','obrigacoes','')}</div>
   <div class="cols">
@@ -755,7 +782,7 @@ function prazoChip(e){if(!e.prazo)return '';const d=days(e.prazo);let c,t;
 function encStatus(e){if(e.respondidoEm)return['Respondida','ok'];const d=days(e.prazo);if(d==null)return['Aguardando retorno','info'];if(d<0)return[`Atrasada ${-d}d`,'crit'];if(d===0)return['Vence hoje','warn'];if(d<=3)return[`Vence em ${d}d`,'warn'];return['Aguardando retorno','info']}
 function vRecebidas(){const loading=S.enc===undefined;const l=S.enc||[];ensureNames(l.map(e=>e.por));
   const rows=l.map(e=>{const n=S.normas.find(x=>x.id===e.normaId);if(!n)return '';return `<tr data-act="open-norma" data-id="${esc(n.id)}"><td class="nowrap num">${esc(fmtDT(e.em))}</td><td>${og(n.orgao)}</td><td><div class="cite">${esc(cite(n))}</div><div class="sub">${esc(e.area)}</div></td><td><div class="clip">${esc(n.ementa)}</div></td><td><div class="clip">${esc(e.mensagem||'—')}</div><div class="sub">por ${esc(nameOf(e.por))}</div></td><td class="nowrap">${prazoChip(e)}</td></tr>`}).join('');
-  return `<div class="head"><div><h1>Normas recebidas</h1><p>Normas que o Compliance encaminhou para a sua área. Você tem 10 dias corridos para avaliar: abra a norma, leia e envie o retorno da área.</p></div></div>
+  return `<div class="head"><div><h1>Normas recebidas</h1></div></div>
   ${rows?`<div class="tblwrap"><table class="tbl"><thead><tr><th>Recebida em</th><th>Órgão</th><th>Norma</th><th>Ementa</th><th>Orientação do Compliance</th><th>Prazo de retorno</th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="panel"><div class="empty">${loading||!S.loaded.normas?'Carregando…':'Nenhuma norma encaminhada para a sua área ainda.'}</div></div>`}`}
 function encHist(id){const l=(S.enc||[]).filter(e=>e.normaId===id);if(!l.length)return '<div class="pad">Ainda não encaminhada.</div>';ensureNames(l.map(e=>e.por));
   ensureNames(l.map(e=>e.respondidoPor));
@@ -822,7 +849,7 @@ function vIndicArea(){const vo=!!(S.me&&S.me.verObrigacoes);const loading=!S.loa
   const b={np:0,ca:0,ed:0,v7:0,a30:0,a30p:0};for(const a of ac){if(a.status==='Cancelada')continue;if(a.status==='Concluída'){(a.prazo&&a.concluidaEm&&a.concluidaEm>a.prazo)?b.ca++:b.np++;continue}const d=days(a.prazo);if(d==null||d>7)b.ed++;else if(d>=0)b.v7++;else if(d>=-30)b.a30++;else b.a30p++}
   const acItems=[{label:'Concluídas no prazo',v:b.np,c:'var(--ok)'},{label:'Concluídas com atraso',v:b.ca,c:'var(--warn)'},{label:'Em aberto, em dia',v:b.ed,c:'var(--s1)'},{label:'Vencem em até 7 dias',v:b.v7,c:'var(--warn)'},{label:'Atrasadas até 30 dias',v:b.a30,c:'var(--crit)'},{label:'Atrasadas há mais de 30 dias',v:b.a30p,c:'var(--crit)'}];
   const obItems=[{label:'Atrasadas',v:obAtr,c:'var(--crit)'},{label:'Vencem em até 30 dias',v:ob30,c:'var(--warn)'},{label:'Em dia',v:ob.length-obAtr-ob30,c:'var(--s1)'},{label:'Cumpridas',v:S.obrig.length-ob.length,c:'var(--ok)'}];
-  return `<div class="head"><div><h1>Indicadores</h1><p>Andamento dos planos de ação e das obrigações da sua área.</p></div></div>
+  return `<div class="head"><div><h1>Indicadores</h1></div></div>
   <div class="stats">
     ${num('Ações em aberto',ab,`${conc} concluídas no total`)}
     ${num('Ações atrasadas',atr,atr?'<span class="late-txt">prazo vencido</span>':'nenhuma com prazo vencido')}
@@ -849,7 +876,7 @@ function vIndic(){
   const org=ORGAOS.map(o=>{const x=ns.filter(n=>n.orgao===o);if(!x.length)return null;const st=s=>x.filter(n=>(n.status||'Nova')===s).length;
     return{o,tot:x.length,nova:st('Nova'),an:st('Em análise'),apl:st('Aplicável')+st('Adequada'),plano:x.filter(n=>S.acoes.some(a=>a.normaId===n.id)).length,na:st('Não aplicável')}}).filter(Boolean);
   const pl=planos().filter(p=>!S.pf||p.sit===S.pf);const semPlano=ns.filter(n=>n.status==='Aplicável'&&!S.acoes.some(a=>a.normaId===n.id)).length;
-  return `<div class="head"><div><h1>Indicadores</h1><p>Volume de normas recebidas, situação da triagem e andamento dos planos de ação.</p></div>
+  return `<div class="head"><div><h1>Indicadores</h1></div>
     <div class="actions"><button class="btn pri" data-act="relatorio">Relatório em PDF</button>${S.downloads&&window.XLSX?`<button class="btn" data-act="export-planos">Exportar planos</button>`:''}</div></div>
   <div class="stats">
     ${num('Normas acompanhadas',ns.length,`${ns.filter(n=>(n.status||'Nova')==='Nova').length} para triagem · ${ns.filter(n=>n.status==='Em análise').length} em análise`)}
@@ -878,9 +905,65 @@ async function saveCfg(){const t=parseInt(val('cfgTri'),10),a=parseInt(val('cfgA
 function filtNormas(){const f=S.nf,q=norm(f.q);return S.normas.filter(n=>(!f.orgao||n.orgao===f.orgao)&&(!f.status||(n.status||'Nova')===f.status)&&(!f.crit||n.criticidade===f.crit)&&(!q||norm([cite(n),n.ementa,n.tema,n.responsavel,n.area,n.numero].join(' ')).includes(q)))
   .sort((a,b)=>(b.dataPublicacao||'')>(a.dataPublicacao||'')?1:(b.dataPublicacao||'')<(a.dataPublicacao||'')?-1:0)}
 const SEL=()=>S.sel||(S.sel=new Set());
-/* ---------- Configurações (Admin): Gestão de acesso fica em /usuarios; Envio Diário aqui ---------- */
-function vConfig(){return `<div class="head"><div><h1>Configurações</h1><p>Acesso das pessoas ao sistema e envio diário de normas. Só o Admin vê esta página.</p></div></div>
-  <nav class="abas" aria-label="Configurações"><a href="/usuarios">Gestão de acesso</a><a href="#config" aria-current="page">Envio Diário</a></nav>${vEnvios()}`}
+/* ---------- Configurações (Admin): usuários, áreas e envio diário ---------- */
+function vConfig(){const t=S.cfgTab||'usuarios';
+  return `<div class="head"><div><h1>Configurações</h1></div></div>
+  <nav class="abas" aria-label="Configurações">${[['usuarios','Usuários'],['areas','Áreas'],['envio','Envio diário']].map(([k,l])=>`<a href="#config" data-act="cfg-tab" data-tab="${k}"${k===t?' aria-current="page"':''}>${l}</a>`).join('')}</nav>
+  ${t==='usuarios'?vUsuarios():t==='areas'?vAreasCfg():vEnvios()}`}
+const PERFIL_TXT={'Admin':'Acesso total, inclusive usuários e exclusões','Analista':'Cadastra e edita normas, ações e obrigações','Área responsável':'Vê só a própria área, responde e anexa evidências','Leitura':'Só consulta'};
+const SIT_U={'Ativo':'ok','Aguardando primeiro acesso':'warn','Bloqueado':'crit','Desativado':'mute'};
+async function loadCfgU(){if(S.cfgULoading)return;S.cfgULoading=true;try{S.cfgU=await apiJson('/api/admin/usuarios')}catch(e){S.cfgU={usuarios:[],perfis:[],eu:'',erro:e.message}}S.cfgULoading=false;render()}
+async function loadCfgA(){if(S.cfgALoading)return;S.cfgALoading=true;try{S.cfgA=await apiJson('/api/admin/areas')}catch(e){S.cfgA=[];toast(e.message,'crit')}S.cfgALoading=false;render()}
+function vUsuarios(){const d=S.cfgU;if(!d){loadCfgU();return `<div class="panel"><div class="empty">Carregando…</div></div>`}
+  if(d.erro)return `<div class="banner warn"><div>${esc(d.erro)}</div></div>`;
+  const f=S.cfgF||(S.cfgF={q:'',perfil:'',sit:''}),k=norm(f.q);
+  const l=d.usuarios.filter(u=>(!k||norm(u.nome+' '+u.email).includes(k))&&(!f.perfil||u.perfil===f.perfil)&&(!f.sit||u.situacao===f.sit));
+  const chips=a=>a.length?`<span class="tag">${esc(a[0])}</span>${a.length>1?` <span class="muted">+${a.length-1}</span>`:''}`:'<span class="muted">—</span>';
+  const rows=l.map(u=>`<tr data-act="usr-edit" data-id="${esc(u.id)}"><td><b>${esc(u.nome)}</b>${u.id===d.eu?' <span class="muted">(você)</span>':''}<div class="sub">${esc(u.email)}</div></td><td>${esc(u.perfil)}</td><td>${u.perfil==='Área responsável'?chips(u.areas):'<span class="muted">Todas</span>'}</td><td>${pill(u.situacao,SIT_U[u.situacao]||'info')}</td><td class="nowrap num">${u.ultimoAcesso?esc(fmtDT(u.ultimoAcesso)):'<span class="muted">Nunca</span>'}</td></tr>`).join('');
+  return `<div class="toolbar"><input id="uq" type="search" class="field" style="flex:1;min-width:220px" placeholder="Buscar por nome ou e-mail" value="${esc(f.q)}" aria-label="Buscar usuário">
+    <select id="up" class="field" aria-label="Perfil"><option value="">Todos os perfis</option>${d.perfis.map(p=>`<option${p===f.perfil?' selected':''}>${esc(p)}</option>`).join('')}</select>
+    <select id="usit" class="field" aria-label="Situação"><option value="">Todas as situações</option>${Object.keys(SIT_U).map(p=>`<option${p===f.sit?' selected':''}>${esc(p)}</option>`).join('')}</select>
+    <button type="button" class="btn pri" data-act="usr-novo">Novo usuário</button></div>
+  ${l.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th>Pessoa</th><th>Perfil</th><th>Áreas</th><th>Situação</th><th>Último acesso</th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="panel"><div class="empty">Nenhum usuário com esses filtros.</div></div>`}`}
+function dUsuario(d){const U=S.cfgU||{usuarios:[],perfis:[]};
+  if(d.senha)return `<form class="dlg" data-form="none"><header><div class="t"><h2>${esc(d.titulo)}</h2><div class="muted">${esc(d.email)}</div></div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
+    <div class="content single"><div class="form"><div class="senha-box"><span class="muted">Senha provisória</span><code id="uSenha">${esc(d.senha)}</code><button type="button" class="btn" data-act="usr-copiar">Copiar</button></div>
+    <p class="muted" style="margin:0;font-size:13px">Repasse por um canal seguro: ela não será mostrada de novo. A pessoa troca a senha no primeiro acesso.</p></div></div>
+    <footer><span></span><div class="r"><button type="button" class="btn pri" data-act="close">Concluir</button></div></footer></form>`;
+  const u=d.id?U.usuarios.find(x=>x.id===d.id)||{}:{perfil:'Analista',areas:[],verObrigacoes:false,ativo:true};const eu=d.id&&d.id===U.eu;const ar=new Set((u.areas||[]).map(norm));
+  return `<form class="dlg" data-form="usuario"><header><div class="t"><h2>${d.id?esc(u.nome):'Novo usuário'}</h2>${d.id?`<div class="muted">${esc(u.email)} · ${esc(u.situacao||'')}</div>`:''}</div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
+  <div class="content single"><div class="form">
+    <label>Nome<input id="uNome" value="${esc(u.nome||'')}" maxlength="120" required${eu?' disabled':''}></label>
+    ${d.id?'':`<label>E-mail<input id="uEmail" type="email" maxlength="200" required placeholder="nome@trinusco.com.br"></label>`}
+    <fieldset class="perfis"${eu?' disabled':''}><legend>Perfil</legend>${U.perfis.map(p=>`<label class="pcard" title="${esc(PERFIL_TXT[p]||'')}"><input type="radio" name="uPerfil" value="${esc(p)}"${p===u.perfil?' checked':''}><span>${esc(p)}</span></label>`).join('')}</fieldset>
+    <div id="uAreasBox" class="uareas"${u.perfil==='Área responsável'?'':' hidden'}><span class="lbl">Áreas</span><div class="chipsel">${(S.areas||[]).map(a=>`<label><input type="checkbox" name="uArea" value="${esc(a)}"${ar.has(norm(a))?' checked':''}><span>${esc(a)}</span></label>`).join('')}</div>
+      <label class="chk"><input type="checkbox" id="uOb"${u.verObrigacoes?' checked':''}> Vê obrigações regulatórias</label></div>
+    ${eu?'<p class="muted" style="margin:0;font-size:13px">Este é o seu usuário. Para trocar a sua senha, use o menu da conta.</p>':''}
+  </div></div>
+  <footer><div class="l" style="display:flex;gap:8px;flex-wrap:wrap">${d.id&&!eu?`<button type="button" class="btn" data-act="usr-senha" data-id="${esc(d.id)}">Gerar nova senha</button><button type="button" class="btn" data-act="usr-ativo" data-id="${esc(d.id)}" data-on="${u.ativo?0:1}">${u.ativo?'Desativar':'Reativar'}</button>`:'<span></span>'}</div>
+  <div class="r"><button type="button" class="btn" data-act="close">Cancelar</button>${eu?'':`<button class="btn pri" type="submit">${d.id?'Salvar alterações':'Cadastrar'}</button>`}</div></footer></form>`}
+async function saveUsuario(){const d=S.dlg;const perfil=(document.querySelector('input[name=uPerfil]:checked')||{}).value;
+  const body={nome:val('uNome'),perfil,areas:[...document.querySelectorAll('input[name=uArea]:checked')].map(x=>x.value),verObrigacoes:!!($('#uOb')||{}).checked};
+  if(!body.nome){toast('Informe o nome.','crit');return}if(!perfil){toast('Escolha o perfil.','crit');return}
+  if(perfil==='Área responsável'&&!body.areas.length){toast('Marque pelo menos uma área.','crit');return}
+  try{if(d.id){const r=await apiJson('/api/admin/usuarios/'+encodeURIComponent(d.id),{method:'PATCH',body:JSON.stringify(body)});closeDlg();toast(r.alterado?'Alterações salvas.':'Nada foi alterado.')}
+    else{body.email=val('uEmail');const r=await apiJson('/api/admin/usuarios',{method:'POST',body:JSON.stringify(body)});openDlg({type:'usuario',cls:'lateral',senha:r.senha,email:body.email,titulo:'Usuário cadastrado'})}
+    S.cfgU=null;render()}catch(e){toast(e.message,'crit')}}
+async function usrSenha(t){const id=t.dataset.id;const u=(S.cfgU.usuarios||[]).find(x=>x.id===id)||{};t.disabled=true;
+  try{const r=await apiJson('/api/admin/usuarios/'+encodeURIComponent(id)+'/senha',{method:'POST',body:'{}'});openDlg({type:'usuario',cls:'lateral',senha:r.senha,email:u.email,titulo:'Nova senha gerada'});S.cfgU=null;render()}catch(e){toast(e.message,'crit');t.disabled=false}}
+async function usrAtivo(t){const id=t.dataset.id,on=t.dataset.on==='1';t.disabled=true;
+  try{await apiJson('/api/admin/usuarios/'+encodeURIComponent(id)+'/ativo',{method:'POST',body:JSON.stringify({ativo:on})});closeDlg();toast(on?'Usuário reativado.':'Usuário desativado. As sessões abertas foram encerradas.');S.cfgU=null;render()}catch(e){toast(e.message,'crit');t.disabled=false}}
+function vAreasCfg(){const d=S.cfgA;if(!d){loadCfgA();return `<div class="panel"><div class="empty">Carregando…</div></div>`}
+  const n=v=>v?`<td class="num">${v}</td>`:'<td class="num muted">0</td>';
+  const rows=d.map(a=>`<tr><td><b>${esc(a.nome)}</b></td>${n(a.pessoas)}${n(a.acoes)}${n(a.obrigacoes)}${n(a.pendentes)}<td>${a.ativa?pill('Ativa','ok'):pill('Inativa','mute')}</td>
+    <td class="nowrap" style="text-align:right"><button type="button" class="btn sm" data-act="area-ren" data-nome="${esc(a.nome)}">Renomear</button> <button type="button" class="btn sm" data-act="area-ativa" data-nome="${esc(a.nome)}" data-on="${a.ativa?0:1}">${a.ativa?'Desativar':'Reativar'}</button></td></tr>`).join('');
+  return `<div class="toolbar"><input id="aNova" class="field" style="flex:1;min-width:220px;max-width:360px" placeholder="Nome da nova área" maxlength="60" aria-label="Nome da nova área"><button type="button" class="btn pri" data-act="area-add">Adicionar área</button></div>
+  <div class="tblwrap"><table class="tbl"><thead><tr><th>Área</th><th>Pessoas</th><th>Ações em aberto</th><th>Obrigações</th><th>Retornos pendentes</th><th>Situação</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`}
+function dAreaRen(d){return `<form class="dlg" data-form="areaRen"><header><div class="t"><h2>Renomear área</h2></div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
+  <div class="content single"><div class="form"><label>Novo nome<input id="arNome" value="${esc(d.nome)}" maxlength="60" required></label><p class="muted" style="margin:0;font-size:13px">Pessoas, ações, obrigações e encaminhamentos passam a usar o novo nome.</p></div></div>
+  <footer><span></span><div class="r"><button type="button" class="btn" data-act="close">Cancelar</button><button class="btn pri" type="submit">Renomear</button></div></footer></form>`}
+async function areaOp(body,msg){try{await apiJson('/api/admin/areas',{method:'POST',body:JSON.stringify(body)});S.cfgA=null;S.cfgU=null;apiJson('/api/areas').then(l=>{S.areas=Array.isArray(l)?l:S.areas}).catch(()=>{});toast(msg);render();return true}catch(e){toast(e.message,'crit');return false}}
+async function saveAreaRen(){const d=S.dlg;const para=val('arNome');if(!para){toast('Informe o novo nome.','crit');return}if(await areaOp({acao:'renomear',de:d.nome,para},'Área renomeada.'))closeDlg()}
 
 const SELTD='style="width:38px;text-align:center;cursor:pointer"';
 const CB=on=>`<input type="checkbox" tabindex="-1" aria-label="Selecionar"${on?' checked':''} style="pointer-events:none;width:16px;height:16px;accent-color:var(--accent)">`;
@@ -900,7 +983,7 @@ function vEnvios(){
   if(S.dest===undefined&&!S.destErro)carregarDest();
   const l=S.dest||[];
   const rows=l.map((d,i)=>`<tr><td>${esc(d.email)}</td><td>${d.ativo?'<b>Ativo</b>':'<span class="muted">Pausado</span>'}</td><td class="nowrap"><button type="button" class="btn sm" data-act="dest-toggle" data-id="${i}">${d.ativo?'Pausar':'Reativar'}</button> <button type="button" class="btn sm" data-act="dest-del" data-id="${i}">Remover</button></td></tr>`).join('');
-  return `<p class="muted" style="margin:0">Quem recebe o e-mail diário "Normativos Divulgados", com o link oficial e o PDF de cada norma.</p>
+  return `
   <div class="panel" style="padding:16px">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><input type="email" id="destNovo" value="${esc(S.destNovo||'')}" placeholder="nome@empresa.com.br" class="field" aria-label="Novo destinatário" style="flex:1;min-width:240px"><button type="button" class="btn pri" data-act="dest-add">Adicionar</button></div>
     ${S.destErro?`<div class="empty">${esc(S.destErro)}</div>`:S.dest===undefined?'<div class="empty">Carregando…</div>':l.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th>E-mail</th><th>Situação</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Nenhum destinatário cadastrado.</div>'}
@@ -912,7 +995,7 @@ function vNormas(){
   const rows=list.map(n=>{const ac=S.acoes.filter(a=>a.normaId===n.id);const open=ac.filter(a=>!['Concluída','Cancelada'].includes(a.status)).length;const done=['Adequada','Não aplicável','Revogada'].includes(n.status);
     return `<tr data-act="open-norma" data-id="${esc(n.id)}">${podeSel?`<td ${SELTD} data-act="sel-norma" data-id="${esc(n.id)}">${CB(sel.has(n.id))}</td>`:''}<td>${og(n.orgao)}</td><td><div class="cite">${esc(cite(n))}</div><div class="sub num">${esc(fmtD(n.dataPublicacao))}${n.tema?' · '+esc(n.tema):''}</div></td><td><div class="clip">${esc(n.ementa)}</div></td><td>${stPill(n.status)}</td><td><span class="crit crit-${esc(n.criticidade||'Média')}">${esc(rl(n.criticidade))}</span></td><td>${esc(n.responsavel||'—')}${n.area?`<div class="sub">${esc(n.area)}</div>`:''}</td><td class="nowrap num">${prazoTxt(n.prazoAdequacao,done)}</td><td class="num nowrap">${ac.length?`${open} aberta${open===1?'':'s'}<div class="sub">${ac.length} no total</div>`:'<span class="muted">—</span>'}</td></tr>`}).join('');
   const f=S.nf;
-  return `<div class="head"><div><h1>Normas</h1><p>Normativos do Bacen, CMN, CVM e ANBIMA acompanhados pela área, com triagem, aplicabilidade e prazo de adequação.</p></div>
+  return `<div class="head"><div><h1>Normas</h1></div>
     <div class="actions">${S.downloads&&window.XLSX?`<button class="btn" data-act="export-normas">Exportar Excel</button>`:''}${S.canWrite&&S.db?`<button class="btn" data-act="import">Importar planilha</button><button class="btn pri" data-act="new-norma">Nova norma</button>`:''}</div></div>
   <div class="toolbar"><input type="search" id="nq" placeholder="Buscar por número, ementa, tema ou responsável" value="${esc(f.q)}" aria-label="Buscar normas">
     <select id="no" aria-label="Órgão">${opts(ORGAOS,f.orgao,'Todos os órgãos')}</select>
@@ -933,7 +1016,7 @@ function vAcoes(){
     .filter(x=>(!f.status||x.st===f.status)&&(!q||norm([x.a.descricao,x.a.gap,x.a.responsavel,x.a.area,x.n?cite(x.n):''].join(' ')).includes(q)))
     .sort((x,y)=>{const r=s=>s==='Atrasada'?0:s==='Concluída'||s==='Cancelada'?2:1;return r(x.st)-r(y.st)||((x.a.prazo||'9999')<(y.a.prazo||'9999')?-1:1)});
   const rows=list.map(({a,st,n})=>`<tr data-act="open-acao" data-id="${esc(a.id)}"><td class="nowrap num">${prazoTxt(a.prazo,st==='Concluída'||st==='Cancelada')}</td><td><div style="font-weight:600" class="clip">${esc(a.descricao)}</div>${a.gap?`<div class="sub clip">Gap: ${esc(a.gap)}</div>`:''}</td><td>${n?`${og(n.orgao)} <span class="sub">${esc(cite(n))}</span>`:'<span class="muted">Sem norma</span>'}</td><td>${esc(a.responsavel||'—')}${a.area?`<div class="sub">${esc(a.area)}</div>`:''}</td><td>${pill(st,AC_COLOR[st]||'info')}</td><td class="num">${(a.evidencias||[]).length||'<span class="muted">—</span>'}</td></tr>`).join('');
-  return `<div class="head"><div><h1>Planos de ação</h1><p>Ações de adequação abertas a partir das normas aplicáveis, com responsável, prazo e evidências.</p></div>
+  return `<div class="head"><div><h1>Planos de ação</h1></div>
     <div class="actions">${S.downloads&&window.XLSX?`<button class="btn" data-act="export-acoes">Exportar Excel</button>`:''}${S.canWrite&&S.db?`<button class="btn pri" data-act="new-acao">Nova ação</button>`:''}</div></div>
   <div class="toolbar"><input type="search" id="aq" placeholder="Buscar por ação, gap, responsável ou norma" value="${esc(f.q)}" aria-label="Buscar ações">
     <select id="as" aria-label="Status">${opts([...ST_ACAO,'Atrasada'],f.status,'Todos os status')}</select>
@@ -951,7 +1034,7 @@ function vObrig(){
     return `<div class="ob ${c==='crit'?'late':''}"><div class="day">${d?`<b>${pad(d.getDate())}</b><small>${MESES[d.getMonth()].slice(0,3)}</small>`:'<small>—</small>'}</div>
     <div class="info"><b>${esc(o.titulo)}</b><div class="meta">${og(o.orgao)}<span>${esc(o.periodicidade||'—')}</span>${o.canal?`<span>${esc(o.canal)}</span>`:''}${o.responsavel?`<span>${esc(o.responsavel)}</span>`:''}${n?`<span>${esc(cite(n))}</span>`:''}${o.ultimoEnvio?`<span>Último envio ${esc(fmtD(o.ultimoEnvio))}</span>`:''}</div></div>
     <div class="btns">${pill(st,c)}${S.canWrite&&!o.concluida?`<button class="btn sm pri" data-act="envio" data-id="${esc(o.id)}">Registrar envio</button>`:''}<button class="btn sm" data-act="open-obrig" data-id="${esc(o.id)}">${S.canWrite?'Editar':'Detalhes'}</button></div></div>`};
-  return `<div class="head"><div><h1>Obrigações regulatórias</h1><p>Envios e entregas recorrentes aos reguladores. Ao registrar um envio, o próximo vencimento é calculado pela periodicidade.</p></div>
+  return `<div class="head"><div><h1>Obrigações regulatórias</h1></div>
     <div class="actions">${S.canWrite&&S.db?`<button class="btn pri" data-act="new-obrig">Nova obrigação</button>`:''}</div></div>
   ${groups.length?groups.map(g=>`<section class="month"><h3>${esc(g.k)}</h3>${g.items.map(item).join('')}</section>`).join('')
   :`<div class="panel"><div class="empty">${loading?'Carregando obrigações…':'Nenhuma obrigação cadastrada. Inclua os envios periódicos da instituição (documentos, demonstrativos, relatórios de conformidade) para acompanhar os vencimentos.'}${!loading&&S.canWrite&&S.db?`<button class="btn pri" data-act="new-obrig">Cadastrar obrigação</button>`:''}</div></div>`}`;
@@ -962,7 +1045,7 @@ function vAudit(){
   const loading=!S.loaded.audit;const tipos=[...new Set(S.audit.map(e=>e.tipo).filter(Boolean))];
   const list=S.audit.filter(e=>!S.auf.tipo||e.tipo===S.auf.tipo);
   ensureNames(list.map(e=>e.por));
-  return `<div class="head"><div><h1>Trilha de auditoria</h1><p>Registro de quem incluiu, alterou ou excluiu normas, ações, obrigações e evidências. Mostra os 300 eventos mais recentes.</p></div></div>
+  return `<div class="head"><div><h1>Trilha de auditoria</h1></div></div>
   <div class="toolbar"><select id="auf" aria-label="Tipo">${opts(tipos,S.auf.tipo,'Todos os tipos')}</select></div>
   ${list.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Item</th><th>Detalhe</th></tr></thead><tbody>${list.map(e=>`<tr style="cursor:default"><td class="nowrap num">${esc(fmtDT(e.em))}</td><td class="nowrap">${esc(nameOf(e.por))}</td><td class="nowrap">${esc(e.acao)} <span class="sub">${esc(e.tipo)}</span></td><td>${esc(e.ref)}</td><td class="sub">${esc(e.detalhe||'')}</td></tr>`).join('')}</tbody></table></div>`
   :`<div class="panel"><div class="empty">${loading?'Carregando…':'Nenhum evento registrado ainda.'}</div></div>`}`;
@@ -1028,14 +1111,14 @@ function gerarRel(){const v=id=>($('#'+id)||{}).value||'';const o={de:v('rDe'),a
   root.innerHTML=relatorioHTML(o);closeDlg();document.body.classList.add('printing');tituloAntes=document.title;document.title='Relatorio-normativo-'+o.ate;
   setTimeout(()=>window.print(),80)}
 addEventListener('afterprint',()=>{if(!document.body.classList.contains('printing'))return;document.body.classList.remove('printing');if(tituloAntes)document.title=tituloAntes});
-function openDlg(state){S.dlg=state;dlg.className=state.narrow?'narrow':'';drawDlg();if(!dlg.open)dlg.showModal()}
+function openDlg(state){S.dlg=state;dlg.className=state.cls||(state.narrow?'narrow':'');drawDlg();if(!dlg.open)dlg.showModal()}
 function closeDlg(){S.dlg=null;S.importRows=null;if(dlg.open)dlg.close()}
 dlg.addEventListener('close',()=>{S.dlg=null});
 function areaSel(id,v){const l=[...(S.areas||[])];if(v&&!l.some(a=>norm(a)===norm(v)))l.push(v);
   return `<select id="${id}"><option value="">Selecione a área</option>${l.map(a=>`<option${norm(a)===norm(v||'')?' selected':''}>${esc(a)}</option>`).join('')}</select>`}
 function drawDlgKeep(){['aArea','oArea'].forEach(id=>{const el=$('#'+id);if(el&&el.tagName==='SELECT'){const v=el.value;el.outerHTML=areaSel(id,v)}})}
 function drawDlg(){const d=S.dlg;if(!d)return;
-  const m={norma:dNorma,acao:dAcao,obrig:dObrig,envio:dEnvio,import:dImport,relatorio:dRelatorio}[d.type];dlg.innerHTML=m(d);}
+  const m={norma:dNorma,acao:dAcao,obrig:dObrig,envio:dEnvio,import:dImport,relatorio:dRelatorio,usuario:dUsuario,areaRen:dAreaRen}[d.type];dlg.innerHTML=m(d);}
 function refreshDialog(){const d=S.dlg;if(!d||!dlg.open)return;
   if(d.type==='norma'&&d.id){const el=$('#dlgAcoes');if(el)el.innerHTML=normaAcoes(d.id)}
   if(d.type==='acao'&&d.id){const el=$('#evList');if(el)el.innerHTML=evList(S.acoes.find(a=>a.id===d.id))}
@@ -1045,11 +1128,13 @@ function delBtn(kind){return S.isAdmin&&S.db?`<button type="button" class="btn d
 function facts(o){ensureNames([o.criadoPor,o.atualizadoPor]);return `<dl class="facts">${o.criadoEm?`<dt>Cadastrada</dt><dd>${esc(fmtDT(o.criadoEm))} por ${esc(nameOf(o.criadoPor))}</dd>`:''}${o.atualizadoEm?`<dt>Última alteração</dt><dd>${esc(fmtDT(o.atualizadoEm))} por ${esc(nameOf(o.atualizadoPor))}</dd>`:''}${o.origem?`<dt>Origem</dt><dd>${esc(o.origem)}</dd>`:''}</dl>`}
 
 // Área responsável: só leitura da norma, com o link oficial em destaque (sem campos internos do Compliance)
-function dNormaArea(n,d){let host='';try{host=new URL(n.link).hostname.replace(/^www\./,'')}catch{}
+function linkNorma(n){if(!n.link)return '';let host='';try{host=new URL(n.link).hostname.replace(/^www\./,'')}catch{}
+  return `<a class="nlink" href="${esc(n.link)}" target="_blank" rel="noopener"><span><b>Ler o texto oficial da norma</b><small>${esc(host||n.link)}</small></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a>`}
+function dNormaArea(n,d){
   const f=(t,v,cls='')=>v?`<div class="${cls}"><dt>${t}</dt><dd>${v}</dd></div>`:'';
   return `<form class="dlg" id="fNorma" data-form="norma"><header><div class="t"><div>${og(n.orgao)}</div><h2>${esc(cite(n))}</h2></div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
   <div class="content area-first"><div class="nresumo">
-    ${n.link?`<a class="nlink" href="${esc(n.link)}" target="_blank" rel="noopener"><span><b>Ler o texto oficial da norma</b><small>${esc(host||n.link)}</small></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a>`:`<div class="banner warn">O Compliance ainda não informou o link oficial desta norma.</div>`}
+    ${n.link?linkNorma(n):`<div class="banner warn">O Compliance ainda não informou o link oficial desta norma.</div>`}
     <div class="box"><header><h3>Sobre a norma</h3></header><div class="pad"><dl class="nfat">
       ${f('Norma',esc(cite(n)))}${f('Tema',esc(n.tema||''))}${f('Publicação',n.dataPublicacao?esc(fmtD(n.dataPublicacao)):'')}${f('Início de vigência',n.vigencia?esc(fmtD(n.vigencia)):'')}${f('Prazo de adequação',n.prazoAdequacao?esc(fmtD(n.prazoAdequacao)):'')}
       ${f('Ementa',esc(n.ementa||''),'full')}</dl></div></div></div>
@@ -1069,10 +1154,10 @@ function dNorma(d){const n=d.id?S.normas.find(x=>x.id===d.id)||{}:{orgao:'BACEN'
     <div class="g2"><label>Responsável<input id="nResp" value="${esc(n.responsavel)}" placeholder="Nome do analista"></label><label>Áreas impactadas<input id="nArea" value="${esc(n.area)}" placeholder="ex.: Crédito, TI, Jurídico"></label></div>
     <label>Análise de aplicabilidade e observações<textarea id="nObs" rows="5" placeholder="Por que a norma se aplica (ou não), impactos, revogações relacionadas">${esc(n.observacoes)}</textarea></label>
   </fieldset></div>
-  <div class="side-col">${d.id?`${S.isArea?encBox(d.id):''}<div class="box"><header><h3>Plano de ação</h3>${!ro()?`<button type="button" class="btn sm" data-act="new-acao" data-norma="${esc(d.id)}">Nova ação</button>`:''}</header><div class="list" id="dlgAcoes">${normaAcoes(d.id)}</div></div>
+  <div class="side-col">${d.id?`${linkNorma(n)}<div class="box"><header><h3>Plano de ação</h3>${!ro()?`<button type="button" class="btn sm" data-act="new-acao" data-norma="${esc(d.id)}">Nova ação</button>`:''}</header><div class="list" id="dlgAcoes">${normaAcoes(d.id)}</div></div>
     ${S.isArea?'':encBox(d.id)}
     ${comBox('n',d.id)}
-    ${n.link?`<a class="btn" href="${esc(n.link)}" target="_blank" rel="noopener">Abrir texto oficial</a>`:''}${facts(n)}`
+    ${facts(n)}`
     :`<div class="box"><div class="pad">Depois de salvar, registre aqui o plano de ação da norma.</div></div><div class="chips muted">Consultar: ${FONTES.map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${t}</a>`).join(' · ')}</div>`}</div></div>
   <footer>${d.id?delBtn('norma'):'<span></span>'}<div class="r"><button type="button" class="btn" data-act="close">${ro()?'Fechar':'Cancelar'}</button>${ro()?'':`<button class="btn pri" type="submit">Salvar norma</button>`}</div></footer></form>`}
 function normaAcoes(id){const ac=S.acoes.filter(a=>a.normaId===id).sort((a,b)=>(a.prazo||'9')<(b.prazo||'9')?-1:1);
@@ -1245,6 +1330,15 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
   if(act==='save-cfg')return saveCfg();
   if(act==='run-captura'){t.disabled=true;window.CN_executarCaptura().then(r=>toast(r.mensagem||'Atualização iniciada.')).catch(e=>toast(errMsg(e),'crit'));return}
   if(act==='export-planos')return exportPlanos();
+  if(act==='cfg-tab'){S.cfgTab=t.dataset.tab;return render()}
+  if(act==='usr-novo')return openDlg({type:'usuario',cls:'lateral'});
+  if(act==='usr-edit')return openDlg({type:'usuario',cls:'lateral',id});
+  if(act==='usr-senha')return usrSenha(t);
+  if(act==='usr-ativo')return usrAtivo(t);
+  if(act==='usr-copiar'){const c=$('#uSenha');if(c&&navigator.clipboard)navigator.clipboard.writeText(c.textContent).then(()=>toast('Senha copiada.'),()=>toast('Não foi possível copiar. Selecione e copie manualmente.','crit'));return}
+  if(act==='area-add'){const v=val('aNova');if(!v){toast('Informe o nome da área.','crit');return}return areaOp({acao:'adicionar',nome:v},'Área adicionada.')}
+  if(act==='area-ren')return openDlg({type:'areaRen',narrow:true,nome:t.dataset.nome});
+  if(act==='area-ativa')return areaOp({acao:t.dataset.on==='1'?'reativar':'desativar',nome:t.dataset.nome},t.dataset.on==='1'?'Área reativada.':'Área desativada. Ela deixa de aparecer para escolha.');
   if(act==='relatorio')return openDlg({type:'relatorio',narrow:true});
   if(act==='rel-gerar')return gerarRel();
   if(act==='rel-todos'){const c=[...document.querySelectorAll('input[name=rSec]')];const on=c.some(x=>!x.checked);c.forEach(x=>x.checked=on);t.textContent=on?'Desmarcar todos':'Marcar todos';return}
@@ -1272,13 +1366,14 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
 }
 main.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(t){e.preventDefault();handleAct(t,e)}});
 dlg.addEventListener('click',e=>{if(e.target===dlg)return closeDlg();const t=e.target.closest('[data-act]');if(t&&t.tagName!=='A'){e.preventDefault();handleAct(t,e)}});
-dlg.addEventListener('submit',e=>{e.preventDefault();if(!S.db)return;const f=e.target.dataset.form;({norma:saveNorma,acao:saveAcao,obrig:saveObrig,envio:saveEnvio,import:runImport,relatorio:gerarRel})[f]()});
+dlg.addEventListener('submit',e=>{e.preventDefault();if(!S.db)return;const f=e.target.dataset.form;(({norma:saveNorma,acao:saveAcao,obrig:saveObrig,envio:saveEnvio,import:runImport,relatorio:gerarRel,usuario:saveUsuario,areaRen:saveAreaRen})[f]||(()=>{}))()});
 document.addEventListener('change',e=>{const n=e.target.name||'';if(!n.startsWith('apl-'))return;const id=n.slice(4),v=e.target.value;const g=x=>document.getElementById(x+'-'+id);if(g('sim'))g('sim').hidden=v!=='sim';if(g('aj'))g('aj').hidden=v!=='ajuste';if(g('lj'))g('lj').textContent=v==='nao'?'Justificativa (obrigatória)':'Comentários (opcional)'});
+dlg.addEventListener('change',e=>{if(e.target.name==='uPerfil'){const b=$('#uAreasBox');if(b)b.hidden=e.target.value!=='Área responsável'}});
 dlg.addEventListener('change',e=>{if(e.target.classList&&e.target.classList.contains('crRisco'))syncRisco('matriz');else if(e.target.id==='nCrit')syncRisco('select')});
 dlg.addEventListener('change',e=>{if(e.target.id==='evFile'&&e.target.files.length){uploadEv([...e.target.files]);e.target.value=''}if(e.target.id==='impFile'&&e.target.files[0]){readImport(e.target.files[0]);e.target.value=''}});
 main.addEventListener('input',e=>{if(e.target.id==='destNovo')S.destNovo=e.target.value});
-main.addEventListener('input',e=>{const id=e.target.id;if(id==='nq'){S.nf.q=e.target.value;render()}if(id==='aq'){S.af.q=e.target.value;render()}});
-main.addEventListener('change',e=>{const id=e.target.id,v=e.target.value;if(id==='no')S.nf.orgao=v;else if(id==='ns')S.nf.status=v;else if(id==='nc')S.nf.crit=v;else if(id==='as')S.af.status=v;else if(id==='auf')S.auf.tipo=v;else if(id==='pf')S.pf=v;else return;render()});
+main.addEventListener('input',e=>{const id=e.target.id;if(id==='nq'){S.nf.q=e.target.value;render()}if(id==='aq'){S.af.q=e.target.value;render()}if(id==='uq'){S.cfgF.q=e.target.value;render()}});
+main.addEventListener('change',e=>{const id=e.target.id,v=e.target.value;if(id==='no')S.nf.orgao=v;else if(id==='ns')S.nf.status=v;else if(id==='nc')S.nf.crit=v;else if(id==='as')S.af.status=v;else if(id==='auf')S.auf.tipo=v;else if(id==='pf')S.pf=v;else if(id==='up')S.cfgF.perfil=v;else if(id==='usit')S.cfgF.sit=v;else return;render()});
 const tipEl=$('#tip');
 main.addEventListener('mousemove',e=>{const t=e.target.closest('[data-tip]');if(!t){tipEl.hidden=true;return}tipEl.textContent=t.dataset.tip;tipEl.hidden=false;
   const w=tipEl.offsetWidth,h=tipEl.offsetHeight;let x=e.clientX+14,y=e.clientY-h-10;if(x+w>innerWidth-8)x=e.clientX-w-14;if(y<8)y=e.clientY+16;tipEl.style.left=x+'px';tipEl.style.top=y+'px'});
