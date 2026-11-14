@@ -228,13 +228,21 @@ async function gravarSistema(id, dados, c = { query: q }) {
 const AREAS_PADRAO = ['Tesouraria', 'Operações', 'Tecnologia', 'Compliance', 'Riscos', 'Jurídico', 'Pessoas', 'Contabilidade', 'Gestão'];
 // Compara áreas sem diferenciar maiúsculas, acentos e espaços nas pontas
 const normArea = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-async function listarAreas() {
+async function configAreas() {
   const d = await lerSistema('areas');
-  return d && Array.isArray(d.lista) && d.lista.length ? d.lista : AREAS_PADRAO;
+  const lista = d && Array.isArray(d.lista) && d.lista.length ? d.lista : AREAS_PADRAO;
+  const inativas = d && Array.isArray(d.inativas) ? d.inativas : [];
+  return { lista, inativas };
+}
+// Só as áreas ativas aparecem para escolha
+async function listarAreas() {
+  const { lista, inativas } = await configAreas();
+  const off = new Set(inativas.map(normArea));
+  return lista.filter(a => !off.has(normArea(a)));
 }
 
 module.exports = {
-  AREAS_PADRAO, normArea, listarAreas,
+  AREAS_PADRAO, normArea, listarAreas, configAreas,
   COLECOES, ErroValidacao, listar, gravar, atualizar, excluir,
   listarAuditoria, registrarAuditoria, lerSistema, gravarSistema, deLinha, paraColunas,
 };
