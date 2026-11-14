@@ -182,8 +182,8 @@ app.get('/api/c/:col', async (req, res) => {
 // ---- Normas encaminhadas para as áreas ----
 app.get('/api/encaminhamentos', async (req, res) => {
   try {
-    const r = await q('SELECT id, norma_id, area, mensagem, por, em, prazo, resposta, respondido_em, respondido_por, aplicavel, plano_sugerido, data_sugerida::text AS data_sugerida FROM encaminhamentos ORDER BY em DESC LIMIT 3000');
-    let l = r.rows.map(e => ({ id: e.id, normaId: e.norma_id, area: e.area, mensagem: e.mensagem || '', por: e.por, em: e.em.toISOString(), prazo: e.prazo || '', resposta: e.resposta || '', respondidoEm: e.respondido_em ? e.respondido_em.toISOString() : '', respondidoPor: e.respondido_por || null, aplicavel: e.aplicavel, planoSugerido: e.plano_sugerido || '', dataSugerida: e.data_sugerida || '' }));
+    const r = await q('SELECT id, norma_id, area, mensagem, por, em, prazo, resposta, respondido_em, respondido_por, aplicavel, impacto, plano_sugerido, data_sugerida::text AS data_sugerida FROM encaminhamentos ORDER BY em DESC LIMIT 3000');
+    let l = r.rows.map(e => ({ id: e.id, normaId: e.norma_id, area: e.area, mensagem: e.mensagem || '', por: e.por, em: e.em.toISOString(), prazo: e.prazo || '', resposta: e.resposta || '', respondidoEm: e.respondido_em ? e.respondido_em.toISOString() : '', respondidoPor: e.respondido_por || null, aplicavel: e.aplicavel, impacto: e.impacto || '', planoSugerido: e.plano_sugerido || '', dataSugerida: e.data_sugerida || '' }));
     const esc = escopoArea(req);
     if (esc) l = l.filter(e => esc.has(dados.normArea(e.area)));
     res.json(l);
@@ -224,22 +224,27 @@ app.post('/api/encaminhamentos/:id/responder', colaboracao, async (req, res) => 
     const esc = escopoArea(req);
     if (!esc) return res.status(403).json({ erro: 'Somente a área responsável registra o retorno.' });
     const b = req.body || {};
-    const apl = b.aplicavel === 'sim' ? true : b.aplicavel === 'nao' ? false : null;
+    const opc = ['sim', 'ajuste', 'nao'].includes(b.aplicavel) ? b.aplicavel : null;
+    const apl = opc === null ? null : opc !== 'nao';
+    const impacto = opc === 'sim' ? 'plano' : opc === 'ajuste' ? 'ajuste' : null;
     const resposta = String(b.resposta || '').trim();
     const plano = String(b.planoSugerido || '').trim();
     const data = String(b.dataSugerida || '').trim();
-    if (apl === null) return res.status(400).json({ erro: 'Informe se a norma é aplicável à área.' });
-    if (apl && !plano) return res.status(400).json({ erro: 'Descreva o plano de ação sugerido.' });
-    if (apl && !/^\d{4}-\d{2}-\d{2}$/.test(data)) return res.status(400).json({ erro: 'Informe a data sugerida para o plano de ação.' });
-    if (!apl && !resposta) return res.status(400).json({ erro: 'Explique por que a norma não é aplicável.' });
+    const dataOk = /^\d{4}-\d{2}-\d{2}$/.test(data);
+    if (opc === null) return res.status(400).json({ erro: 'Informe se a norma é aplicável à área.' });
+    if (opc === 'sim' && !plano) return res.status(400).json({ erro: 'Descreva o plano de ação sugerido.' });
+    if (opc === 'sim' && !dataOk) return res.status(400).json({ erro: 'Informe a data sugerida para o plano de ação.' });
+    if (opc === 'ajuste' && !plano) return res.status(400).json({ erro: 'Descreva os ajustes que a área vai fazer.' });
+    if (opc === 'ajuste' && data && !dataOk) return res.status(400).json({ erro: 'Data prevista inválida.' });
+    if (opc === 'nao' && !resposta) return res.status(400).json({ erro: 'Explique por que a norma não é aplicável.' });
     if (resposta.length > 4000 || plano.length > 4000) return res.status(400).json({ erro: 'Texto muito longo (máximo de 4.000 caracteres).' });
     const e = (await q('SELECT e.id, e.norma_id, e.area, e.respondido_em, n.tipo, n.orgao, n.numero FROM encaminhamentos e JOIN normas n ON n.id = e.norma_id WHERE e.id = $1', [req.params.id])).rows[0];
     if (!e || !esc.has(dados.normArea(e.area))) return res.status(404).json({ erro: 'Encaminhamento não encontrado.' });
     if (e.respondido_em) return res.status(409).json({ erro: 'O retorno desta área já foi enviado.' });
     // Responde de uma vez todos os encaminhamentos pendentes desta norma para a mesma área
-    await q('UPDATE encaminhamentos SET resposta = $3, aplicavel = $4, plano_sugerido = $5, data_sugerida = $6, respondido_em = now(), respondido_por = $7 WHERE norma_id = $1 AND area = $2 AND respondido_em IS NULL',
-      [e.norma_id, e.area, resposta || null, apl, apl ? plano : null, apl ? data : null, usuario(req).id]);
-    await dados.registrarAuditoria({ acao: 'Respondeu', tipo: 'Norma', ref: `${e.tipo} ${e.orgao === 'BACEN' ? 'BCB' : e.orgao} nº ${e.numero}`, detalhe: `Retorno da área ${e.area}: ${apl ? 'aplicável' : 'não aplicável'}${apl ? ` · plano sugerido: ${plano.slice(0, 300)} · até ${data.split('-').reverse().join('/')}` : ''}${resposta ? ' · ' + resposta.slice(0, 300) : ''}` }, usuario(req).id);
+    await q('UPDATE encaminhamentos SET resposta = $3, aplicavel = $4, plano_sugerido = $5, data_sugerida = $6, respondido_em = now(), respondido_por = $7, impacto = $8 WHERE norma_id = $1 AND area = $2 AND respondido_em IS NULL',
+      [e.norma_id, e.area, resposta || null, apl, apl ? plano : null, apl && dataOk ? data : null, usuario(req).id, impacto]);
+    await dados.registrarAuditoria({ acao: 'Respondeu', tipo: 'Norma', ref: `${e.tipo} ${e.orgao === 'BACEN' ? 'BCB' : e.orgao} nº ${e.numero}`, detalhe: `Retorno da área ${e.area}: ${opc === 'sim' ? 'aplicável, requer plano de ação' : opc === 'ajuste' ? 'aplicável, só ajustes pontuais' : 'não aplicável'}${apl ? ` · ${opc === 'ajuste' ? 'ajustes' : 'plano sugerido'}: ${plano.slice(0, 300)}${dataOk ? ' · até ' + data.split('-').reverse().join('/') : ''}` : ''}${resposta ? ' · ' + resposta.slice(0, 300) : ''}` }, usuario(req).id);
     res.json({ ok: true });
   } catch (err) { tratarErro(res, err); }
 });
