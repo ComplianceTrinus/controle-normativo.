@@ -20,22 +20,23 @@ const COLECOES = {
     },
     datas: ['dataPublicacao', 'vigencia', 'prazoAdequacao', 'triadaEm', 'analisadaEm'],
     obrigatorios: ['orgao', 'tipo', 'numero', 'chave', 'ementa'],
-    listar: `SELECT * FROM normas ORDER BY data_publicacao DESC NULLS LAST, id`,
+    listar: `SELECT * FROM normas WHERE excluido_em IS NULL ORDER BY data_publicacao DESC NULLS LAST, id`,
   },
   acoes: {
     tabela: 'acoes',
     campos: {
       normaId: 'norma_id', descricao: 'descricao', gap: 'gap', responsavel: 'responsavel', area: 'area',
-      prazo: 'prazo', status: 'status', observacoes: 'observacoes', concluidaEm: 'concluida_em', ...CARIMBO,
+      prazo: 'prazo', status: 'status', observacoes: 'observacoes', concluidaEm: 'concluida_em', concluidaPor: 'concluida_por', ...CARIMBO,
     },
     datas: ['prazo', 'concluidaEm'],
     referencias: ['normaId'],
     obrigatorios: ['descricao'],
     listar: `SELECT a.*, COALESCE(
                json_agg(json_build_object('id', e.id, 'nome', e.nome, 'tamanho', e.tamanho,
-                        'em', e.enviado_em, 'por', e.enviado_por) ORDER BY e.enviado_em)
+                        'em', e.enviado_em, 'por', e.enviado_por, 'hash', e.hash) ORDER BY e.enviado_em)
                FILTER (WHERE e.id IS NOT NULL), '[]') AS evidencias
-             FROM acoes a LEFT JOIN evidencias e ON e.acao_id = a.id
+             FROM acoes a LEFT JOIN evidencias e ON e.acao_id = a.id AND e.excluida_em IS NULL
+             WHERE a.excluido_em IS NULL
              GROUP BY a.id ORDER BY a.prazo NULLS LAST, a.id`,
   },
   obrigacoes: {
@@ -52,7 +53,7 @@ const COLECOES = {
                (SELECT json_agg(json_build_object('data', v.data, 'vencimento', v.vencimento, 'obs', v.obs, 'por', v.por)
                                 ORDER BY v.data DESC, v.id DESC)
                   FROM obrigacao_envios v WHERE v.obrigacao_id = o.id), '[]') AS historico
-             FROM obrigacoes o ORDER BY o.proximo_vencimento NULLS LAST, o.id`,
+             FROM obrigacoes o WHERE o.excluido_em IS NULL ORDER BY o.proximo_vencimento NULLS LAST, o.id`,
   },
 };
 
@@ -117,7 +118,9 @@ async function gravar(col, id, dados, usuario) {
   const agora = new Date();
   return tx(async c => {
     const existe = await obter(col, id, c);
+    if (existe && existe.excluido_em) throw new ErroValidacao('Este registro está na lixeira. Restaure-o em Configurações → Lixeira.', 409);
     cols.atualizado_em = agora; cols.atualizado_por = usuario.id;
+    if (col === 'acoes') marcarConclusao(cols, existe, usuario);
     if (existe) {
       await atualizarLinha(c, def.tabela, id, cols);
     } else {
@@ -128,6 +131,7 @@ async function gravar(col, id, dados, usuario) {
         [id, ...nomes.map(n => cols[n])]);
     }
     await sincronizarFilhos(c, col, id, dados, usuario);
+    if (col === 'acoes') await validarConclusao(c, id, cols, existe, usuario);
   });
 }
 
@@ -142,10 +146,12 @@ async function atualizar(col, id, dados, usuario) {
   }
   return tx(async c => {
     const existe = await obter(col, id, c);
-    if (!existe) throw new ErroValidacao('Registro não encontrado. Ele pode ter sido excluído por outra pessoa.', 404);
+    if (!existe || existe.excluido_em) throw new ErroValidacao('Registro não encontrado. Ele pode ter sido excluído por outra pessoa.', 404);
     cols.atualizado_em = new Date(); cols.atualizado_por = usuario.id;
+    if (col === 'acoes') marcarConclusao(cols, existe, usuario);
     await atualizarLinha(c, def.tabela, id, cols);
     await sincronizarFilhos(c, col, id, dados, usuario);
+    if (col === 'acoes') await validarConclusao(c, id, cols, existe, usuario);
   });
 }
 
@@ -156,19 +162,32 @@ async function atualizarLinha(c, tabela, id, cols) {
     [id, ...nomes.map(n => cols[n])]);
 }
 
+// Segregação de funções: concluir uma ação exige evidência e não pode ser feito por quem é o responsável pela execução
+const virouConcluida = (cols, existe) => cols.status === 'Concluída' && (!existe || existe.status !== 'Concluída');
+function marcarConclusao(cols, existe, usuario) {
+  if (virouConcluida(cols, existe)) cols.concluida_por = usuario.id;
+}
+async function validarConclusao(c, id, cols, existe, usuario) {
+  if (!virouConcluida(cols, existe)) return;
+  const ev = (await c.query('SELECT count(*)::int AS n FROM evidencias WHERE acao_id = $1 AND excluida_em IS NULL', [id])).rows[0].n;
+  if (!ev) throw new ErroValidacao('Para concluir a ação, anexe pelo menos uma evidência.');
+  const resp = normArea(cols.responsavel !== undefined ? cols.responsavel : existe && existe.responsavel);
+  if (resp && resp === normArea(usuario.nome)) throw new ErroValidacao('Quem executa a ação não pode validar a própria conclusão. Peça a outra pessoa do Compliance para concluir.');
+}
+
 // Evidências (ações) e histórico de envios (obrigações) ficam em tabelas próprias
 async function sincronizarFilhos(c, col, id, dados, usuario) {
   if (col === 'acoes' && Array.isArray(dados.evidencias)) {
     const ids = dados.evidencias.map(e => String(e && e.id || '')).filter(Boolean);
-    const atuais = (await c.query('SELECT id FROM evidencias WHERE acao_id = $1', [id])).rows.map(r => r.id);
+    const atuais = (await c.query('SELECT id FROM evidencias WHERE acao_id = $1 AND excluida_em IS NULL', [id])).rows.map(r => r.id);
     const removidas = atuais.filter(x => !ids.includes(x));
     if (removidas.length && usuario.perfil !== 'Admin') throw new ErroValidacao('Somente o perfil Admin remove evidências.', 403);
     if (ids.length) {
       await c.query('UPDATE evidencias SET acao_id = $1 WHERE id = ANY($2) AND (acao_id IS NULL OR acao_id = $1)', [id, ids]);
     }
     if (removidas.length) {
-      await c.query('DELETE FROM evidencias WHERE id = ANY($1)', [removidas]);
-      removidas.forEach(apagarArquivo);
+      // Vai para a lixeira: o arquivo e a impressão digital são mantidos
+      await c.query('UPDATE evidencias SET excluida_em = now(), excluida_por = $2 WHERE id = ANY($1)', [removidas, usuario.id]);
     }
   }
   if (col === 'obrigacoes' && Array.isArray(dados.historico) && dados.historico.length) {
@@ -187,15 +206,37 @@ async function sincronizarFilhos(c, col, id, dados, usuario) {
   }
 }
 
-async function excluir(col, id) {
+// Exclusão vai para a lixeira (excluido_em); a ação some das listas, mas continua no banco e pode ser restaurada
+async function excluir(col, id, usuario) {
   if (!COLECOES[col]) throw new ErroValidacao('Coleção desconhecida.', 404);
-  if (col === 'acoes') {
-    const ev = (await q('SELECT id FROM evidencias WHERE acao_id = $1', [id])).rows.map(r => r.id);
-    await q('DELETE FROM acoes WHERE id = $1', [id]);
-    ev.forEach(apagarArquivo);
-    return;
+  const t = COLECOES[col].tabela;
+  const r = await q(`UPDATE ${t} SET excluido_em = now(), excluido_por = $2 WHERE id = $1 AND excluido_em IS NULL RETURNING excluido_em`, [id, (usuario && usuario.id) || null]);
+  if (!r.rowCount) throw new ErroValidacao('Registro não encontrado.', 404);
+  if (col === 'normas') await q('UPDATE acoes SET excluido_em = $2, excluido_por = $3 WHERE norma_id = $1 AND excluido_em IS NULL', [id, r.rows[0].excluido_em, (usuario && usuario.id) || null]);
+}
+async function restaurar(col, id) {
+  if (col === 'evidencias') {
+    const r = await q('UPDATE evidencias SET excluida_em = NULL, excluida_por = NULL WHERE id = $1 AND excluida_em IS NOT NULL RETURNING nome', [id]);
+    if (!r.rowCount) throw new ErroValidacao('Item não encontrado na lixeira.', 404);
+    return r.rows[0].nome;
   }
-  await q(`DELETE FROM ${COLECOES[col].tabela} WHERE id = $1`, [id]);
+  if (!COLECOES[col]) throw new ErroValidacao('Coleção desconhecida.', 404);
+  const t = COLECOES[col].tabela;
+  const atual = (await q(`SELECT excluido_em FROM ${t} WHERE id = $1`, [id])).rows[0];
+  if (!atual || !atual.excluido_em) throw new ErroValidacao('Item não encontrado na lixeira.', 404);
+  await q(`UPDATE ${t} SET excluido_em = NULL, excluido_por = NULL WHERE id = $1`, [id]);
+  // Ao restaurar uma norma, voltam também as ações excluídas junto com ela
+  if (col === 'normas') await q("UPDATE acoes SET excluido_em = NULL, excluido_por = NULL WHERE norma_id = $1 AND excluido_em BETWEEN $2::timestamptz - interval '5 minutes' AND $2::timestamptz + interval '5 minutes'", [id, atual.excluido_em]);
+  return id;
+}
+async function listarLixeira() {
+  const r = await q(`
+    SELECT 'normas' AS col, id, tipo || ' ' || CASE WHEN orgao = 'BACEN' THEN 'BCB' ELSE orgao END || ' nº ' || numero AS nome, excluido_em AS em, excluido_por AS por FROM normas WHERE excluido_em IS NOT NULL
+    UNION ALL SELECT 'acoes', id, left(descricao, 120), excluido_em, excluido_por FROM acoes WHERE excluido_em IS NOT NULL
+    UNION ALL SELECT 'obrigacoes', id, titulo, excluido_em, excluido_por FROM obrigacoes WHERE excluido_em IS NOT NULL
+    UNION ALL SELECT 'evidencias', id, nome, excluida_em, excluida_por FROM evidencias WHERE excluida_em IS NOT NULL
+    ORDER BY em DESC LIMIT 500`);
+  return r.rows.map(x => ({ col: x.col, id: x.id, nome: x.nome, em: x.em.toISOString(), por: x.por }));
 }
 
 function apagarArquivo(id) {
@@ -243,6 +284,6 @@ async function listarAreas() {
 
 module.exports = {
   AREAS_PADRAO, normArea, listarAreas, configAreas,
-  COLECOES, ErroValidacao, listar, gravar, atualizar, excluir,
+  COLECOES, ErroValidacao, listar, gravar, atualizar, excluir, restaurar, listarLixeira,
   listarAuditoria, registrarAuditoria, lerSistema, gravarSistema, deLinha, paraColunas,
 };
