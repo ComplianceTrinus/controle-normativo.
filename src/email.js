@@ -175,4 +175,26 @@ ${norma.link ? `<p style="margin:0 0 16px"><a href="${esc(norma.link)}" style="c
   return { ok, falhas };
 }
 
-module.exports = { enviarResumo, statusEnvio, montar, periodo, enviarCodigoLogin, enviarEncaminhamento, ErroEmail };
+// Aviso simples no padrão visual do sistema (retorno de área, falha de captura...)
+async function enviarAviso(para, { assunto, titulo, subtitulo = '', linhas = [], link = '', botao = 'Abrir no Controle Normativo' }) {
+  if (!para.length) return { ok: [], falhas: [] };
+  const html = `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#F5F5F5;font-family:'Plus Jakarta Sans',Segoe UI,Arial,sans-serif;color:#191A1C">
+<div style="max-width:620px;margin:0 auto;padding:24px 16px">
+<div style="background:#2E4CFF;color:#fff;border-radius:16px 16px 0 0;padding:22px 24px">
+<div style="font-size:13px;opacity:.85">Trinus · Controle Normativo</div>
+<div style="font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:4px">${esc(titulo)}</div>
+${subtitulo ? `<div style="font-size:14px;opacity:.9;margin-top:4px">${esc(subtitulo)}</div>` : ''}</div>
+<div style="background:#fff;border-radius:0 0 16px 16px;padding:20px 24px 24px">
+${linhas.map(([rot, txt]) => `<div style="font-size:14px;line-height:1.5;margin-bottom:10px">${rot ? `<b>${esc(rot)}:</b> ` : ''}${esc(txt).replace(/\n/g, '<br>')}</div>`).join('')}
+${link ? `<a href="${esc(link)}" style="background:#2E4CFF;color:#fff;text-decoration:none;padding:11px 18px;border-radius:10px;font-weight:600;display:inline-block;margin-top:6px">${esc(botao)}</a>` : ''}
+</div></div></body></html>`;
+  const texto = [titulo, subtitulo, '', ...linhas.map(([r, t]) => (r ? r + ': ' : '') + t), link ? '\n' + link : ''].join('\n');
+  const ok = [], falhas = [];
+  for (const email of para) {
+    try { await enviarResend([email], { assunto, html, texto }); ok.push(email); }
+    catch (e) { falhas.push({ email, erro: e.message }); }
+  }
+  return { ok, falhas };
+}
+
+module.exports = { enviarResumo, statusEnvio, montar, periodo, enviarCodigoLogin, enviarEncaminhamento, enviarAviso, ErroEmail };
