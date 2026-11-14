@@ -110,11 +110,11 @@ async function enviarResumo({ origem = 'agendado', teste = false, usuarioId = nu
   if (!teste && fimDeSemana(hoje)) return { enviado: false, motivo: 'O e-mail só é enviado de segunda a sexta.', para };
   if (!teste && estado.ultimoEnvioDia === hoje) return { enviado: false, motivo: 'O resumo de hoje já foi enviado.', para };
   const campos = 'id, orgao, tipo, numero, data_publicacao, ementa, link, criado_em';
-  const buscar = p => q(`SELECT ${campos} FROM normas WHERE data_publicacao::date BETWEEN $1::date AND $2::date ORDER BY data_publicacao DESC, orgao, numero LIMIT 300`, [p.inicio, p.fim]).then(r => r.rows);
+  const buscar = p => q(`SELECT ${campos} FROM normas WHERE excluido_em IS NULL AND data_publicacao::date BETWEEN $1::date AND $2::date ORDER BY data_publicacao DESC, orgao, numero LIMIT 300`, [p.inicio, p.fim]).then(r => r.rows);
   let normas = await buscar(per);
   let aviso = '';
   if (teste && !normas.length) {
-    const u = (await q(`SELECT max(data_publicacao::date) AS d FROM normas WHERE data_publicacao::date < $1::date`, [hoje])).rows[0];
+    const u = (await q(`SELECT max(data_publicacao::date) AS d FROM normas WHERE excluido_em IS NULL AND data_publicacao::date < $1::date`, [hoje])).rows[0];
     const d = u && u.d ? isoDia(u.d) : '';
     if (d) {
       aviso = `Não houve normativo publicado ${quando(per)}. Este envio de teste mostra os de ${br(d)}.`;
