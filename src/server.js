@@ -234,7 +234,7 @@ app.post('/api/encaminhamentos/:id/responder', colaboracao, async (req, res) => 
     if (opc === null) return res.status(400).json({ erro: 'Informe se a norma é aplicável à área.' });
     if (opc === 'sim' && !plano) return res.status(400).json({ erro: 'Descreva o plano de ação sugerido.' });
     if (opc === 'sim' && !dataOk) return res.status(400).json({ erro: 'Informe a data sugerida para o plano de ação.' });
-    if (opc === 'ajuste' && !plano) return res.status(400).json({ erro: 'Descreva os ajustes que a área vai fazer.' });
+    if (opc === 'ajuste' && !plano) return res.status(400).json({ erro: 'Descreva o que muda para a área.' });
     if (opc === 'ajuste' && data && !dataOk) return res.status(400).json({ erro: 'Data prevista inválida.' });
     if (opc === 'nao' && !resposta) return res.status(400).json({ erro: 'Explique por que a norma não é aplicável.' });
     if (resposta.length > 4000 || plano.length > 4000) return res.status(400).json({ erro: 'Texto muito longo (máximo de 4.000 caracteres).' });
@@ -244,7 +244,7 @@ app.post('/api/encaminhamentos/:id/responder', colaboracao, async (req, res) => 
     // Responde de uma vez todos os encaminhamentos pendentes desta norma para a mesma área
     await q('UPDATE encaminhamentos SET resposta = $3, aplicavel = $4, plano_sugerido = $5, data_sugerida = $6, respondido_em = now(), respondido_por = $7, impacto = $8 WHERE norma_id = $1 AND area = $2 AND respondido_em IS NULL',
       [e.norma_id, e.area, resposta || null, apl, apl ? plano : null, apl && dataOk ? data : null, usuario(req).id, impacto]);
-    await dados.registrarAuditoria({ acao: 'Respondeu', tipo: 'Norma', ref: `${e.tipo} ${e.orgao === 'BACEN' ? 'BCB' : e.orgao} nº ${e.numero}`, detalhe: `Retorno da área ${e.area}: ${opc === 'sim' ? 'aplicável, requer plano de ação' : opc === 'ajuste' ? 'aplicável, só ajustes pontuais' : 'não aplicável'}${apl ? ` · ${opc === 'ajuste' ? 'ajustes' : 'plano sugerido'}: ${plano.slice(0, 300)}${dataOk ? ' · até ' + data.split('-').reverse().join('/') : ''}` : ''}${resposta ? ' · ' + resposta.slice(0, 300) : ''}` }, usuario(req).id);
+    await dados.registrarAuditoria({ acao: 'Respondeu', tipo: 'Norma', ref: `${e.tipo} ${e.orgao === 'BACEN' ? 'BCB' : e.orgao} nº ${e.numero}`, detalhe: `Retorno da área ${e.area}: ${opc === 'sim' ? 'aplicável, com plano de ação' : opc === 'ajuste' ? 'aplicável, sem plano de ação' : 'não aplicável'}${apl ? ` · ${opc === 'ajuste' ? 'o que muda' : 'plano sugerido'}: ${plano.slice(0, 300)}${dataOk ? ' · até ' + data.split('-').reverse().join('/') : ''}` : ''}${resposta ? ' · ' + resposta.slice(0, 300) : ''}` }, usuario(req).id);
     res.json({ ok: true });
   } catch (err) { tratarErro(res, err); }
 });
