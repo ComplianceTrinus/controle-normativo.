@@ -5,7 +5,7 @@ const { promisify } = require('util');
 const express = require('express');
 const { config } = require('./config');
 const { q } = require('./db');
-const { registrarAuditoria, listarAreas, gravarSistema, normArea } = require('./colecoes');
+const { registrarAuditoria, listarAreas, gravarSistema, normArea, configAreas } = require('./colecoes');
 
 const scrypt = promisify(crypto.scrypt);
 const PERFIS = ['Admin', 'Analista', 'Área responsável', 'Leitura'];
@@ -357,9 +357,10 @@ const msgSenha = (u, senha, prefixo) => ({
   texto: `${esc(prefixo)} Senha provisória de <b>${esc(u)}</b>: <code>${esc(senha)}</code><br><span style="font-size:13px">Anote agora e repasse por um canal seguro: ela não será mostrada de novo. A pessoa troca a senha no primeiro acesso.</span>`,
 });
 
-router.get('/usuarios', logado, soAdmin, (req, res, next) => {
+// A gestão de acesso fica dentro do app (Configurações)
+router.get('/usuarios', logado, soAdmin, (req, res) => {
   if (config.authMode !== 'local') return res.status(404).send(pagina('Indisponível', '<h1>Usuários</h1><p>Com login corporativo, os usuários e perfis são gerenciados no Microsoft Entra ID.</p><a class="bt sec" href="/">Voltar</a>'));
-  telaUsuarios(req, res).catch(next);
+  res.redirect('/#config');
 });
 
 router.post('/usuarios', logado, soAdmin, async (req, res, next) => {
@@ -460,4 +461,153 @@ async function revalidar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { router, garantirPrimeiroAdmin, exigirSenhaDefinitiva, revalidar, gerarHash, conferir, validarSenha };
+// ---- API da tela Configurações (montada em /api/admin, já com login, perfil Admin e proteção CSRF) ----
+const apiAdmin = express.Router();
+const sit = u => !u.ativo ? 'Desativado' : u.bloqueado_ate && new Date(u.bloqueado_ate) > new Date() ? 'Bloqueado' : u.trocar_senha ? 'Aguardando primeiro acesso' : 'Ativo';
+const encerrarSessoes = id => q("DELETE FROM sessoes WHERE sess -> 'usuario' ->> 'id' = $1", [id]).catch(() => {});
+const soLocal = (req, res, next) => config.authMode === 'local' ? next() : res.status(404).json({ erro: 'Com login corporativo, os acessos são gerenciados no Microsoft Entra ID.' });
+apiAdmin.use('/usuarios', soLocal);
+
+apiAdmin.get('/usuarios', async (req, res, next) => {
+  try {
+    const r = await q('SELECT id, nome, email, perfil, ativo, trocar_senha, ultimo_acesso, bloqueado_ate, areas, ver_obrigacoes FROM usuarios WHERE senha_hash IS NOT NULL ORDER BY ativo DESC, nome');
+    res.json({ perfis: PERFIS, eu: req.session.usuario.id, usuarios: r.rows.map(u => ({
+      id: u.id, nome: u.nome, email: u.email, perfil: u.perfil, ativo: u.ativo, situacao: sit(u),
+      ultimoAcesso: u.ultimo_acesso ? new Date(u.ultimo_acesso).toISOString() : '', areas: u.areas || [], verObrigacoes: !!u.ver_obrigacoes })) });
+  } catch (e) { next(e); }
+});
+
+apiAdmin.post('/usuarios', async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    const nome = String(b.nome || '').trim().slice(0, 120);
+    const email = String(b.email || '').trim().toLowerCase();
+    const perfil = PERFIS.includes(b.perfil) ? b.perfil : null;
+    if (!nome || !emailValido(email)) return res.status(400).json({ erro: 'Informe o nome e um e-mail válido.' });
+    if (!perfil) return res.status(400).json({ erro: 'Escolha o perfil.' });
+    if ((await q('SELECT 1 FROM usuarios WHERE lower(email) = $1 AND senha_hash IS NOT NULL', [email])).rowCount) return res.status(409).json({ erro: 'Já existe um usuário com esse e-mail.' });
+    const areas = perfil === 'Área responsável' ? areasDoForm(b.areas, await listarAreas()) : [];
+    if (perfil === 'Área responsável' && !areas.length) return res.status(400).json({ erro: 'Marque pelo menos uma área.' });
+    const ob = perfil === 'Área responsável' && b.verObrigacoes === true;
+    const senha = senhaTemporaria();
+    const id = 'loc-' + crypto.randomUUID().replace(/-/g, '').slice(0, 20);
+    await q('INSERT INTO usuarios (id, nome, email, perfil, senha_hash, ativo, trocar_senha, areas, ver_obrigacoes) VALUES ($1,$2,$3,$4,$5,true,true,$6,$7)', [id, nome, email, perfil, await gerarHash(senha), areas, ob]);
+    await registrarAuditoria({ acao: 'Criou', tipo: 'Usuário', ref: email, detalhe: `Perfil ${perfil}${areas.length ? ' · Áreas: ' + areas.join(', ') : ''}${ob ? ' · com acesso às obrigações' : ''}` }, req.session.usuario.id);
+    res.status(201).json({ ok: true, id, senha });
+  } catch (e) { next(e); }
+});
+
+apiAdmin.patch('/usuarios/:id', async (req, res, next) => {
+  try {
+    const id = req.params.id, quem = req.session.usuario.id, b = req.body || {};
+    if (id === quem) return res.status(400).json({ erro: 'Você não pode alterar o próprio acesso.' });
+    const u = (await q('SELECT * FROM usuarios WHERE id = $1 AND senha_hash IS NOT NULL', [id])).rows[0];
+    if (!u) return res.status(404).json({ erro: 'Usuário não encontrado.' });
+    const nome = b.nome !== undefined ? String(b.nome).trim().slice(0, 120) : u.nome;
+    if (!nome) return res.status(400).json({ erro: 'Informe o nome.' });
+    const perfil = PERFIS.includes(b.perfil) ? b.perfil : u.perfil;
+    const areas = perfil === 'Área responsável' ? areasDoForm(b.areas !== undefined ? b.areas : u.areas, await listarAreas()) : [];
+    if (perfil === 'Área responsável' && !areas.length) return res.status(400).json({ erro: 'Marque pelo menos uma área.' });
+    const ob = perfil === 'Área responsável' && (b.verObrigacoes !== undefined ? b.verObrigacoes === true : !!u.ver_obrigacoes);
+    const mud = [];
+    if (nome !== u.nome) mud.push(`Nome: ${u.nome} → ${nome}`);
+    if (perfil !== u.perfil) mud.push(`Perfil: ${u.perfil} → ${perfil}`);
+    const ant = (u.areas || []).join(', '), nov = areas.join(', ');
+    if (ant !== nov) mud.push(`Áreas: ${ant || 'nenhuma'} → ${nov || 'nenhuma'}`);
+    if (ob !== !!u.ver_obrigacoes) mud.push(`Obrigações: ${ob ? 'com acesso' : 'sem acesso'}`);
+    if (!mud.length) return res.json({ ok: true, alterado: false });
+    await q('UPDATE usuarios SET nome = $2, perfil = $3, areas = $4, ver_obrigacoes = $5 WHERE id = $1', [id, nome, perfil, areas, ob]);
+    if (perfil !== u.perfil) await encerrarSessoes(id);
+    await registrarAuditoria({ acao: 'Alterou', tipo: 'Usuário', ref: u.email, detalhe: mud.join(' · ') }, quem);
+    res.json({ ok: true, alterado: true });
+  } catch (e) { next(e); }
+});
+
+apiAdmin.post('/usuarios/:id/senha', async (req, res, next) => {
+  try {
+    const id = req.params.id, quem = req.session.usuario.id;
+    if (id === quem) return res.status(400).json({ erro: 'Para trocar a sua senha, use "Trocar senha" no menu da conta.' });
+    const u = (await q('SELECT email FROM usuarios WHERE id = $1 AND senha_hash IS NOT NULL', [id])).rows[0];
+    if (!u) return res.status(404).json({ erro: 'Usuário não encontrado.' });
+    const senha = senhaTemporaria();
+    await q('UPDATE usuarios SET senha_hash = $2, trocar_senha = true, tentativas = 0, bloqueado_ate = NULL WHERE id = $1', [id, await gerarHash(senha)]);
+    await encerrarSessoes(id);
+    await registrarAuditoria({ acao: 'Redefiniu a senha', tipo: 'Usuário', ref: u.email, detalhe: '' }, quem);
+    res.json({ ok: true, senha });
+  } catch (e) { next(e); }
+});
+
+apiAdmin.post('/usuarios/:id/ativo', async (req, res, next) => {
+  try {
+    const id = req.params.id, quem = req.session.usuario.id, ativo = !!(req.body && req.body.ativo);
+    if (id === quem) return res.status(400).json({ erro: 'Você não pode desativar a si mesmo.' });
+    const u = (await q('SELECT email FROM usuarios WHERE id = $1 AND senha_hash IS NOT NULL', [id])).rows[0];
+    if (!u) return res.status(404).json({ erro: 'Usuário não encontrado.' });
+    await q('UPDATE usuarios SET ativo = $2, tentativas = 0, bloqueado_ate = NULL WHERE id = $1', [id, ativo]);
+    if (!ativo) await encerrarSessoes(id);
+    await registrarAuditoria({ acao: ativo ? 'Reativou' : 'Desativou', tipo: 'Usuário', ref: u.email, detalhe: '' }, quem);
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+// Áreas: lista com uso; adicionar, renomear (atualiza os vínculos) e desativar/reativar. Não há exclusão.
+async function usoAreas(lista) {
+  const [us, ac, ob, en] = await Promise.all([
+    q('SELECT areas FROM usuarios WHERE ativo AND senha_hash IS NOT NULL'), q("SELECT area FROM acoes WHERE status NOT IN ('Concluída','Cancelada')"),
+    q('SELECT area FROM obrigacoes'), q('SELECT area FROM encaminhamentos WHERE respondido_em IS NULL')]);
+  const conta = (rows, campo, a) => rows.filter(r => normArea(r[campo]) === normArea(a)).length;
+  return lista.map(a => ({ nome: a, pessoas: us.rows.filter(r => (r.areas || []).some(x => normArea(x) === normArea(a))).length,
+    acoes: conta(ac.rows, 'area', a), obrigacoes: conta(ob.rows, 'area', a), pendentes: conta(en.rows, 'area', a) }));
+}
+apiAdmin.get('/areas', async (req, res, next) => {
+  try {
+    const { lista, inativas } = await configAreas();
+    const off = new Set(inativas.map(normArea));
+    res.json((await usoAreas(lista)).map(x => ({ ...x, ativa: !off.has(normArea(x.nome)) })));
+  } catch (e) { next(e); }
+});
+apiAdmin.post('/areas', async (req, res, next) => {
+  try {
+    const b = req.body || {}, quem = req.session.usuario.id;
+    const limpa = s => String(s || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+    let { lista, inativas } = await configAreas();
+    lista = [...lista]; inativas = [...inativas];
+    const existe = n => lista.some(a => normArea(a) === normArea(n));
+    let detalhe = '';
+    if (b.acao === 'adicionar') {
+      const nome = limpa(b.nome);
+      if (!nome) return res.status(400).json({ erro: 'Informe o nome da área.' });
+      if (existe(nome)) return res.status(409).json({ erro: 'Essa área já existe.' });
+      if (lista.length >= 50) return res.status(400).json({ erro: 'No máximo 50 áreas.' });
+      lista.push(nome); detalhe = 'Adicionou ' + nome;
+    } else if (b.acao === 'renomear') {
+      const de = lista.find(a => normArea(a) === normArea(b.de)), para = limpa(b.para);
+      if (!de) return res.status(404).json({ erro: 'Área não encontrada.' });
+      if (!para) return res.status(400).json({ erro: 'Informe o novo nome.' });
+      if (normArea(para) !== normArea(de) && existe(para)) return res.status(409).json({ erro: 'Já existe uma área com esse nome.' });
+      lista = lista.map(a => a === de ? para : a);
+      inativas = inativas.map(a => normArea(a) === normArea(de) ? para : a);
+      // Atualiza os vínculos com o novo nome
+      for (const [tab, col] of [['acoes', 'area'], ['obrigacoes', 'area'], ['encaminhamentos', 'area']]) {
+        const ids = (await q(`SELECT id, ${col} FROM ${tab}`)).rows.filter(r => normArea(r[col]) === normArea(de)).map(r => r.id);
+        if (ids.length) await q(`UPDATE ${tab} SET ${col} = $1 WHERE id = ANY($2)`, [para, ids]);
+      }
+      for (const u of (await q('SELECT id, areas FROM usuarios')).rows) {
+        if ((u.areas || []).some(x => normArea(x) === normArea(de))) await q('UPDATE usuarios SET areas = $2 WHERE id = $1', [u.id, u.areas.map(x => normArea(x) === normArea(de) ? para : x)]);
+      }
+      detalhe = `Renomeou ${de} → ${para}`;
+    } else if (b.acao === 'desativar' || b.acao === 'reativar') {
+      const nome = lista.find(a => normArea(a) === normArea(b.nome));
+      if (!nome) return res.status(404).json({ erro: 'Área não encontrada.' });
+      inativas = inativas.filter(a => normArea(a) !== normArea(nome));
+      if (b.acao === 'desativar') inativas.push(nome);
+      if (lista.length - inativas.length < 1) return res.status(400).json({ erro: 'Mantenha pelo menos uma área ativa.' });
+      detalhe = (b.acao === 'desativar' ? 'Desativou ' : 'Reativou ') + nome;
+    } else return res.status(400).json({ erro: 'Ação inválida.' });
+    await gravarSistema('areas', { lista, inativas, atualizadoEm: new Date().toISOString(), atualizadoPor: quem });
+    await registrarAuditoria({ acao: 'Alterou', tipo: 'Configuração', ref: 'Áreas', detalhe }, quem);
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+module.exports = { router, apiAdmin, garantirPrimeiroAdmin, exigirSenhaDefinitiva, revalidar, gerarHash, conferir, validarSenha };
