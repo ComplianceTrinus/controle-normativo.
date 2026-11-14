@@ -188,3 +188,5 @@ ALTER TABLE normas ADD COLUMN IF NOT EXISTS criterios_risco text;
 ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS aplicavel boolean;
 ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS plano_sugerido text;
 ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS data_sugerida date;
+-- Tipo de impacto quando aplicável: 'plano' (requer plano de ação) ou 'ajuste' (só ajustes pontuais)
+ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS impacto text;
