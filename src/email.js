@@ -150,7 +150,7 @@ async function enviarCodigoLogin(para, codigo, minutos) {
 
 // Aviso de norma encaminhada pelo Compliance para uma ou mais áreas (um e-mail por pessoa)
 async function enviarEncaminhamento(para, { norma, areas, mensagem, por, prazo }) {
-  const link = config.baseUrl + '/#recebidas';
+  const link = config.baseUrl + '/?norma=' + encodeURIComponent(norma.id) + '#recebidas';
   const titulo = `Norma para avaliação da área: ${cite(norma)}`;
   const html = `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#F5F5F5;font-family:'Plus Jakarta Sans',Segoe UI,Arial,sans-serif;color:#191A1C">
 <div style="max-width:620px;margin:0 auto;padding:24px 16px">
