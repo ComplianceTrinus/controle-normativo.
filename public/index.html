@@ -338,11 +338,12 @@ h2{font-size:16px;font-weight:700}
 .mzc input{margin-top:2px;flex:none}
 .dir{display:block;font-size:12.5px;font-weight:600;margin-top:2px}
 #printRoot{display:none}
-.relsec{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin:0}
-.relsec legend{font-size:12.5px;font-weight:700;padding:0 4px;display:flex;gap:10px;align-items:center}
-.relsec .chk{flex-direction:row;align-items:center;gap:8px;font-size:13px;font-weight:500}
+.form .relsec{border:1px solid var(--line);border-radius:10px;padding:10px 14px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin:0}
+.relsec legend{font-size:12.5px;font-weight:700;padding:0 4px;display:flex;gap:10px;align-items:center;color:var(--ink)}
+.form .relsec .chk{flex-direction:row;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--ink);line-height:1.3}
+.form .relsec .chk input{min-height:0;width:16px;height:16px;padding:0;margin:0;flex:none;accent-color:var(--accent)}
 .lnk{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline}
-@media (max-width:560px){.relsec{grid-template-columns:1fr}}
+@media (max-width:560px){.form .relsec{grid-template-columns:1fr}}
 @media print{
   @page{size:A4;margin:12mm}
   body.printing{background:#fff!important}
@@ -360,7 +361,7 @@ h2{font-size:16px;font-weight:700}
 .rep section.long{break-inside:auto}
 .rep h2{font-size:13.5px;margin:0 0 8px;font-weight:800;color:#191A1C;border-bottom:2px solid #2E4CFF;padding-bottom:4px;break-after:avoid}
 .rep .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.rep .kpi{border:1px solid #DCE1EA;border-radius:8px;padding:8px 10px}
+.rep .kpi,.rep .kpis .kpi:first-child{border:1px solid #DCE1EA;border-radius:8px;padding:8px 10px;background:#fff;color:#191A1C;box-shadow:none;cursor:default;gap:0}
 .rep .kpi b{display:block;font-size:20px;line-height:1.1}
 .rep .kpi span{font-size:10px;color:#5B6272}
 .rep table{width:100%;border-collapse:collapse;font-size:10px}
@@ -368,6 +369,9 @@ h2{font-size:16px;font-weight:700}
 .rep th{text-align:left;background:#EEF2FB;color:#191A1C;padding:5px 6px;font-weight:700}
 .rep td{padding:5px 6px;border-bottom:1px solid #DCE1EA;vertical-align:top;color:#191A1C}
 .rep tr{break-inside:avoid}
+.rep .tbl th,.rep .tbl td{font-size:10px;padding:5px 6px;letter-spacing:0;text-transform:none;line-height:1.4}
+.rep .tbl th{background:#EEF2FB;color:#191A1C;font-weight:700}
+.rep .tbl tr:hover td{background:none}
 .rep .muted{color:#5B6272}
 .rep .chart{width:100%;height:auto}
 .retorno{border:2px solid var(--accent);background:var(--accent-soft);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;margin-top:8px;color:var(--ink);box-shadow:0 0 0 4px var(--accent-soft)}
@@ -951,7 +955,7 @@ const REL_SEC=[['resumo','Resumo em números'],['meses','Gráfico: normas public
 function relDe(){const d=new Date();d.setMonth(d.getMonth()-11,1);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-01'}
 function dRelatorio(){const ar=[...(S.areas||[])];
   return `<form class="dlg" data-form="relatorio"><header><div class="t"><h2>Relatório em PDF</h2></div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
-  <div class="content"><div class="form">
+  <div class="content single"><div class="form">
     <p class="muted" style="margin:0;font-size:13px">Considera as normas publicadas no período. A situação das normas, ações e retornos é a de hoje.</p>
     <div class="g2"><label>Publicadas a partir de<input type="date" id="rDe" value="${relDe()}"></label><label>Data de corte<input type="date" id="rAte" value="${today()}"></label></div>
     <div class="g3"><label>Órgão<select id="rOrg"><option value="">Todos</option>${ORGAOS.map(o=>`<option>${esc(o)}</option>`).join('')}</select></label>
