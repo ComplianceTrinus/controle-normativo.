@@ -206,3 +206,7 @@ ALTER TABLE evidencias ADD COLUMN IF NOT EXISTS hash text;
 -- Decisão de aplicabilidade: se há plano de ação e o prazo acordado com a área
 ALTER TABLE normas ADD COLUMN IF NOT EXISTS plano_acao text;
 ALTER TABLE normas ADD COLUMN IF NOT EXISTS prazo_acordado date;
+-- Aplicabilidade separada do status, com período e descrição do plano acordado
+ALTER TABLE normas ADD COLUMN IF NOT EXISTS aplicabilidade text;
+ALTER TABLE normas ADD COLUMN IF NOT EXISTS plano_inicio date;
+ALTER TABLE normas ADD COLUMN IF NOT EXISTS plano_descricao text;
