@@ -219,6 +219,7 @@ dialog::backdrop{background:rgba(10,20,17,.45)}
 .drop{border:1.5px dashed var(--line);border-radius:var(--r);padding:18px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:8px;align-items:center}
 
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:50;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(520px,calc(100vw - 32px))}
+#toast[popover]{inset:auto;top:auto;right:auto;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));margin:0;border:0;padding:0;background:transparent;overflow:visible;color:inherit;height:auto}
 #toast div{background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
 #toast div.crit{background:var(--crit);color:#fff}
 .skel{color:var(--muted);padding:18px 16px;font-size:14px}
@@ -557,7 +558,7 @@ dialog::backdrop{background:rgba(25,26,28,.55)}
   <main id="main"><div class="wrap"><div class="skel">Carregando o controle normativo…</div></div></main>
 </div>
 <dialog id="dlg"></dialog>
-<div id="toast" role="status" aria-live="polite"></div>
+<div id="toast" role="status" aria-live="polite" popover="manual"></div>
 <div id="tip" hidden></div>
 
 <script>
@@ -633,7 +634,9 @@ function prazoTxt(s,done){if(!s)return '<span class="muted">—</span>';const d=
 function nameOf(id){if(!id)return 'Sistema';if(S.names[id])return S.names[id];if(id===S.meId)return (S.me&&S.me.name)||'Você';return 'Membro da equipe'}
 async function ensureNames(ids){if(!S.user)return;const u=[...new Set(ids.filter(Boolean))];if(!u.length)return;
   try{const ps=await S.user.profiles(u);let ch=false;for(const id of u){const nm=(ps[id]&&ps[id].name)||'';if(nm&&S.names[id]!==nm){S.names[id]=nm;ch=true}}if(ch)render()}catch{}}
-function toast(msg,kind){const t=document.createElement('div');t.textContent=msg;if(kind)t.className=kind;$('#toast').appendChild(t);setTimeout(()=>t.remove(),kind==='crit'?6500:3200)}
+function toast(msg,kind){const box=$('#toast'),t=document.createElement('div');t.textContent=msg;if(kind)t.className=kind;box.appendChild(t);
+  if(box.showPopover)try{if(box.matches(':popover-open'))box.hidePopover();box.showPopover()}catch{}
+  setTimeout(()=>{t.remove();if(!box.children.length&&box.hidePopover)try{box.hidePopover()}catch{}},kind==='crit'?6500:3200)}
 function errMsg(e){const c=e&&e.code;
   if(c==='invalid_argument'){return 'Não foi possível salvar: seu acesso é somente leitura ou há um dado inválido.'}
   if(c==='quota_exceeded')return 'Limite de armazenamento atingido. Exclua registros antigos para continuar.';
@@ -1476,8 +1479,8 @@ async function saveAcao(){const d=S.dlg;const data={normaId:val('aNorma'),descri
   const n=S.normas.find(x=>x.id===data.normaId);const ref=(n?cite(n)+' · ':'')+data.descricao.slice(0,80);
   try{if(d.id){const old=S.acoes.find(a=>a.id===d.id)||{};const df=diff(old,data,AL);if(!df){toast('Nenhuma alteração para salvar.');return}
       const extra=data.status==='Concluída'&&old.status!=='Concluída'?{concluidaEm:today()}:{};
-      await S.db.doc('acoes/'+d.id).update({...data,...extra,...stamp(false)});await log('Alterou','Ação',ref,df);toast('Ação atualizada.')}
-    else{const r=S.db.collection('acoes').doc();await r.set({...data,evidencias:[],...stamp(true)});await log('Criou','Ação',ref,'Prazo '+fmtD(data.prazo));toast('Ação criada. Você já pode anexar evidências.');S.dlg={...d,type:'acao',id:r.id};drawDlg()}
+      await S.db.doc('acoes/'+d.id).update({...data,...extra,...stamp(false)});await log('Alterou','Ação',ref,df);toast('Ação salva.')}
+    else{const r=S.db.collection('acoes').doc();await r.set({...data,evidencias:[],...stamp(true)});await log('Criou','Ação',ref,'Prazo '+fmtD(data.prazo));toast('Ação salva. Você já pode anexar evidências.');S.dlg={...d,type:'acao',id:r.id};drawDlg()}
   }catch(e){onWriteErr(e)}}
 async function saveObrig(){const d=S.dlg;const data={titulo:val('oTit'),orgao:val('oOrg'),periodicidade:val('oPer'),proximoVencimento:val('oVenc'),canal:val('oCanal'),normaId:val('oNorma'),responsavel:val('oResp'),area:val('oArea'),descricao:val('oDesc')};
   if(!data.titulo||!data.proximoVencimento){toast('Informe a obrigação e o próximo vencimento.','crit');return}
