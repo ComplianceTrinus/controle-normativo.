@@ -287,6 +287,14 @@ app.delete('/api/c/:col/:id', admin, async (req, res) => {
     res.json({ ok: true });
   } catch (e) { tratarErro(res, e); }
 });
+// Carga histórica do Banco Central/CMN (só Admin): uma página por chamada, para caber no tempo da função
+app.get('/api/admin/carga-bcb', admin, (req, res) => res.json({ tipos: require('./captura/cargaBcb').TIPOS }));
+app.post('/api/admin/carga-bcb', admin, async (req, res) => {
+  try {
+    const { cargaPagina } = require('./captura/cargaBcb');
+    res.json(await cargaPagina(String((req.body && req.body.tipo) || ''), (req.body && req.body.inicio) || 0, usuario(req).id));
+  } catch (e) { if (e.status) return res.status(e.status).json({ erro: e.message }); tratarErro(res, e); }
+});
 // Lixeira (só Admin): consultar e restaurar. Não há exclusão definitiva pelo sistema.
 app.get('/api/admin/lixeira', admin, async (req, res) => {
   try { res.json(await dados.listarLixeira()); } catch (e) { tratarErro(res, e); }
