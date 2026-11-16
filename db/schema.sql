@@ -210,3 +210,30 @@ ALTER TABLE normas ADD COLUMN IF NOT EXISTS prazo_acordado date;
 ALTER TABLE normas ADD COLUMN IF NOT EXISTS aplicabilidade text;
 ALTER TABLE normas ADD COLUMN IF NOT EXISTS plano_inicio date;
 ALTER TABLE normas ADD COLUMN IF NOT EXISTS plano_descricao text;
+-- Retorno da área: "Em estudo" (uma prorrogação, com nova data) e "Risco assumido" (com quem assume)
+ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS estudo_em timestamptz;
+ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS estudo_por text;
+ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS estudo_nota text;
+ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS prazo_original date;
+ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS risco_responsavel text;
+-- Ficha da norma: consequências, risco assumido e reavaliação de normas alteradas
+ALTER TABLE normas ADD COLUMN IF NOT EXISTS envio_regulador text;
+ALTER TABLE normas ADD COLUMN IF NOT EXISTS atualiza_politica text;
+ALTER TABLE normas ADD COLUMN IF NOT EXISTS risco_responsavel text;
+ALTER TABLE normas ADD COLUMN IF NOT EXISTS risco_justificativa text;
+ALTER TABLE normas ADD COLUMN IF NOT EXISTS alteracoes_vistas text;
+ALTER TABLE normas ADD COLUMN IF NOT EXISTS historico_analises text;
+-- Delegação de avisos por período (férias, ausência)
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS delegado_id text;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS delegacao_de date;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS delegacao_ate date;
+-- Quem abriu cada norma e quem baixou cada evidência (prova de ciência)
+CREATE TABLE IF NOT EXISTS acessos (
+  id       bigserial PRIMARY KEY,
+  tipo     text NOT NULL,
+  ref      text NOT NULL,
+  detalhe  text,
+  usuario  text,
+  em       timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS acessos_ref_idx ON acessos (tipo, ref, em DESC);
