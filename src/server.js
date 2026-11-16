@@ -150,6 +150,12 @@ async function visiveis(esc) {
 }
 const COLS = ['normas', 'acoes', 'obrigacoes'];
 
+async function registrarAcesso(tipo, ref, detalhe, uid) {
+  try {
+    await q(`INSERT INTO acessos (tipo, ref, detalhe, usuario) SELECT $1, $2, $3, $4
+             WHERE NOT EXISTS (SELECT 1 FROM acessos WHERE tipo = $1 AND ref = $2 AND usuario = $4 AND coalesce(detalhe, '') = coalesce($3, '') AND em > now() - interval '6 hours')`, [tipo, ref, detalhe, uid]);
+  } catch (e) { console.error('[acesso]', e.message); }
+}
 function tratarErro(res, err) {
   if (err instanceof dados.ErroValidacao) return res.status(err.status).json({ erro: err.message });
   if (err && err.code === '23505') return res.status(409).json({ erro: 'Já existe um registro igual (norma já cadastrada).' });
@@ -191,8 +197,8 @@ app.get('/api/c/:col', async (req, res) => {
 // ---- Normas encaminhadas para as áreas ----
 app.get('/api/encaminhamentos', async (req, res) => {
   try {
-    const r = await q('SELECT id, norma_id, area, mensagem, por, em, prazo, resposta, respondido_em, respondido_por, aplicavel, impacto, plano_sugerido, data_sugerida::text AS data_sugerida FROM encaminhamentos ORDER BY em DESC LIMIT 3000');
-    let l = r.rows.map(e => ({ id: e.id, normaId: e.norma_id, area: e.area, mensagem: e.mensagem || '', por: e.por, em: e.em.toISOString(), prazo: e.prazo || '', resposta: e.resposta || '', respondidoEm: e.respondido_em ? e.respondido_em.toISOString() : '', respondidoPor: e.respondido_por || null, aplicavel: e.aplicavel, impacto: e.impacto || '', planoSugerido: e.plano_sugerido || '', dataSugerida: e.data_sugerida || '' }));
+    const r = await q('SELECT id, norma_id, area, mensagem, por, em, prazo, resposta, respondido_em, respondido_por, aplicavel, impacto, plano_sugerido, data_sugerida::text AS data_sugerida, estudo_em, estudo_por, estudo_nota, prazo_original::text AS prazo_original, risco_responsavel FROM encaminhamentos ORDER BY em DESC LIMIT 3000');
+    let l = r.rows.map(e => ({ id: e.id, normaId: e.norma_id, area: e.area, mensagem: e.mensagem || '', por: e.por, em: e.em.toISOString(), prazo: e.prazo || '', resposta: e.resposta || '', respondidoEm: e.respondido_em ? e.respondido_em.toISOString() : '', respondidoPor: e.respondido_por || null, aplicavel: e.aplicavel, impacto: e.impacto || '', planoSugerido: e.plano_sugerido || '', dataSugerida: e.data_sugerida || '', estudoEm: e.estudo_em ? e.estudo_em.toISOString() : '', estudoPor: e.estudo_por || null, estudoNota: e.estudo_nota || '', prazoOriginal: e.prazo_original || '', riscoResponsavel: e.risco_responsavel || '' }));
     const esc = escopoArea(req);
     if (esc) l = l.filter(e => esc.has(dados.normArea(e.area)));
     res.json(l);
@@ -233,40 +239,81 @@ app.post('/api/encaminhamentos/:id/responder', colaboracao, async (req, res) => 
     const esc = escopoArea(req);
     if (!esc) return res.status(403).json({ erro: 'Somente a área responsável registra o retorno.' });
     const b = req.body || {};
-    const opc = ['sim', 'ajuste', 'nao'].includes(b.aplicavel) ? b.aplicavel : null;
-    const apl = opc === null ? null : opc !== 'nao';
-    const impacto = opc === 'sim' ? 'plano' : opc === 'ajuste' ? 'ajuste' : null;
+    // sim: aplicável com plano · ajuste: aplicável sem plano · risco: aplicável, risco assumido · nao: não aplicável · estudo: precisa de mais prazo
+    const opc = ['sim', 'ajuste', 'risco', 'nao', 'estudo'].includes(b.aplicavel) ? b.aplicavel : null;
+    const ROT = { sim: 'Aplicável, com plano de ação', ajuste: 'Aplicável, sem plano de ação', risco: 'Aplicável, risco assumido (sem adequação)', nao: 'Não aplicável', estudo: 'Em estudo' };
+    const apl = opc === null || opc === 'estudo' ? null : opc !== 'nao';
+    const impacto = opc === 'sim' ? 'plano' : opc === 'ajuste' ? 'ajuste' : opc === 'risco' ? 'risco' : null;
     const resposta = String(b.resposta || '').trim();
     const plano = String(b.planoSugerido || '').trim();
+    const riscoResp = String(b.riscoResponsavel || '').trim().slice(0, 160);
     const data = String(b.dataSugerida || '').trim();
     const dataOk = /^\d{4}-\d{2}-\d{2}$/.test(data);
+    const hoje = (await q("SELECT (now() AT TIME ZONE 'America/Sao_Paulo')::date::text AS d")).rows[0].d;
     if (opc === null) return res.status(400).json({ erro: 'Informe se a norma é aplicável à área.' });
     if (opc === 'sim' && !plano) return res.status(400).json({ erro: 'Descreva o plano de ação sugerido.' });
     if (opc === 'sim' && !dataOk) return res.status(400).json({ erro: 'Informe a data sugerida para o plano de ação.' });
     if (opc === 'ajuste' && !plano) return res.status(400).json({ erro: 'Descreva o que muda para a área.' });
     if (opc === 'ajuste' && data && !dataOk) return res.status(400).json({ erro: 'Data prevista inválida.' });
+    if (opc === 'risco' && !plano) return res.status(400).json({ erro: 'Explique por que a área não vai se adequar.' });
+    if (opc === 'risco' && !riscoResp) return res.status(400).json({ erro: 'Informe quem assume o risco.' });
     if (opc === 'nao' && !resposta) return res.status(400).json({ erro: 'Explique por que a norma não é aplicável.' });
+    if (opc === 'estudo' && (!dataOk || data <= hoje)) return res.status(400).json({ erro: 'Informe a nova data para o retorno definitivo (a partir de amanhã).' });
+    if (opc === 'estudo' && !resposta) return res.status(400).json({ erro: 'Conte o que está sendo avaliado.' });
     if (resposta.length > 4000 || plano.length > 4000) return res.status(400).json({ erro: 'Texto muito longo (máximo de 4.000 caracteres).' });
-    const e = (await q('SELECT e.id, e.norma_id, e.area, e.respondido_em, n.tipo, n.orgao, n.numero FROM encaminhamentos e JOIN normas n ON n.id = e.norma_id WHERE e.id = $1', [req.params.id])).rows[0];
+    const e = (await q('SELECT e.id, e.norma_id, e.area, e.respondido_em, e.estudo_em, e.prazo::text AS prazo, n.tipo, n.orgao, n.numero FROM encaminhamentos e JOIN normas n ON n.id = e.norma_id WHERE e.id = $1', [req.params.id])).rows[0];
     if (!e || !esc.has(dados.normArea(e.area))) return res.status(404).json({ erro: 'Encaminhamento não encontrado.' });
     if (e.respondido_em) return res.status(409).json({ erro: 'O retorno desta área já foi enviado.' });
-    // Responde de uma vez todos os encaminhamentos pendentes desta norma para a mesma área
-    await q('UPDATE encaminhamentos SET resposta = $3, aplicavel = $4, plano_sugerido = $5, data_sugerida = $6, respondido_em = now(), respondido_por = $7, impacto = $8 WHERE norma_id = $1 AND area = $2 AND respondido_em IS NULL',
-      [e.norma_id, e.area, resposta || null, apl, apl ? plano : null, apl && dataOk ? data : null, usuario(req).id, impacto]);
-    await dados.registrarAuditoria({ acao: 'Respondeu', tipo: 'Norma', ref: `${e.tipo} ${e.orgao === 'BACEN' ? 'BCB' : e.orgao} nº ${e.numero}`, detalhe: `Retorno da área ${e.area}: ${opc === 'sim' ? 'aplicável, com plano de ação' : opc === 'ajuste' ? 'aplicável, sem plano de ação' : 'não aplicável'}${apl ? ` · ${opc === 'ajuste' ? 'o que muda' : 'plano sugerido'}: ${plano.slice(0, 300)}${dataOk ? ' · até ' + data.split('-').reverse().join('/') : ''}` : ''}${resposta ? ' · ' + resposta.slice(0, 300) : ''}` }, usuario(req).id);
-    // Avisa quem encaminhou (Compliance) que a área respondeu
+    const ref = `${e.tipo} ${e.orgao === 'BACEN' ? 'BCB' : e.orgao} nº ${e.numero}`;
+    const br = d => d.split('-').reverse().join('/');
+    let linhas;
+    if (opc === 'estudo') {
+      if (e.estudo_em) return res.status(409).json({ erro: 'A área já pediu mais prazo uma vez. Envie agora o retorno definitivo ou fale com o Compliance.' });
+      // Prorroga o prazo de todos os encaminhamentos pendentes desta norma para a mesma área (guarda o prazo original)
+      await q('UPDATE encaminhamentos SET estudo_em = now(), estudo_por = $3, estudo_nota = $4, prazo_original = COALESCE(prazo_original, prazo), prazo = $5 WHERE norma_id = $1 AND area = $2 AND respondido_em IS NULL',
+        [e.norma_id, e.area, usuario(req).id, resposta, data]);
+      await dados.registrarAuditoria({ acao: 'Respondeu', tipo: 'Norma', ref, detalhe: `Área ${e.area}: em estudo · novo prazo ${br(data)} (era ${e.prazo ? br(e.prazo) : '—'}) · ${resposta.slice(0, 300)}` }, usuario(req).id);
+      linhas = [['Resposta', 'Em estudo'], ['Novo prazo para o retorno definitivo', br(data)], ['O que está sendo avaliado', resposta]];
+    } else {
+      // Responde de uma vez todos os encaminhamentos pendentes desta norma para a mesma área
+      await q('UPDATE encaminhamentos SET resposta = $3, aplicavel = $4, plano_sugerido = $5, data_sugerida = $6, respondido_em = now(), respondido_por = $7, impacto = $8, risco_responsavel = $9 WHERE norma_id = $1 AND area = $2 AND respondido_em IS NULL',
+        [e.norma_id, e.area, resposta || null, apl, apl ? plano : null, apl && dataOk ? data : null, usuario(req).id, impacto, opc === 'risco' ? riscoResp : null]);
+      const rotPlano = opc === 'ajuste' ? 'o que muda' : opc === 'risco' ? 'justificativa do risco assumido' : 'plano sugerido';
+      await dados.registrarAuditoria({ acao: 'Respondeu', tipo: 'Norma', ref, detalhe: `Retorno da área ${e.area}: ${ROT[opc].toLowerCase()}${opc === 'risco' ? ` · risco assumido por ${riscoResp}` : ''}${apl ? ` · ${rotPlano}: ${plano.slice(0, 300)}${dataOk ? ' · até ' + br(data) : ''}` : ''}${resposta ? ' · ' + resposta.slice(0, 300) : ''}` }, usuario(req).id);
+      linhas = [['Resposta', ROT[opc]]];
+      if (opc === 'risco') linhas.push(['Quem assume o risco', riscoResp]);
+      if (apl) linhas.push([opc === 'ajuste' ? 'O que muda para a área' : opc === 'risco' ? 'Por que não haverá adequação' : 'Plano de ação sugerido', plano]);
+      if (dataOk) linhas.push([opc === 'ajuste' ? 'Data prevista' : 'Data sugerida', br(data)]);
+      if (resposta) linhas.push([opc === 'nao' ? 'Justificativa' : 'Comentários', resposta]);
+    }
+    // Avisa quem encaminhou (Compliance)
     try {
       const quem = (await q('SELECT DISTINCT u.email FROM encaminhamentos x JOIN usuarios u ON u.id = x.por WHERE x.norma_id = $1 AND x.area = $2 AND u.ativo AND u.email IS NOT NULL', [e.norma_id, e.area])).rows.map(r => r.email.toLowerCase());
-      const ref = `${e.tipo} ${e.orgao === 'BACEN' ? 'BCB' : e.orgao} nº ${e.numero}`;
-      const linhas = [['Resposta', opc === 'sim' ? 'Aplicável, com plano de ação' : opc === 'ajuste' ? 'Aplicável, sem plano de ação' : 'Não aplicável']];
-      if (apl) linhas.push([opc === 'ajuste' ? 'O que muda para a área' : 'Plano de ação sugerido', plano]);
-      if (dataOk) linhas.push([opc === 'ajuste' ? 'Data prevista' : 'Data sugerida', data.split('-').reverse().join('/')]);
-      if (resposta) linhas.push([opc === 'nao' ? 'Justificativa' : 'Comentários', resposta]);
       linhas.push(['Respondido por', usuario(req).nome || '']);
-      await enviarAviso(quem, { assunto: `Retorno da área ${e.area}: ${ref}`, titulo: `${e.area} respondeu`, subtitulo: ref, linhas, link: config.baseUrl + '/?norma=' + encodeURIComponent(e.norma_id) });
+      await enviarAviso(quem, { assunto: `${opc === 'estudo' ? 'Área pediu mais prazo' : 'Retorno da área'} ${e.area}: ${ref}`, titulo: opc === 'estudo' ? `${e.area} está estudando a norma` : `${e.area} respondeu`, subtitulo: ref, linhas, link: config.baseUrl + '/?norma=' + encodeURIComponent(e.norma_id) });
     } catch (err) { console.error('[aviso retorno]', err.message); }
     res.json({ ok: true });
   } catch (err) { tratarErro(res, err); }
+});
+
+// Registro de acessos: quem abriu a ficha da norma (prova de ciência). Repetições em até 6 horas não contam de novo.
+app.post('/api/acessos', async (req, res) => {
+  try {
+    const tipo = String((req.body && req.body.tipo) || ''), ref = String((req.body && req.body.ref) || '');
+    if (tipo !== 'norma' || !/^[A-Za-z0-9_\-.~:@+]{1,200}$/.test(ref)) return res.status(400).json({ erro: 'Item inválido.' });
+    await registrarAcesso('norma', ref, null, usuario(req).id);
+    res.json({ ok: true });
+  } catch (e) { tratarErro(res, e); }
+});
+app.get('/api/acessos', async (req, res) => {
+  try {
+    if (escopoArea(req)) return res.status(403).json({ erro: 'Sem acesso.' });
+    const tipo = String(req.query.tipo || ''), ref = String(req.query.ref || '');
+    if (!['norma', 'evidencia'].includes(tipo) || !ref) return res.status(400).json({ erro: 'Item inválido.' });
+    const r = await q(`SELECT a.em, a.detalhe, u.nome, u.perfil, u.areas FROM acessos a LEFT JOIN usuarios u ON u.id = a.usuario
+                       WHERE a.tipo = $1 AND a.ref = $2 ORDER BY a.em DESC LIMIT 100`, [tipo, ref]);
+    res.json(r.rows.map(x => ({ em: x.em.toISOString(), nome: x.nome || '—', perfil: x.perfil || '', areas: x.areas || [], detalhe: x.detalhe || '' })));
+  } catch (e) { tratarErro(res, e); }
 });
 
 // Lista de áreas (escolha nas ações e obrigações)
@@ -448,6 +495,7 @@ app.get('/_blob/:id', async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
   res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(ev.nome)}`);
+  if (req.session && req.session.usuario) registrarAcesso('evidencia', ev.acao_id || req.params.id, ev.nome, req.session.usuario.id);
   if (ev.conteudo) return res.end(ev.conteudo);
   fs.createReadStream(arquivo).pipe(res);
 });
