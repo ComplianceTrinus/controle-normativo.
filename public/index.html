@@ -1414,9 +1414,22 @@ async function readImport(file){try{const buf=await file.arrayBuffer();const wb=
     if(!n.orgao)n._err='Órgão não informado';else if(!n.numero)n._err='Número não informado';else if(!n.ementa)n._err='Ementa não informada';
     n.chave=chave(n);if(!n._err&&seen.has(n.chave))n._dup=true;else if(!n._err)seen.add(n.chave);return n});
   drawDlg()}catch(e){toast('Não foi possível ler o arquivo. Confira se é um .xlsx ou .csv válido.','crit')}}
-async function runImport(){const rows=(S.importRows||[]).filter(r=>!r._dup&&!r._err);if(!rows.length||S.busy)return;S.busy=true;drawDlg();let ok=0;
-  try{for(const r of rows){const{_dup,_err,...data}=r;if(data.status!=='Nova')data.triadaEm=today();if(DECIDIDO.includes(data.status))data.analisadaEm=today();await S.db.collection('normas').doc().set({...data,origem:'Importação de planilha',...stamp(true)});ok++}
-    await log('Importou','Norma',ok+' normas','Importação de planilha');toast(ok+' normas importadas.');S.busy=false;closeDlg()}
+/* Importação: grava várias linhas ao mesmo tempo e recarrega as listas uma vez só, no fim
+   (antes, cada linha recarregava a lista inteira de normas, o que travava planilhas grandes) */
+async function runImport(){const rows=(S.importRows||[]).filter(r=>!r._dup&&!r._err);if(!rows.length||S.busy)return;S.busy=true;drawDlg();
+  let ok=0,rep=0;const falhas=[],fila=rows.slice();
+  const novoId=()=>(window.crypto&&crypto.randomUUID?crypto.randomUUID():Date.now().toString(16)+Math.random().toString(16).slice(2)).replace(/-/g,'');
+  const prog=()=>{const b=document.querySelector('[data-form=import] button[type=submit]');if(b)b.textContent=`Importando… ${ok+rep+falhas.length} de ${rows.length}`};
+  const um=async r=>{const{_dup,_err,...data}=r;if(data.status!=='Nova')data.triadaEm=today();if(DECIDIDO.includes(data.status))data.analisadaEm=today();
+    try{await apiJson('/api/c/normas/'+novoId(),{method:'PUT',body:JSON.stringify({...data,origem:'Importação de planilha'})});ok++}
+    catch(e){if(/já existe/i.test(e.message))rep++;else falhas.push(cite(data)+': '+e.message)}
+    prog()};
+  const trabalhador=async()=>{while(fila.length&&falhas.length<20)await um(fila.shift())};
+  try{await Promise.all(Array.from({length:6},trabalhador));
+    if(ok)await log('Importou','Norma',ok+' normas','Importação de planilha'+(rep?` · ${rep} já estavam cadastradas`:''));
+    if(window.CN_atualizar)await window.CN_atualizar();S.busy=false;
+    if(falhas.length){toast(`${ok} normas importadas; ${falhas.length} com erro (ex.: ${falhas[0]}). Escolha o arquivo de novo para importar o que faltou: o que já entrou é ignorado.`,'crit');S.importRows=null;drawDlg()}
+    else{toast(ok+' normas importadas.'+(rep?` ${rep} já estavam cadastradas.`:''));closeDlg()}}
   catch(e){S.busy=false;onWriteErr(e);if(ok)toast(ok+' normas foram importadas antes do erro.','crit');S.importRows=null;drawDlg()}}
 async function saveXlsx(rows,sheet,filename){if(!S.downloads||!window.XLSX)return;const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheet);
   const out=XLSX.write(wb,{type:'array',bookType:'xlsx'});try{await S.downloads.save({filename,data:new Uint8Array(out)})}catch(e){if(e&&e.code!=='declined')toast('Não foi possível gerar o arquivo.','crit')}}
