@@ -26,10 +26,8 @@ async function cargaPagina(tipo, inicio, usuarioId) {
   if (!j || !Array.isArray(j.Rows)) throw new Error('Resposta inesperada da API do Banco Central');
   // Só o tipo pedido e só o que está em vigor (confere de novo, além do filtro da busca)
   const linhas = j.Rows.filter(r => r.TipodoNormativoOWSCHCS === tipo && String(r.RevogadoOWSBOOL) !== '1' && String(r.CanceladoOWSBOOL) !== '1');
-  const hoje = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo' }).format(new Date());
   const itens = mapear(linhas).map(n => ({
     ...n,
-    observacoes: `Carga histórica: norma em vigor na Busca de normas do BCB em ${hoje}.` + (n.observacoes ? ' ' + n.observacoes : ''),
     origem: 'Carga histórica — Busca de normas BCB (em vigor)',
   }));
   const inseridas = [];
