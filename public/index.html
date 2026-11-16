@@ -1010,11 +1010,10 @@ async function usrSenha(t){const id=t.dataset.id;const u=(S.cfgU.usuarios||[]).f
 async function usrAtivo(t){const id=t.dataset.id,on=t.dataset.on==='1';t.disabled=true;
   try{await apiJson('/api/admin/usuarios/'+encodeURIComponent(id)+'/ativo',{method:'POST',body:JSON.stringify({ativo:on})});closeDlg();toast(on?'Usuário reativado.':'Usuário desativado. As sessões abertas foram encerradas.');S.cfgU=null;render()}catch(e){toast(e.message,'crit');t.disabled=false}}
 function vAreasCfg(){const d=S.cfgA;if(!d){loadCfgA();return `<div class="panel"><div class="empty">Carregando…</div></div>`}
-  const n=v=>v?`<td class="num">${v}</td>`:'<td class="num muted">0</td>';
-  const rows=d.map(a=>`<tr><td><b>${esc(a.nome)}</b></td>${n(a.pessoas)}${n(a.acoes)}${n(a.obrigacoes)}${n(a.pendentes)}<td>${a.ativa?pill('Ativa','ok'):pill('Inativa','mute')}</td>
+  const rows=d.map(a=>`<tr><td><b>${esc(a.nome)}</b></td><td>${a.ativa?pill('Ativa','ok'):pill('Inativa','mute')}</td>
     <td class="nowrap" style="text-align:right"><button type="button" class="btn sm" data-act="area-ren" data-nome="${esc(a.nome)}">Renomear</button> <button type="button" class="btn sm" data-act="area-ativa" data-nome="${esc(a.nome)}" data-on="${a.ativa?0:1}">${a.ativa?'Desativar':'Reativar'}</button></td></tr>`).join('');
   return `<div class="toolbar"><input id="aNova" class="field" style="flex:1;min-width:220px;max-width:360px" placeholder="Nome da nova área" maxlength="60" aria-label="Nome da nova área"><button type="button" class="btn pri" data-act="area-add">Adicionar área</button></div>
-  <div class="tblwrap"><table class="tbl"><thead><tr><th>Área</th><th>Pessoas</th><th>Ações em aberto</th><th>Obrigações</th><th>Retornos pendentes</th><th>Situação</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`}
+  <div class="tblwrap"><table class="tbl"><thead><tr><th>Área</th><th>Situação</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`}
 function dAreaRen(d){return `<form class="dlg" data-form="areaRen"><header><div class="t"><h2>Renomear área</h2></div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
   <div class="content single"><div class="form"><label>Novo nome<input id="arNome" value="${esc(d.nome)}" maxlength="60" required></label><p class="muted" style="margin:0;font-size:13px">Pessoas, ações, obrigações e encaminhamentos passam a usar o novo nome.</p></div></div>
   <footer><span></span><div class="r"><button type="button" class="btn" data-act="close">Cancelar</button><button class="btn pri" type="submit">Renomear</button></div></footer></form>`}
