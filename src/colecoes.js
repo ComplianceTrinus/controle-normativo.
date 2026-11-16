@@ -17,6 +17,8 @@ const COLECOES = {
       ementa: 'ementa', tema: 'tema', link: 'link', status: 'status', criticidade: 'criticidade', criteriosRisco: 'criterios_risco',
       responsavel: 'responsavel', area: 'area', observacoes: 'observacoes', origem: 'origem',
       aplicabilidade: 'aplicabilidade', planoAcao: 'plano_acao', planoInicio: 'plano_inicio', prazoAcordado: 'prazo_acordado', planoDescricao: 'plano_descricao',
+      envioRegulador: 'envio_regulador', atualizaPolitica: 'atualiza_politica', riscoResponsavel: 'risco_responsavel', riscoJustificativa: 'risco_justificativa',
+      alteracoesVistas: 'alteracoes_vistas', historicoAnalises: 'historico_analises',
       triadaEm: 'triada_em', analisadaEm: 'analisada_em', ...CARIMBO,
     },
     datas: ['dataPublicacao', 'vigencia', 'prazoAdequacao', 'prazoAcordado', 'planoInicio', 'triadaEm', 'analisadaEm'],
