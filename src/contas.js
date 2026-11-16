@@ -470,10 +470,10 @@ apiAdmin.use('/usuarios', soLocal);
 
 apiAdmin.get('/usuarios', async (req, res, next) => {
   try {
-    const r = await q('SELECT id, nome, email, perfil, ativo, trocar_senha, ultimo_acesso, bloqueado_ate, areas, ver_obrigacoes FROM usuarios WHERE senha_hash IS NOT NULL ORDER BY ativo DESC, nome');
+    const r = await q('SELECT id, nome, email, perfil, ativo, trocar_senha, ultimo_acesso, bloqueado_ate, areas, ver_obrigacoes, delegado_id, delegacao_de::text AS delegacao_de, delegacao_ate::text AS delegacao_ate FROM usuarios WHERE senha_hash IS NOT NULL ORDER BY ativo DESC, nome');
     res.json({ perfis: PERFIS, eu: req.session.usuario.id, usuarios: r.rows.map(u => ({
       id: u.id, nome: u.nome, email: u.email, perfil: u.perfil, ativo: u.ativo, situacao: sit(u),
-      ultimoAcesso: u.ultimo_acesso ? new Date(u.ultimo_acesso).toISOString() : '', areas: u.areas || [], verObrigacoes: !!u.ver_obrigacoes })) });
+      ultimoAcesso: u.ultimo_acesso ? new Date(u.ultimo_acesso).toISOString() : '', areas: u.areas || [], verObrigacoes: !!u.ver_obrigacoes, delegadoId: u.delegado_id || '', delegacaoDe: u.delegacao_de || '', delegacaoAte: u.delegacao_ate || '' })) });
   } catch (e) { next(e); }
 });
 
@@ -520,6 +520,28 @@ apiAdmin.patch('/usuarios/:id', async (req, res, next) => {
     if (perfil !== u.perfil) await encerrarSessoes(id);
     await registrarAuditoria({ acao: 'Alterou', tipo: 'Usuário', ref: u.email, detalhe: mud.join(' · ') }, quem);
     res.json({ ok: true, alterado: true });
+  } catch (e) { next(e); }
+});
+
+// Delegação de avisos por período (vale também para o próprio Admin)
+apiAdmin.post('/usuarios/:id/delegacao', async (req, res, next) => {
+  try {
+    const id = req.params.id, quem = req.session.usuario.id, b = req.body || {};
+    const u = (await q('SELECT id, email FROM usuarios WHERE id = $1 AND senha_hash IS NOT NULL', [id])).rows[0];
+    if (!u) return res.status(404).json({ erro: 'Usuário não encontrado.' });
+    if (b.remover) {
+      await q('UPDATE usuarios SET delegado_id = NULL, delegacao_de = NULL, delegacao_ate = NULL WHERE id = $1', [id]);
+      await registrarAuditoria({ acao: 'Alterou', tipo: 'Usuário', ref: u.email, detalhe: 'Delegação de avisos removida' }, quem);
+      return res.json({ ok: true });
+    }
+    const de = String(b.de || ''), ate = String(b.ate || ''), did = String(b.delegadoId || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(de) || !/^\d{4}-\d{2}-\d{2}$/.test(ate) || de > ate) return res.status(400).json({ erro: 'Informe o período (a data final não pode ser antes da inicial).' });
+    if (did === id) return res.status(400).json({ erro: 'Escolha outra pessoa para receber os avisos.' });
+    const d = (await q('SELECT id, email FROM usuarios WHERE id = $1 AND ativo AND senha_hash IS NOT NULL', [did])).rows[0];
+    if (!d) return res.status(400).json({ erro: 'Escolha um usuário ativo para receber os avisos.' });
+    await q('UPDATE usuarios SET delegado_id = $2, delegacao_de = $3, delegacao_ate = $4 WHERE id = $1', [id, did, de, ate]);
+    await registrarAuditoria({ acao: 'Alterou', tipo: 'Usuário', ref: u.email, detalhe: `Avisos encaminhados para ${d.email} de ${de.split('-').reverse().join('/')} a ${ate.split('-').reverse().join('/')}` }, quem);
+    res.json({ ok: true });
   } catch (e) { next(e); }
 });
 
