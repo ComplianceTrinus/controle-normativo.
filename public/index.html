@@ -431,6 +431,9 @@ dialog.lateral .dlg .content{flex:1}
 .form .dec{display:flex;flex-direction:column;gap:12px;min-width:0}
 .form .aplbox{display:flex;flex-direction:column;gap:12px;padding:14px;border:1px solid var(--line);border-radius:12px;margin-top:4px}
 .form .aplbox h3{margin:0;font-size:14px}
+.toolbar .dtf{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.toolbar .dtf input{width:auto}
+.cols.acgraf{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin:4px 0 12px}
 .retorno textarea,.retorno input[type=date]{background:var(--surface)}
 .rt-ok{display:flex;flex-direction:column;gap:6px;font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--ok-soft);border-radius:10px;padding:10px 12px;margin-top:6px}
 .rt-ok .rt-h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;white-space:normal}
@@ -578,7 +581,7 @@ const EV_TYPES={pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'ima
 /* ---------- Estado ---------- */
 const S={db:null,user:null,assets:null,downloads:null,me:null,meId:null,isAdmin:false,canWrite:true,role:'',
   dbState:'loading',loaded:{},normas:[],acoes:[],obrig:[],audit:[],names:{},
-  nf:{q:'',orgao:'',status:'',crit:'',apl:''},af:{q:'',status:''},auf:{tipo:''},
+  nf:{q:'',orgao:'',status:'',crit:'',apl:''},af:{q:'',status:'',area:'',orgao:'',prazo:'',de:'',ate:''},auf:{tipo:''},
   dlg:null,importRows:null,busy:false};
 const $=s=>document.querySelector(s);
 const main=$('#main'), dlg=$('#dlg');
@@ -1090,20 +1093,56 @@ function vNormas(){
 }
 
 /* ---------- Ações ---------- */
+const PRAZO_F=[['atr','Atrasadas'],['7d','Vencem em até 7 dias'],['30d','Vencem em até 30 dias'],['sem','Sem prazo']];
+function filtPrazo(x,k){const ab=x.st!=='Concluída'&&x.st!=='Cancelada',d=days(x.a.prazo);return k==='atr'?x.st==='Atrasada':k==='7d'?ab&&d!=null&&d>=0&&d<=7:k==='30d'?ab&&d!=null&&d>=0&&d<=30:k==='sem'?!x.a.prazo:true}
+function areasAcoes(){const l=[...(S.areas||[])];S.acoes.forEach(a=>{if(a.area&&!l.some(x=>norm(x)===norm(a.area)))l.push(a.area)});return l.sort((a,b)=>a.localeCompare(b,'pt-BR'))}
+/* Lista de ações com os filtros da tela: usada na tabela, nos gráficos, no Excel e no PDF */
+function filtAcoes(){const f=S.af,q=norm(f.q||'');
+  return S.acoes.map(a=>({a,st:acaoStatus(a),n:S.normas.find(x=>x.id===a.normaId)}))
+    .filter(x=>(!f.status||x.st===f.status)&&(!f.area||norm(x.a.area||'')===norm(f.area))&&(!f.orgao||(x.n&&x.n.orgao===f.orgao))
+      &&(!f.prazo||filtPrazo(x,f.prazo))&&(!f.de||(x.a.prazo&&x.a.prazo>=f.de))&&(!f.ate||(x.a.prazo&&x.a.prazo<=f.ate))
+      &&(!q||norm([x.a.descricao,x.a.gap,x.a.responsavel,x.a.area,x.n?cite(x.n):''].join(' ')).includes(q)))
+    .sort((x,y)=>{const r=s=>s==='Atrasada'?0:s==='Concluída'||s==='Cancelada'?2:1;return r(x.st)-r(y.st)||((x.a.prazo||'9999')<(y.a.prazo||'9999')?-1:1)})}
+const temFiltroAc=()=>{const f=S.af;return !!(f.q||f.status||f.area||f.orgao||f.prazo||f.de||f.ate)};
+function filtrosAcTxt(){const f=S.af;return [f.status&&`Status: ${f.status}`,f.area&&`Área: ${f.area}`,f.orgao&&`Órgão: ${f.orgao}`,f.prazo&&`Prazo: ${(PRAZO_F.find(p=>p[0]===f.prazo)||[])[1]}`,(f.de||f.ate)&&`Prazo entre ${f.de?fmtD(f.de):'o início'} e ${f.ate?fmtD(f.ate):'o fim'}`,f.q&&`Busca: "${f.q}"`].filter(Boolean).join(' · ')||'Todas as ações'}
+/* Gráficos dos planos: por situação, por prazo e por área */
+function acGraficos(list,pdf){
+  const c=s=>list.filter(x=>x.st===s).length;
+  const sit=[{label:'Abertas',v:c('Aberta'),c:'var(--s1)'},{label:'Em andamento',v:c('Em andamento'),c:'var(--warn)'},{label:'Atrasadas',v:c('Atrasada'),c:'var(--crit)'},{label:'Concluídas',v:c('Concluída'),c:'var(--ok)'},{label:'Canceladas',v:c('Cancelada'),c:'var(--s5)'}];
+  const b={np:0,ca:0,ed:0,v7:0,a30:0,a30p:0};for(const {a} of list){if(a.status==='Cancelada')continue;if(a.status==='Concluída'){(a.prazo&&a.concluidaEm&&a.concluidaEm>a.prazo)?b.ca++:b.np++;continue}const d=days(a.prazo);if(d==null||d>7)b.ed++;else if(d>=0)b.v7++;else if(d>=-30)b.a30++;else b.a30p++}
+  const pz=[{label:'Concluídas no prazo',v:b.np,c:'var(--ok)'},{label:'Concluídas com atraso',v:b.ca,c:'var(--warn)'},{label:'Em aberto, em dia',v:b.ed,c:'var(--s1)'},{label:'Vencem em até 7 dias',v:b.v7,c:'var(--warn)'},{label:'Atrasadas até 30 dias',v:b.a30,c:'var(--crit)'},{label:'Atrasadas há mais de 30 dias',v:b.a30p,c:'var(--crit)'}];
+  const m=new Map();for(const {a,st} of list){if(st==='Cancelada')continue;const k=a.area||'Sem área';const o=m.get(k)||{t:0,ab:0};o.t++;if(st!=='Concluída')o.ab++;m.set(k,o)}
+  const ar=[...m.entries()].sort((x,y)=>y[1].t-x[1].t).slice(0,10).map(([k,o])=>({label:`${k} (${o.ab} em aberto)`,v:o.t,c:'var(--s1)'}));
+  if(pdf)return `<section><h2>Ações por situação</h2>${hbars(sit)}</section><section><h2>Ações por prazo</h2>${hbars(pz)}</section><section><h2>Ações por área</h2>${ar.length?hbars(ar):'<p class="muted">Nenhuma ação.</p>'}</section>`;
+  const P=(t,body)=>`<section class="panel"><header><h2>${t}</h2></header><div class="body">${body}</div></section>`;
+  return `<div class="cols acgraf">${P('Por situação',hbars(sit))}${P('Por prazo',hbars(pz))}${P('Por área',ar.length?hbars(ar):'<div class="muted" style="font-size:14px">Nenhuma ação.</div>')}</div>`}
 function vAcoes(){
-  const f=S.af,q=norm(f.q);const loading=!S.loaded.acoes;
-  const list=S.acoes.map(a=>({a,st:acaoStatus(a),n:S.normas.find(x=>x.id===a.normaId)}))
-    .filter(x=>(!f.status||x.st===f.status)&&(!q||norm([x.a.descricao,x.a.gap,x.a.responsavel,x.a.area,x.n?cite(x.n):''].join(' ')).includes(q)))
-    .sort((x,y)=>{const r=s=>s==='Atrasada'?0:s==='Concluída'||s==='Cancelada'?2:1;return r(x.st)-r(y.st)||((x.a.prazo||'9999')<(y.a.prazo||'9999')?-1:1)});
+  const f=S.af;const loading=!S.loaded.acoes;const list=filtAcoes();
   const rows=list.map(({a,st,n})=>`<tr data-act="open-acao" data-id="${esc(a.id)}"><td class="nowrap num">${prazoTxt(a.prazo,st==='Concluída'||st==='Cancelada')}</td><td><div style="font-weight:600" class="clip">${esc(a.descricao)}</div>${a.gap?`<div class="sub clip">Gap: ${esc(a.gap)}</div>`:''}</td><td>${n?`${og(n.orgao)} <span class="sub">${esc(cite(n))}</span>`:'<span class="muted">Sem norma</span>'}</td><td>${esc(a.responsavel||'—')}${a.area?`<div class="sub">${esc(a.area)}</div>`:''}</td><td>${pill(st,AC_COLOR[st]||'info')}</td><td class="num">${(a.evidencias||[]).length||'<span class="muted">—</span>'}</td></tr>`).join('');
   return `<div class="head"><div><h1>Planos de ação</h1></div>
-    <div class="actions">${S.downloads&&window.XLSX?`<button class="btn" data-act="export-acoes">Exportar Excel</button>`:''}${S.canWrite&&S.db?`<button class="btn pri" data-act="new-acao">Nova ação</button>`:''}</div></div>
+    <div class="actions">${S.acoes.length?`<button class="btn" data-act="ac-graf">${S.afGraf===false?'Mostrar gráficos':'Ocultar gráficos'}</button>`:''}${S.downloads&&window.XLSX?`<button class="btn" data-act="export-acoes">Exportar Excel</button>`:''}<button class="btn" data-act="pdf-acoes">Exportar PDF</button>${S.canWrite&&S.db?`<button class="btn pri" data-act="new-acao">Nova ação</button>`:''}</div></div>
   <div class="toolbar"><input type="search" id="aq" placeholder="Buscar por ação, gap, responsável ou norma" value="${esc(f.q)}" aria-label="Buscar ações">
     <select id="as" aria-label="Status">${opts([...ST_ACAO,'Atrasada'],f.status,'Todos os status')}</select>
-    ${f.q||f.status?`<button class="btn sm" data-act="clear-af">Limpar filtros</button>`:''}</div>
+    <select id="aa" aria-label="Área">${opts(areasAcoes(),f.area||'','Todas as áreas')}</select>
+    <select id="ao" aria-label="Órgão">${opts(ORGAOS,f.orgao||'','Todos os órgãos')}</select>
+    <select id="ap" aria-label="Situação do prazo"><option value="">Qualquer prazo</option>${PRAZO_F.map(([k,t])=>`<option value="${k}"${f.prazo===k?' selected':''}>${t}</option>`).join('')}</select>
+    <label class="dtf">Prazo de<input type="date" id="ade" value="${esc(f.de||'')}"></label><label class="dtf">até<input type="date" id="aate" value="${esc(f.ate||'')}"></label>
+    ${temFiltroAc()?`<button class="btn sm" data-act="clear-af">Limpar filtros</button>`:''}</div>
+  ${S.acoes.length&&S.afGraf!==false?acGraficos(list):''}
   ${list.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th>Prazo</th><th>Ação</th><th>Norma</th><th>Responsável</th><th>Status</th><th>Evidências</th></tr></thead><tbody>${rows}</tbody></table></div>`
   :`<div class="panel"><div class="empty">${loading?'Carregando ações…':S.acoes.length?'Nenhuma ação corresponde aos filtros.':'Nenhum plano de ação ainda. Abra uma norma aplicável e registre as ações de adequação.'}</div></div>`}`;
 }
+/* PDF dos planos de ação com os mesmos filtros da tela */
+function pdfAcoes(){const list=filtAcoes();if(!list.length){toast('Nenhuma ação corresponde aos filtros.','crit');return}
+  const c=s=>list.filter(x=>x.st===s).length,kp=(v,l)=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`;
+  const logo=(document.querySelector('.side .logo')||{}).src||'';
+  const h=`<header class="rep-h"><div>${logo?`<img src="${logo}" alt="Trinus">`:''}<h1>Planos de ação</h1></div><div class="meta">Gerado em ${esc(fmtDT(new Date().toISOString()))}<br>por ${esc((S.me&&S.me.name)||'')}</div></header><p class="rep-f">${esc(filtrosAcTxt())}</p>
+    <section><h2>Resumo</h2><div class="kpis">${kp(list.length,'Ações')}${kp(c('Aberta')+c('Em andamento'),'Em aberto')}${kp(c('Atrasada'),'Atrasadas')}${kp(c('Concluída'),'Concluídas')}</div></section>
+    ${acGraficos(list,true)}
+    <section class="long"><h2>Ações (${list.length})</h2><table><thead><tr><th>Prazo</th><th>Ação</th><th>Norma</th><th>Área</th><th>Responsável</th><th>Situação</th><th>Evidências</th></tr></thead><tbody>${list.map(({a,st,n})=>`<tr><td>${esc(a.prazo?fmtD(a.prazo):'—')}</td><td>${esc(String(a.descricao||'').slice(0,300))}</td><td>${esc(n?cite(n):'—')}</td><td>${esc(a.area||'—')}</td><td>${esc(a.responsavel||'—')}</td><td>${esc(st)}</td><td>${(a.evidencias||[]).length||'—'}</td></tr>`).join('')}</tbody></table></section>`;
+  let root=document.getElementById('printRoot');if(!root){root=document.createElement('div');root.id='printRoot';document.body.appendChild(root)}
+  root.innerHTML=`<div class="rep">${h}<p class="rep-f" style="margin-top:18px">Controle Normativo · Trinus Co</p></div>`;document.body.classList.add('printing');tituloAntes=document.title;document.title='Planos-de-acao-'+today();
+  setTimeout(()=>window.print(),80)}
 
 /* ---------- Obrigações ---------- */
 function vObrig(){
@@ -1435,7 +1474,7 @@ async function saveXlsx(rows,sheet,filename){if(!S.downloads||!window.XLSX)retur
   const out=XLSX.write(wb,{type:'array',bookType:'xlsx'});try{await S.downloads.save({filename,data:new Uint8Array(out)})}catch(e){if(e&&e.code!=='declined')toast('Não foi possível gerar o arquivo.','crit')}}
 function exportNormas(){const rows=filtNormas().map(n=>({'Órgão':n.orgao,'Tipo':n.tipo,'Número':n.numero,'Norma':cite(n),'Data publicação':fmtD(n.dataPublicacao),'Vigência':n.vigencia?fmtD(n.vigencia):'','Ementa':n.ementa,'Tema':n.tema||'','Status':n.status||'Nova','Risco':rl(n.criticidade),'Responsável':n.responsavel||'','Área':n.area||'','Prazo adequação':n.prazoAdequacao?fmtD(n.prazoAdequacao):'','Aplicabilidade':aplicOf(n),'Plano de ação':n.planoAcao||'','Início do plano':n.planoInicio?fmtD(n.planoInicio):'','Fim do plano':n.prazoAcordado?fmtD(n.prazoAcordado):'','Plano acordado':n.planoDescricao||'','Ações abertas':S.acoes.filter(a=>a.normaId===n.id&&!['Concluída','Cancelada'].includes(a.status)).length,'Link':n.link||'','Observações':n.observacoes||''}));
   saveXlsx(rows,'Normas','normas-'+today()+'.xlsx')}
-function exportAcoes(){const rows=S.acoes.map(a=>{const n=S.normas.find(x=>x.id===a.normaId);return{'Norma':n?cite(n):'','Órgão':n?n.orgao:'','Ação':a.descricao,'Gap':a.gap||'','Responsável':a.responsavel||'','Área':a.area||'','Prazo':a.prazo?fmtD(a.prazo):'','Status':acaoStatus(a),'Concluída em':a.concluidaEm?fmtD(a.concluidaEm):'','Evidências':(a.evidencias||[]).map(e=>e.nome).join('; ')}});
+function exportAcoes(){const l=filtAcoes();if(!l.length){toast('Nenhuma ação corresponde aos filtros.','crit');return}const rows=l.map(({a,st,n})=>{return{'Norma':n?cite(n):'','Órgão':n?n.orgao:'','Ação':a.descricao,'Gap':a.gap||'','Responsável':a.responsavel||'','Área':a.area||'','Prazo':a.prazo?fmtD(a.prazo):'','Status':st,'Concluída em':a.concluidaEm?fmtD(a.concluidaEm):'','Evidências':(a.evidencias||[]).map(e=>e.nome).join('; ')}});
   saveXlsx(rows,'Planos de ação','planos-de-acao-'+today()+'.xlsx')}
 function template(){saveXlsx([{'Órgão':'CVM','Tipo':'Resolução','Número':'50','Data publicação':'31/08/2021','Vigência':'','Ementa':'EXEMPLO — apague esta linha. Dispõe sobre a prevenção à lavagem de dinheiro no mercado de valores mobiliários.','Tema':'PLD/FT','Status':'Em análise','Risco':'Alto','Responsável':'','Área':'','Prazo adequação':'','Link':'https://conteudo.cvm.gov.br/legislacao/resolucoes/resol050.html','Observações':''}],'Normas','modelo-importacao-normas.xlsx')}
 
@@ -1471,7 +1510,7 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
   if(act==='relatorio')return openDlg({type:'relatorio',narrow:true});
   if(act==='rel-gerar')return gerarRel();
   if(act==='rel-todos'){const c=[...document.querySelectorAll('input[name=rSec]')];const on=c.some(x=>!x.checked);c.forEach(x=>x.checked=on);t.textContent=on?'Desmarcar todos':'Marcar todos';return}
-  if(act==='goto'){const[r,f]=t.dataset.go.split(':');if(r==='normas'){S.nf={q:'',orgao:t.dataset.orgao||'',status:f||'',crit:''}}if(r==='acoes'){S.af={q:'',status:f||''}}location.hash=r;render();return}
+  if(act==='goto'){const[r,f]=t.dataset.go.split(':');if(r==='normas'){S.nf={q:'',orgao:t.dataset.orgao||'',status:f||'',crit:''}}if(r==='acoes'){S.af={q:'',status:f||'',area:'',orgao:'',prazo:'',de:'',ate:''}}location.hash=r;render();return}
   if(act==='new-norma')return openDlg({type:'norma'});
   if(act==='open-norma')return openDlg({type:'norma',id});
   if(act==='usar-retorno'){const e=(S.enc||[]).find(x=>x.id===id);if(!e||!$('#nStatus'))return;
@@ -1491,9 +1530,11 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
   if(act==='import'){S.importRows=null;return openDlg({type:'import',narrow:false})}
   if(act==='export-normas')return exportNormas();
   if(act==='export-acoes')return exportAcoes();
+  if(act==='pdf-acoes')return pdfAcoes();
+  if(act==='ac-graf'){S.afGraf=S.afGraf===false;return render()}
   if(act==='template')return template();
   if(act==='clear-nf'){S.nf={q:'',orgao:'',status:'',crit:'',apl:''};return render()}
-  if(act==='clear-af'){S.af={q:'',status:''};return render()}
+  if(act==='clear-af'){S.af={q:'',status:'',area:'',orgao:'',prazo:'',de:'',ate:''};return render()}
   if(act==='com-add')return addCom(t);
   if(act==='enc-send')return sendEnc(t);
   if(act==='enc-resp')return respEnc(t);
@@ -1513,7 +1554,7 @@ main.addEventListener('input',e=>{if(e.target.id==='destNovo')S.destNovo=e.targe
 main.addEventListener('input',e=>{const rg=e.target.dataset&&e.target.dataset.rg;if(rg&&S.regrasEd&&(rg==='palavras'||rg==='tema')){S.regrasEd[+e.target.dataset.i][rg]=e.target.value;return}});
 main.addEventListener('change',e=>{const rg=e.target.dataset&&e.target.dataset.rg;if(!rg||!S.regrasEd)return;const r=S.regrasEd[+e.target.dataset.i];if(rg==='risco')r.risco=e.target.value;if(rg==='area'){const v=e.target.value;r.areas=(r.areas||[]).filter(x=>norm(x)!==norm(v));if(e.target.checked)r.areas.push(v)}});
 main.addEventListener('input',e=>{const id=e.target.id;if(id==='nq'){S.nf.q=e.target.value;render()}if(id==='aq'){S.af.q=e.target.value;render()}if(id==='uq'){S.cfgF.q=e.target.value;render()}});
-main.addEventListener('change',e=>{const id=e.target.id,v=e.target.value;if(id==='no')S.nf.orgao=v;else if(id==='ns')S.nf.status=v;else if(id==='nc')S.nf.crit=v;else if(id==='na')S.nf.apl=v;else if(id==='as')S.af.status=v;else if(id==='auf')S.auf.tipo=v;else if(id==='pf')S.pf=v;else if(id==='up')S.cfgF.perfil=v;else if(id==='usit')S.cfgF.sit=v;else return;render()});
+main.addEventListener('change',e=>{const id=e.target.id,v=e.target.value;if(id==='no')S.nf.orgao=v;else if(id==='ns')S.nf.status=v;else if(id==='nc')S.nf.crit=v;else if(id==='na')S.nf.apl=v;else if(id==='as')S.af.status=v;else if(id==='aa')S.af.area=v;else if(id==='ao')S.af.orgao=v;else if(id==='ap')S.af.prazo=v;else if(id==='ade')S.af.de=v;else if(id==='aate')S.af.ate=v;else if(id==='auf')S.auf.tipo=v;else if(id==='pf')S.pf=v;else if(id==='up')S.cfgF.perfil=v;else if(id==='usit')S.cfgF.sit=v;else return;render()});
 const tipEl=$('#tip');
 main.addEventListener('mousemove',e=>{const t=e.target.closest('[data-tip]');if(!t){tipEl.hidden=true;return}tipEl.textContent=t.dataset.tip;tipEl.hidden=false;
   const w=tipEl.offsetWidth,h=tipEl.offsetHeight;let x=e.clientX+14,y=e.clientY-h-10;if(x+w>innerWidth-8)x=e.clientX-w-14;if(y<8)y=e.clientY+16;tipEl.style.left=x+'px';tipEl.style.top=y+'px'});
