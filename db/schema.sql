@@ -237,3 +237,19 @@ CREATE TABLE IF NOT EXISTS acessos (
   em       timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS acessos_ref_idx ON acessos (tipo, ref, em DESC);
+-- O campo de análise/justificativa é só de quem analisa: tira os textos que a captura e a carga histórica gravavam nele
+UPDATE normas SET observacoes = btrim(regexp_replace(observacoes, '^\s*(Carga histórica: norma em vigor na Busca de normas do BCB em [0-9/]+\.)?\s*(Unidade responsável no BCB: [^.]*\.)?\s*', ''))
+  WHERE observacoes ~ '^\s*(Carga histórica: norma em vigor na Busca de normas do BCB|Unidade responsável no BCB:)';
+UPDATE normas SET observacoes = '' WHERE observacoes = 'Audiência pública; prazo para manifestações no edital.';
+-- Número de norma do BCB que perdeu o zero final ao passar pelo Excel (ex.: 3.980 virou 3.98): corrige pelo número do link oficial
+DO $$ BEGIN
+  UPDATE normas n SET
+    numero = CASE WHEN length(x.d) > 3 THEN left(x.d, length(x.d) - 3) || '.' || right(x.d, 3) ELSE x.d END,
+    chave = regexp_replace(n.chave, '[^|]*$', x.d)
+  FROM (SELECT id, substring(link from 'exibenormativo\?tipo=[^&]*&numero=([0-9]+)') AS d FROM normas) x
+  WHERE x.id = n.id AND x.d IS NOT NULL
+    AND regexp_replace(n.numero, '[^0-9]', '', 'g') <> x.d
+    AND rtrim(regexp_replace(n.numero, '[^0-9]', '', 'g'), '0') = rtrim(x.d, '0')
+    AND NOT EXISTS (SELECT 1 FROM normas o WHERE o.id <> n.id AND o.chave = regexp_replace(n.chave, '[^|]*$', x.d));
+EXCEPTION WHEN others THEN RAISE NOTICE 'Correção de número não aplicada: %', SQLERRM;
+END $$;
