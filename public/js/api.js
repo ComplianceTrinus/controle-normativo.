@@ -68,9 +68,10 @@
         var achado = lista.find(function (x) { return x.id === id; });
         return snapDoc(id, achado);
       },
-      // espera a lista recarregar antes de devolver, para a tela já mostrar o dado salvo
-      set: async function (d) { await chamar('PUT', base, d); await atualizarTudo(); },
-      update: async function (d) { await chamar('PATCH', base, d); await atualizarTudo(); },
+      // espera a lista recarregar antes de devolver, para a tela já mostrar o dado salvo;
+      // opcoes.aoGravar roda assim que o servidor confirma, antes do recarregamento (aviso imediato)
+      set: async function (d, op) { await chamar('PUT', base, d); if (op && op.aoGravar) op.aoGravar(); await atualizarTudo(); },
+      update: async function (d, op) { await chamar('PATCH', base, d); if (op && op.aoGravar) op.aoGravar(); await atualizarTudo(); },
       delete: async function () { await chamar('DELETE', base); await atualizarTudo(); },
       onSnapshot: function (prox, falha) {
         return assinar('d:' + caminho, async function () {
