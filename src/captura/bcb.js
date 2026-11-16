@@ -45,7 +45,7 @@ function mapear(linhas) {
       tema: '',
       link: 'https://www.bcb.gov.br/estabilidadefinanceira/exibenormativo?tipo='
         + encodeURIComponent(r.TipodoNormativoOWSCHCS) + '&numero=' + n,
-      observacoes: r.ResponsavelOWSText ? `Unidade responsável no BCB: ${r.ResponsavelOWSText}.` : '',
+      observacoes: '',
       origem: 'Captura automática — Busca de normas BCB',
     });
   }
