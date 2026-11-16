@@ -84,8 +84,21 @@ ${n.link ? `<a href="${esc(n.link)}" style="color:#2E4CFF;font-size:13px;font-we
   return { assunto, html, texto };
 }
 
-async function enviarResend(para, { assunto, html, texto }) {
+// Delegação: quem está ausente no período também tem os avisos enviados ao substituto que escolheu
+async function comDelegados(para) {
+  const lista = [...new Set((para || []).map(e => String(e).trim().toLowerCase()).filter(Boolean))];
+  try {
+    const r = await q(`SELECT DISTINCT lower(d.email) AS email FROM usuarios u JOIN usuarios d ON d.id = u.delegado_id
+      WHERE lower(u.email) = ANY($1) AND d.ativo AND d.email IS NOT NULL
+        AND u.delegacao_de <= (now() AT TIME ZONE 'America/Sao_Paulo')::date AND u.delegacao_ate >= (now() AT TIME ZONE 'America/Sao_Paulo')::date`, [lista]);
+    for (const x of r.rows) if (!lista.includes(x.email)) lista.push(x.email);
+  } catch (e) { console.error('[delegação]', e.message); }
+  return lista;
+}
+
+async function enviarResend(para, { assunto, html, texto }, { delegar = true } = {}) {
   const c = cfg();
+  if (delegar) para = await comDelegados(para);
   if (!c.chave) throw new ErroEmail('O serviço de e-mail ainda não foi configurado (falta a variável RESEND_API_KEY no Vercel).');
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -145,7 +158,7 @@ async function enviarCodigoLogin(para, codigo, minutos) {
 <p style="font-size:14px;color:#5B6272">Ele vale por ${Number(minutos)} minutos. Se você não tentou entrar no sistema, ignore este e-mail e avise o administrador.</p>
 </div></div></body></html>`;
   const texto = `Seu código de acesso ao Controle Normativo: ${codigo}\nVale por ${Number(minutos)} minutos. Se você não tentou entrar, ignore e avise o administrador.\n`;
-  return enviarResend([para], { assunto: 'Seu código de acesso ao Controle Normativo', html, texto });
+  return enviarResend([para], { assunto: 'Seu código de acesso ao Controle Normativo', html, texto }, { delegar: false });
 }
 
 // Aviso de norma encaminhada pelo Compliance para uma ou mais áreas (um e-mail por pessoa)
