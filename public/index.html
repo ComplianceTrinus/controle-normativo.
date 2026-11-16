@@ -436,7 +436,6 @@ dialog.lateral .dlg .content{flex:1}
 .rt-est{font-size:13px;background:var(--warn-bg,#FFF6E5);border-radius:8px;padding:8px 10px;margin:6px 0;white-space:normal}
 .reav .reav-b{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.reav .lnk{color:inherit;text-decoration:underline;font-weight:600}
 .kpi-reav .v{color:var(--warn)}
-.cop .cop-r{display:flex;flex-direction:column;gap:6px;font-size:13.5px;white-space:normal}.cop .reav-b{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 .deleg{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;margin:0}.deleg legend{font-size:13px;font-weight:600;padding:0 4px}
 details.hist summary{cursor:pointer;padding:12px 14px;font-weight:600;font-size:14px}
 .cols.acgraf{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin:4px 0 12px}
@@ -1305,32 +1304,6 @@ function refreshDialog(){const d=S.dlg;if(!d||!dlg.open)return;
 const ro=()=>!S.canWrite||!S.db;
 function delBtn(kind){return S.isAdmin&&S.db?`<button type="button" class="btn danger" data-act="del" data-kind="${kind}">Excluir</button>`:'<span></span>'}
 /* Quem abriu a norma ou as evidências (só o Compliance vê) */
-/* Sugestão do Microsoft 365 Copilot (o quadro só aparece depois que a TI configurar a integração) */
-function copRedraw(id){const el=$('#copBox'),n=S.normas.find(x=>x.id===id);if(el&&n)el.outerHTML=copBox(n)||'<div id="copBox"></div>'}
-function copBox(n){if(S.isArea||ro())return '<div id="copBox"></div>';const st=S.copSt;
-  if(st===undefined){S.copSt=null;Promise.all([apiJson('/api/ia/status').catch(()=>({})),apiJson('/api/copilot/status').catch(()=>({}))]).then(([ia,cp])=>{S.copSt={...cp,ia:!!(ia.configurado&&ia.podeUsar)};copRedraw(n.id)})}
-  if(!st||!(st.ia||(st.configurado&&st.podeUsar)))return '<div id="copBox"></div>';const ia=st.ia;
-  const sg=(S.copSug||{})[n.id];let corpo;
-  if(!ia&&!st.conectado)corpo=`<div class="pad"><a class="btn sm pri" href="/ms/conectar?norma=${encodeURIComponent(n.id)}">Conectar conta Microsoft</a></div>`;
-  else if(S.copBusy===n.id)corpo=`<div class="pad muted">${ia?'Lendo a norma e preparando a sugestão…':'Consultando o Copilot…'} pode levar até um minuto.</div>`;
-  else if(!sg)corpo=`<div class="pad"><button type="button" class="btn sm pri" data-act="cop-sug" data-id="${esc(n.id)}">${ia?'Pedir sugestão à IA':'Pedir sugestão ao Copilot'}</button></div>`;
-  else corpo=copView(sg,n.id);
-  return `<div class="box cop" id="copBox"><header><h3>${ia?'Sugestão da IA':'Sugestão do Copilot'}</h3>${!ia&&st.conectado?`<span class="muted" style="font-size:12px">${esc(st.conta)}</span>`:''}</header>${corpo}</div>`}
-function copView(r,id){const s=r.sugestao||{},L=(t,v)=>v?`<div><b>${t}:</b> ${v}</div>`:'';
-  const novo=`<button type="button" class="btn sm" data-act="cop-sug" data-id="${esc(id)}">Perguntar de novo</button>`;
-  if(!s.aplicavel)return `<div class="pad cop-r"><div style="white-space:pre-wrap">${esc(r.texto||'O Copilot não trouxe uma sugestão no formato esperado.')}</div><div class="reav-b">${novo}</div></div>`;
-  return `<div class="pad cop-r">${L('Aplicável',esc(s.aplicavel)+(s.justificativa?' — '+esc(s.justificativa):''))}${L('Áreas',esc((s.areas||[]).join(', ')))}${L('Risco',s.risco?esc(rl(s.risco))+(s.riscoMotivo?' — '+esc(s.riscoMotivo):''):'')}${L('Envio ao regulador',esc(s.envioRegulador))}${L('Atualizar política interna',esc(s.atualizaPolitica)+((s.politicas||[]).length?' — '+esc(s.politicas.join(', ')):''))}${L('O que muda',esc(s.oQueMuda))}${r.fonte==='ia'?`<div class="muted" style="font-size:12px">${r.comTexto?'Analisada pelo texto integral da norma.':'Texto integral indisponível: analisada só pela ementa.'}</div>`:''}${(r.fontes||[]).length?`<div class="muted" style="font-size:12px"><b>Fontes:</b> ${esc(r.fontes.join('; '))}</div>`:''}
-    <div class="reav-b"><button type="button" class="btn sm pri" data-act="cop-aplicar" data-id="${esc(id)}">Aplicar à ficha</button>${novo}</div></div>`}
-async function copSug(id){S.copBusy=id;copRedraw(id);try{const r=await apiJson(S.copSt&&S.copSt.ia?'/api/ia/sugerir':'/api/copilot/sugerir',{method:'POST',body:JSON.stringify({normaId:id})});(S.copSug=S.copSug||{})[id]=r}
-  catch(e){toast(e.message,'crit');if(/Conecte/.test(e.message)&&S.copSt)S.copSt.conectado=false}finally{S.copBusy=null;copRedraw(id)}}
-function copAplicar(id){const r=(S.copSug||{})[id];if(!r||!$('#nAplic'))return;const s=r.sugestao||{},set=(i,v)=>{const el=$('#'+i);if(el&&v)el.value=v};
-  if(s.aplicavel){set('nAplic',s.aplicavel==='Sim'?'Aplicável':'Não aplicável');decSync('aplic')}
-  if(s.risco){set('nCrit',s.risco);syncRisco('select')}
-  if((s.areas||[]).length){const ar=$('#nArea');if(ar){const l=(ar.value||'').split(',').map(x=>x.trim()).filter(Boolean);for(const a of s.areas)if(!l.some(x=>norm(x)===norm(a)))l.push(a);ar.value=l.join(', ')}}
-  set('nEnvioReg',s.envioRegulador);set('nAtuPol',s.atualizaPolitica);
-  const quem=r.fonte==='ia'?'da IA':'do Copilot';const nota=[`Sugestão ${quem} (${fmtD(today())}): ${s.justificativa||''}`,s.oQueMuda?'O que muda: '+s.oQueMuda:'',(s.politicas||[]).length?'Políticas internas: '+s.politicas.join(', '):''].filter(Boolean).join('\n');
-  const ob=$('#nObs');if(ob)ob.value=ob.value?ob.value+'\n\n'+nota:nota;
-  toast(`Ficha preenchida com a sugestão ${quem}. Revise e clique em Salvar norma.`);const f=$('#nAplic');if(f)f.scrollIntoView({block:'center',behavior:'smooth'})}
 function acessosBox(tipo,ref,titulo){if(S.isArea)return '';const k=tipo+':'+ref;S.acessos=S.acessos||{};const l=S.acessos[k];
   if(l===undefined){S.acessos[k]=null;apiJson('/api/acessos?tipo='+tipo+'&ref='+encodeURIComponent(ref)).then(r=>{S.acessos[k]=r;if(S.dlg&&S.dlg.id===ref)drawDlg()}).catch(()=>{S.acessos[k]=[]})}
   const corpo=!l?'<div class="pad muted">Carregando…</div>':!l.length?'<div class="pad muted">Ninguém abriu ainda.</div>':l.slice(0,30).map(x=>`<div class="it" style="cursor:default"><div class="top"><b>${esc(x.nome)}</b><span class="muted num">${esc(fmtDT(x.em))}</span></div><div class="meta">${esc(x.perfil==='Área responsável'?(x.areas||[]).join(', ')||'Área':x.perfil)}${x.detalhe?' · '+esc(x.detalhe):''}</div></div>`).join('');
@@ -1379,7 +1352,7 @@ function dNorma(d){const n=d.id?S.normas.find(x=>x.id===d.id)||{}:{orgao:'BACEN'
     <div id="lCons" class="g2"${aplicOf(n)==='Aplicável'?'':' hidden'}><label>Exige envio ao regulador?<select id="nEnvioReg"><option value="">—</option>${opts(['Sim','Não'],n.envioRegulador||'')}</select></label><label>Exige atualizar política interna?<select id="nAtuPol"><option value="">—</option>${opts(['Sim','Não'],n.atualizaPolitica||'')}</select></label></div>
     </div>
   </fieldset></div>
-  <div class="side-col">${d.id?`${linkNorma(n)}${copBox(n)}${S.acoes.some(a=>a.normaId===d.id)?`<div class="box"><header><h3>Plano de ação</h3>${!ro()?`<button type="button" class="btn sm" data-act="new-acao" data-norma="${esc(d.id)}">Nova ação</button>`:''}</header><div class="list" id="dlgAcoes">${normaAcoes(d.id)}</div></div>`:''}
+  <div class="side-col">${d.id?`${linkNorma(n)}${S.acoes.some(a=>a.normaId===d.id)?`<div class="box"><header><h3>Plano de ação</h3>${!ro()?`<button type="button" class="btn sm" data-act="new-acao" data-norma="${esc(d.id)}">Nova ação</button>`:''}</header><div class="list" id="dlgAcoes">${normaAcoes(d.id)}</div></div>`:''}
     ${S.isArea?'':encBox(d.id)}
     ${comBox('n',d.id)}
     ${relBox(n)}
@@ -1619,8 +1592,6 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
     if(act==='usr-deleg'&&(!body.delegadoId||!body.de||!body.ate)){toast('Escolha a pessoa e o período.','crit');return}
     t.disabled=true;return apiJson('/api/admin/usuarios/'+encodeURIComponent(id)+'/delegacao',{method:'POST',body:JSON.stringify(body)}).then(async()=>{toast(body.remover?'Ausência removida.':'Ausência salva. Os avisos do período também vão para a pessoa escolhida.');S.cfgU=null;await loadCfgU();if(S.dlg&&S.dlg.type==='usuario')drawDlg();render()}).catch(e=>toast(e.message,'crit')).finally(()=>{t.disabled=false})}
   if(act==='reav-ok'||act==='reav-abrir'||act==='reav-revogar')return reavAcao(act,id);
-  if(act==='cop-sug')return copSug(id);
-  if(act==='cop-aplicar')return copAplicar(id);
   if(act==='usar-retorno'){const e=(S.enc||[]).find(x=>x.id===id);if(!e||!$('#nStatus'))return;
     const set=(i,v)=>{const el=$('#'+i);if(el)el.value=v};
     if(e.aplicavel===false){set('nAplic','Não aplicável');if(e.resposta&&!val('nObs'))set('nObs',`Retorno da área ${e.area}: ${e.resposta}`)}
