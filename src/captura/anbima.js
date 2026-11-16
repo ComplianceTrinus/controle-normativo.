@@ -71,7 +71,7 @@ function extrairAudiencias(itens, anoMinimo) {
       ementa: tema && !/^Audiência nº/.test(tema) ? `${codigos}: ${tema}` : codigos,
       tema: 'Autorregulação',
       link: it.edital || URL_AUDIENCIAS,
-      observacoes: 'Audiência pública; prazo para manifestações no edital.',
+      observacoes: '',
       origem: 'Captura automática — ANBIMA (Audiências Públicas)',
     });
   }
