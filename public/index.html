@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <script src="/vendor/xlsx.full.min.js"></script>
-<script src="/js/api.js?v=20261113c"></script>
+<script src="/js/api.js?v=20261116a"></script>
 <style>
 /* Layout: padrão trinus.co — trilho lateral azul com logo e menu, área clara com cards brancos e tabelas */
 :root{
@@ -1463,9 +1463,9 @@ async function saveNorma(){const d=S.dlg;const data={orgao:val('nOrgao'),tipo:va
   try{if(d.id){const old=S.normas.find(n=>n.id===d.id)||{};const df=diff(old,data,NL);if(!df){toast('Nenhuma alteração para salvar.');return}
       if(data.status!=='Nova'&&!old.triadaEm&&(old.status||'Nova')==='Nova')data.triadaEm=today();
       if(DECIDIDO.includes(data.status)&&!old.analisadaEm&&!DECIDIDO.includes(old.status||'Nova'))data.analisadaEm=today();
-      await S.db.doc('normas/'+d.id).update({...data,...stamp(false)});await log('Alterou','Norma',cite(data),df);await syncPlano(d.id,data);toast('Norma atualizada.')}
+      await S.db.doc('normas/'+d.id).update({...data,...stamp(false)},{aoGravar:()=>toast('Norma salva.')});await log('Alterou','Norma',cite(data),df);await syncPlano(d.id,data)}
     else{if(data.status!=='Nova')data.triadaEm=today();if(DECIDIDO.includes(data.status))data.analisadaEm=today();
-      const ref=S.db.collection('normas').doc();await ref.set({...data,origem:'Cadastro manual',...stamp(true)});await log('Cadastrou','Norma',cite(data),data.ementa.slice(0,120));await syncPlano(ref.id,data);toast('Norma cadastrada. Registre agora o plano de ação, se aplicável.');S.dlg={type:'norma',id:ref.id};drawDlg()}
+      const ref=S.db.collection('normas').doc();await ref.set({...data,origem:'Cadastro manual',...stamp(true)},{aoGravar:()=>toast('Norma salva.')});await log('Cadastrou','Norma',cite(data),data.ementa.slice(0,120));await syncPlano(ref.id,data);S.dlg={type:'norma',id:ref.id};drawDlg()}
   }catch(e){onWriteErr(e)}}
 /* Plano acordado na ficha da norma vira (ou atualiza) uma ação em Planos de ação */
 async function syncPlano(id,n){if(n.aplicabilidade!=='Aplicável'||n.planoAcao!=='Sim'||!n.planoDescricao)return;
@@ -1479,14 +1479,14 @@ async function saveAcao(){const d=S.dlg;const data={normaId:val('aNorma'),descri
   const n=S.normas.find(x=>x.id===data.normaId);const ref=(n?cite(n)+' · ':'')+data.descricao.slice(0,80);
   try{if(d.id){const old=S.acoes.find(a=>a.id===d.id)||{};const df=diff(old,data,AL);if(!df){toast('Nenhuma alteração para salvar.');return}
       const extra=data.status==='Concluída'&&old.status!=='Concluída'?{concluidaEm:today()}:{};
-      await S.db.doc('acoes/'+d.id).update({...data,...extra,...stamp(false)});await log('Alterou','Ação',ref,df);toast('Ação salva.')}
-    else{const r=S.db.collection('acoes').doc();await r.set({...data,evidencias:[],...stamp(true)});await log('Criou','Ação',ref,'Prazo '+fmtD(data.prazo));toast('Ação salva. Você já pode anexar evidências.');S.dlg={...d,type:'acao',id:r.id};drawDlg()}
+      await S.db.doc('acoes/'+d.id).update({...data,...extra,...stamp(false)},{aoGravar:()=>toast('Ação salva.')});await log('Alterou','Ação',ref,df)}
+    else{const r=S.db.collection('acoes').doc();await r.set({...data,evidencias:[],...stamp(true)},{aoGravar:()=>toast('Ação salva. Você já pode anexar evidências.')});await log('Criou','Ação',ref,'Prazo '+fmtD(data.prazo));S.dlg={...d,type:'acao',id:r.id};drawDlg()}
   }catch(e){onWriteErr(e)}}
 async function saveObrig(){const d=S.dlg;const data={titulo:val('oTit'),orgao:val('oOrg'),periodicidade:val('oPer'),proximoVencimento:val('oVenc'),canal:val('oCanal'),normaId:val('oNorma'),responsavel:val('oResp'),area:val('oArea'),descricao:val('oDesc')};
   if(!data.titulo||!data.proximoVencimento){toast('Informe a obrigação e o próximo vencimento.','crit');return}
   try{if(d.id){const old=S.obrig.find(o=>o.id===d.id)||{};const df=diff(old,data,OL);if(!df){toast('Nenhuma alteração para salvar.');return}
-      await S.db.doc('obrigacoes/'+d.id).update({...data,...stamp(false)});await log('Alterou','Obrigação',data.titulo,df);toast('Obrigação atualizada.')}
-    else{await S.db.collection('obrigacoes').doc().set({...data,historico:[],concluida:false,...stamp(true)});await log('Cadastrou','Obrigação',data.titulo,data.periodicidade+' · venc. '+fmtD(data.proximoVencimento));toast('Obrigação cadastrada.');closeDlg()}
+      await S.db.doc('obrigacoes/'+d.id).update({...data,...stamp(false)},{aoGravar:()=>toast('Obrigação salva.')});await log('Alterou','Obrigação',data.titulo,df)}
+    else{await S.db.collection('obrigacoes').doc().set({...data,historico:[],concluida:false,...stamp(true)},{aoGravar:()=>toast('Obrigação salva.')});await log('Cadastrou','Obrigação',data.titulo,data.periodicidade+' · venc. '+fmtD(data.proximoVencimento));closeDlg()}
   }catch(e){onWriteErr(e)}}
 async function saveEnvio(){const d=S.dlg;const o=S.obrig.find(x=>x.id===d.id);if(!o)return;const dt=val('eData');if(!dt){toast('Informe a data do envio.','crit');return}
   const n=PERIOD[o.periodicidade]||0;const h=[{data:dt,vencimento:o.proximoVencimento,obs:val('eObs'),por:S.meId||null},...(o.historico||[])].slice(0,36);
