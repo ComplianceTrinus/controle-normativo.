@@ -433,6 +433,11 @@ dialog.lateral .dlg .content{flex:1}
 .form .aplbox h3{margin:0;font-size:14px}
 .toolbar .dtf{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
 .toolbar .dtf input{width:auto}
+.rt-est{font-size:13px;background:var(--warn-bg,#FFF6E5);border-radius:8px;padding:8px 10px;margin:6px 0;white-space:normal}
+.reav .reav-b{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.reav .lnk{color:inherit;text-decoration:underline;font-weight:600}
+.kpi-reav .v{color:var(--warn)}
+.deleg{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;margin:0}.deleg legend{font-size:13px;font-weight:600;padding:0 4px}
+details.hist summary{cursor:pointer;padding:12px 14px;font-weight:600;font-size:14px}
 .cols.acgraf{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin:4px 0 12px}
 .retorno textarea,.retorno input[type=date]{background:var(--surface)}
 .rt-ok{display:flex;flex-direction:column;gap:6px;font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--ok-soft);border-radius:10px;padding:10px 12px;margin-top:6px}
@@ -581,7 +586,7 @@ const EV_TYPES={pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'ima
 /* ---------- Estado ---------- */
 const S={db:null,user:null,assets:null,downloads:null,me:null,meId:null,isAdmin:false,canWrite:true,role:'',
   dbState:'loading',loaded:{},normas:[],acoes:[],obrig:[],audit:[],names:{},
-  nf:{q:'',orgao:'',status:'',crit:'',apl:''},af:{q:'',status:'',area:'',orgao:'',prazo:'',de:'',ate:''},auf:{tipo:''},
+  nf:{q:'',orgao:'',status:'',crit:'',apl:'',cons:''},af:{q:'',status:'',area:'',orgao:'',prazo:'',de:'',ate:''},auf:{tipo:''},
   dlg:null,importRows:null,busy:false};
 const $=s=>document.querySelector(s);
 const main=$('#main'), dlg=$('#dlg');
@@ -745,8 +750,10 @@ function vPainel(){
 
 /* ---------- Indicadores ---------- */
 const DECIDIDO=['Aplicável','Não aplicável','Adequada','Revogada'];
+const addDias=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 const aplStatus=s=>s==='Aplicável'||s==='Adequada';
 const APLIC=['Aplicável','Não aplicável'];
+const PLANO_OPS=['Sim','Não','Risco assumido'];
 const ST_FORM=['Nova','Em análise','Analisada','Adequada','Revogada'];
 const aplicOf=n=>n.aplicabilidade||(aplStatus(n.status)?'Aplicável':n.status==='Não aplicável'?'Não aplicável':'');
 const stForm=n=>['Aplicável','Não aplicável'].includes(n.status)?'Analisada':(n.status||'Nova');
@@ -756,7 +763,7 @@ function decSync(origem){const st=$('#nStatus'),ap=$('#nAplic');if(!st||!ap)retu
   if(origem==='aplic'){if(ap.value&&['Nova','Em análise'].includes(st.value))st.value='Analisada';if(!ap.value&&st.value==='Analisada')st.value='Em análise'}
   if(origem==='status'){if(st.value==='Adequada'&&!ap.value)ap.value='Aplicável';if(['Nova','Em análise'].includes(st.value))ap.value=''}
   const a=ap.value,pl=val('nPlano'),sh=(id,v)=>{const e=$('#'+id);if(e)e.hidden=!v};
-  sh('nDec',!!a||['Adequada','Revogada'].includes(st.value));sh('nApl',a==='Aplicável');sh('lArea',a==='Aplicável');sh('lPlano',a==='Aplicável');sh('nPlanoBox',a==='Aplicável'&&pl==='Sim');
+  sh('nDec',!!a||['Adequada','Revogada'].includes(st.value));sh('nApl',a==='Aplicável');sh('lArea',a==='Aplicável');sh('lPlano',a==='Aplicável');sh('nPlanoBox',a==='Aplicável'&&pl==='Sim');sh('nRiscoBox',a==='Aplicável'&&pl==='Risco assumido');sh('lCons',a==='Aplicável');
   const l=$('#lObs');if(l)l.textContent=obsLabel(a)}
 function cfg(){return Object.assign({slaTriagem:5,slaAnalise:30},S.cfg||{})}
 function bizDays(a,b){const A=pISO(a),B=pISO(b);if(!A||!B)return null;if(B<=A)return 0;let n=0;const d=new Date(A);while(d<B){d.setDate(d.getDate()+1);const w=d.getDay();if(w!==0&&w!==6)n++}return n}
@@ -804,40 +811,46 @@ async function loadEnc(){try{S.enc=dedupEnc(await apiJson('/api/encaminhamentos'
 function prazoChip(e){if(!e.prazo)return '';const d=days(e.prazo);let c,t;
   if(e.respondidoEm){c='ok';t='Retorno enviado'}else if(d<0){c='crit';t=`Atrasado há ${-d} dia${d<-1?'s':''}`}else if(d===0){c='warn';t='Vence hoje'}else if(d<=3){c='warn';t=`Faltam ${d} dia${d>1?'s':''}`}else{c='acc';t=`Faltam ${d} dias`}
   return `<div class="prazo p-${c}"><span class="pl">Prazo para retorno</span><b>${esc(fmtD(e.prazo))}</b><span class="pt">${t}</span></div>`}
-function encStatus(e){if(e.respondidoEm)return['Respondida','ok'];const d=days(e.prazo);if(d==null)return['Aguardando retorno','info'];if(d<0)return[`Atrasada ${-d}d`,'crit'];if(d===0)return['Vence hoje','warn'];if(d<=3)return[`Vence em ${d}d`,'warn'];return['Aguardando retorno','info']}
+function encStatus(e){if(e.respondidoEm)return['Respondida','ok'];const d=days(e.prazo);if(d==null)return['Aguardando retorno','info'];if(d<0)return[`Atrasada ${-d}d`,'crit'];if(e.estudoEm)return['Em estudo','warn'];if(d===0)return['Vence hoje','warn'];if(d<=3)return[`Vence em ${d}d`,'warn'];return['Aguardando retorno','info']}
 function vRecebidas(){const loading=S.enc===undefined;const l=S.enc||[];ensureNames(l.map(e=>e.por));
   const rows=l.map(e=>{const n=S.normas.find(x=>x.id===e.normaId);if(!n)return '';return `<tr data-act="open-norma" data-id="${esc(n.id)}"><td class="nowrap num">${esc(fmtDT(e.em))}</td><td>${og(n.orgao)}</td><td><div class="cite">${esc(cite(n))}</div><div class="sub">${esc(e.area)}</div></td><td><div class="clip">${esc(n.ementa)}</div></td><td><div class="clip">${esc(e.mensagem||'—')}</div><div class="sub">por ${esc(nameOf(e.por))}</div></td><td class="nowrap">${prazoChip(e)}</td></tr>`}).join('');
   return `<div class="head"><div><h1>Normas recebidas</h1></div></div>
   ${rows?`<div class="tblwrap"><table class="tbl"><thead><tr><th>Recebida em</th><th>Órgão</th><th>Norma</th><th>Ementa</th><th>Orientação do Compliance</th><th>Prazo de retorno</th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="panel"><div class="empty">${loading||!S.loaded.normas?'Carregando…':'Nenhuma norma encaminhada para a sua área ainda.'}</div></div>`}`}
 function encHist(id){const l=(S.enc||[]).filter(e=>e.normaId===id);if(!l.length)return '<div class="pad">Ainda não encaminhada.</div>';ensureNames(l.map(e=>e.por));
-  ensureNames(l.map(e=>e.respondidoPor));
+  ensureNames(l.map(e=>e.respondidoPor).concat(l.map(e=>e.estudoPor)));
   return l.map(e=>`<div class="it" style="cursor:default"><div class="top"><b>${esc(e.area)}</b>${pill(...encStatus(e))}</div>
     <div class="meta">Encaminhada em ${esc(fmtDT(e.em))} por ${esc(nameOf(e.por))}</div>
     <div style="margin:4px 0 2px">${prazoChip(e)}</div>
     ${e.mensagem?`<div style="font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere"><b>Orientação:</b> ${esc(e.mensagem)}</div>`:''}
+    ${e.estudoEm?`<div class="rt-est"><b>Em estudo</b> desde ${esc(fmtDT(e.estudoEm))}, por ${esc(nameOf(e.estudoPor))}. Prazo prorrogado${e.prazoOriginal?` de ${esc(fmtD(e.prazoOriginal))}`:''} para ${esc(fmtD(e.prazo))}.${e.estudoNota?`<div><b>O que está sendo avaliado:</b> ${esc(e.estudoNota)}</div>`:''}</div>`:''}
     ${e.respondidoEm?retornoView(e):S.isArea?retornoForm(e):''}
   </div>`).join('')}
-const aplTxt=e=>e.aplicavel===false?'Não aplicável':e.aplicavel!==true?'—':e.impacto==='ajuste'?'Aplicável, sem plano de ação':'Aplicável, com plano de ação';
-function retornoView(e){const aj=e.impacto==='ajuste';return `<div class="rt-ok"><div class="rt-h"><b>Retorno da área</b><span class="muted">${esc(nameOf(e.respondidoPor))}, ${esc(fmtDT(e.respondidoEm))}</span></div>
+const aplTxt=e=>e.aplicavel===false?'Não aplicável':e.aplicavel!==true?(e.estudoEm&&!e.respondidoEm?'Em estudo':'—'):e.impacto==='ajuste'?'Aplicável, sem plano de ação':e.impacto==='risco'?'Aplicável, risco assumido':'Aplicável, com plano de ação';
+function retornoView(e){const aj=e.impacto==='ajuste',rk=e.impacto==='risco';return `<div class="rt-ok"><div class="rt-h"><b>Retorno da área</b><span class="muted">${esc(nameOf(e.respondidoPor))}, ${esc(fmtDT(e.respondidoEm))}</span></div>
   ${e.aplicavel==null?'':`<span class="apl ${e.aplicavel?'apl-s':'apl-n'}">${aplTxt(e)}</span>`}
-  ${e.planoSugerido?`<div><b>${aj?'O que muda para a área':'Plano de ação sugerido'}:</b> ${esc(e.planoSugerido)}</div>${e.dataSugerida?`<div><b>${aj?'Data prevista':'Data sugerida'}:</b> ${esc(fmtD(e.dataSugerida))}</div>`:''}`:''}
+  ${rk&&e.riscoResponsavel?`<div><b>Quem assume o risco:</b> ${esc(e.riscoResponsavel)}</div>`:''}
+  ${e.planoSugerido?`<div><b>${aj?'O que muda para a área':rk?'Por que não haverá adequação':'Plano de ação sugerido'}:</b> ${esc(e.planoSugerido)}</div>${e.dataSugerida?`<div><b>${aj?'Data prevista':'Data sugerida'}:</b> ${esc(fmtD(e.dataSugerida))}</div>`:''}`:''}
   ${e.resposta?`<div><b>${e.aplicavel===false?'Justificativa':'Comentários'}:</b> ${esc(e.resposta)}</div>`:''}
-  ${e.aplicavel!=null&&!ro()&&!S.isArea?`<div style="white-space:normal;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn sm" data-act="usar-retorno" data-id="${esc(e.id)}">Registrar na norma</button>${e.aplicavel===true&&e.impacto!=='ajuste'&&e.planoSugerido?`<button type="button" class="btn sm pri" data-act="acao-retorno" data-id="${esc(e.id)}">Criar ação com este plano</button>`:''}</div>`:''}</div>`}
-const RT_OPS=[['sim','Aplicável, com plano de ação'],['ajuste','Aplicável, sem plano de ação'],['nao','Não aplicável']];
+  ${e.aplicavel!=null&&!ro()&&!S.isArea?`<div style="white-space:normal;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn sm" data-act="usar-retorno" data-id="${esc(e.id)}">Registrar na norma</button>${e.aplicavel===true&&e.impacto!=='ajuste'&&e.impacto!=='risco'&&e.planoSugerido?`<button type="button" class="btn sm pri" data-act="acao-retorno" data-id="${esc(e.id)}">Criar ação com este plano</button>`:''}</div>`:''}</div>`}
+const RT_OPS=[['sim','Aplicável, com plano de ação'],['ajuste','Aplicável, sem plano de ação'],['risco','Aplicável, mas a área assume o risco'],['nao','Não aplicável'],['estudo','Em estudo: preciso de mais prazo']];
 function retornoForm(e){const id=esc(e.id);return `<div class="retorno"><div class="rt-t">Retorno da área</div>
   <div class="rt-q">A norma é aplicável à sua área?</div>
-  <div class="rt-op" role="radiogroup" aria-label="A norma é aplicável à sua área?">${RT_OPS.map(([v,t])=>`<label class="opt"><input type="radio" name="apl-${id}" value="${v}"><b>${t}</b></label>`).join('')}</div>
+  <div class="rt-op" role="radiogroup" aria-label="A norma é aplicável à sua área?">${RT_OPS.filter(([v])=>!(v==='estudo'&&e.estudoEm)).map(([v,t])=>`<label class="opt"><input type="radio" name="apl-${id}" value="${v}"><b>${t}</b></label>`).join('')}</div>
   <div class="rt-sim" id="sim-${id}" hidden><label>Plano de ação sugerido<textarea id="plano-${id}" class="field" rows="3" maxlength="4000" placeholder="O que a área propõe fazer para se adequar"></textarea></label><label>Data sugerida para concluir<input type="date" id="data-${id}" class="field"></label></div>
   <div class="rt-sim" id="aj-${id}" hidden><label>O que muda para a área<textarea id="ajuste-${id}" class="field" rows="3" maxlength="4000" placeholder="Descreva brevemente o que será ajustado"></textarea></label><label>Data prevista (opcional)<input type="date" id="dataaj-${id}" class="field"></label></div>
+  <div class="rt-sim" id="risco-${id}" hidden><label>Quem assume o risco<input id="riscor-${id}" class="field" maxlength="160" value="${esc((S.me&&S.me.name)||'')}"></label><label>Por que a área não vai se adequar<textarea id="riscoj-${id}" class="field" rows="3" maxlength="4000"></textarea></label></div>
+  <div class="rt-sim" id="estudo-${id}" hidden><label>Nova data para o retorno definitivo<input type="date" id="dataest-${id}" class="field" min="${esc(addDias(today(),1))}" max="${esc(addDias(today(),60))}"></label></div>
   <label><span id="lj-${id}">Comentários (opcional)</span><textarea id="resp-${id}" class="field" rows="3" maxlength="4000" placeholder="Análise da área, impactos e observações"></textarea></label>
   <div><button type="button" class="btn pri" data-act="enc-resp" data-id="${id}">Enviar retorno</button></div></div>`}
 async function respEnc(t){const id=t.dataset.id;const op=document.querySelector(`input[name="apl-${CSS.escape(id)}"]:checked`);const v=x=>{const el=document.getElementById(x+'-'+id);return el?el.value.trim():''};
   if(!op){toast('Marque se a norma é aplicável ou não.','crit');return}
-  const aj=op.value==='ajuste';const body={aplicavel:op.value,resposta:v('resp'),planoSugerido:v(aj?'ajuste':'plano'),dataSugerida:v(aj?'dataaj':'data')};
+  const o=op.value,aj=o==='ajuste';const body={aplicavel:o,resposta:v('resp'),planoSugerido:v(aj?'ajuste':o==='risco'?'riscoj':'plano'),dataSugerida:v(aj?'dataaj':o==='estudo'?'dataest':'data'),riscoResponsavel:v('riscor')};
+  if(o==='risco'&&(!body.riscoResponsavel||!body.planoSugerido)){toast('Informe quem assume o risco e por que a área não vai se adequar.','crit');return}
+  if(o==='estudo'&&(!body.dataSugerida||!body.resposta)){toast('Informe a nova data e o que está sendo avaliado.','crit');return}
   if(op.value==='sim'&&(!body.planoSugerido||!body.dataSugerida)){toast('Preencha o plano de ação sugerido e a data.','crit');return}
   if(aj&&!body.planoSugerido){toast('Descreva o que muda para a área.','crit');return}
   if(op.value==='nao'&&!body.resposta){toast('Explique por que a norma não é aplicável.','crit');return}
-  t.disabled=true;try{await apiJson('/api/encaminhamentos/'+encodeURIComponent(id)+'/responder',{method:'POST',body:JSON.stringify(body)});await loadEnc();toast('Retorno enviado ao Compliance.')}catch(e){toast(e.message,'crit')}finally{t.disabled=false}}
+  t.disabled=true;try{await apiJson('/api/encaminhamentos/'+encodeURIComponent(id)+'/responder',{method:'POST',body:JSON.stringify(body)});await loadEnc();toast(o==='estudo'?`Prazo prorrogado. Envie o retorno definitivo até ${fmtD(body.dataSugerida)}.`:'Retorno enviado ao Compliance.')}catch(e){toast(e.message,'crit')}finally{t.disabled=false}}
 function prazoEnc(){const h=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date());const d=new Date(h+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+10);return d.toISOString().slice(0,10)}
 function encBox(id){const pode=!ro()&&!S.isArea;if(S.isArea&&!(S.enc||[]).some(e=>e.normaId===id))return '';
   return `<div class="box"><header><h3>${S.isArea?'Encaminhada para a sua área':'Encaminhar para área'}</h3></header><div class="list" id="encList">${encHist(id)}</div>${pode?`<div class="pad" style="display:flex;flex-direction:column;gap:8px;color:var(--ink)"><div style="display:flex;flex-wrap:wrap;gap:4px 12px" role="group" aria-label="Áreas">${(S.areas||[]).map(a=>`<label style="display:inline-flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" class="encArea" value="${esc(a)}">${esc(a)}</label>`).join('')}</div><textarea id="encMsg" class="field" rows="2" maxlength="2000" placeholder="O que a área precisa avaliar (opcional)" aria-label="Orientação para a área"></textarea><div class="muted" style="font-size:12.5px">Prazo automático para o retorno: <b>${esc(fmtD(prazoEnc()))}</b> (10 dias corridos, contados a partir do dia seguinte ao envio).</div><div><button type="button" class="btn sm pri" data-act="enc-send" data-id="${esc(id)}">Encaminhar e avisar por e-mail</button></div></div>`:''}</div>`}
@@ -928,9 +941,11 @@ async function saveCfg(){const t=parseInt(val('cfgTri'),10),a=parseInt(val('cfgA
   const old=cfg();try{await S.db.doc('sistema/config').set({...(S.cfg||{}),slaTriagem:t,slaAnalise:a,atualizadoEm:new Date().toISOString(),atualizadoPor:S.meId||null});await log('Alterou','Configuração','Prazos de SLA',`Triagem: ${old.slaTriagem} → ${t} d.u.; Análise: ${old.slaAnalise} → ${a} d.u.`);toast('Prazos de SLA salvos.')}catch(e){onWriteErr(e)}}
 
 /* ---------- Normas ---------- */
-const FILT_APL=[['apl','Aplicável'],['apl-com','Aplicável com plano'],['apl-sem','Aplicável sem plano'],['nao','Não aplicável'],['pend','Aplicabilidade a definir']];
-function filtApl(n,k){const a=aplicOf(n);return k==='apl'?a==='Aplicável':k==='apl-com'?a==='Aplicável'&&n.planoAcao==='Sim':k==='apl-sem'?a==='Aplicável'&&n.planoAcao==='Não':k==='nao'?a==='Não aplicável':k==='pend'?!a:true}
-function filtNormas(){const f=S.nf,q=norm(f.q);return S.normas.filter(n=>(!f.orgao||n.orgao===f.orgao)&&(!f.status||(n.status||'Nova')===f.status)&&(!f.crit||n.criticidade===f.crit)&&(!f.apl||filtApl(n,f.apl))&&(!q||norm([cite(n),n.ementa,n.tema,n.responsavel,n.area,n.numero].join(' ')).includes(q)))
+const FILT_APL=[['apl','Aplicável'],['apl-com','Aplicável com plano'],['apl-sem','Aplicável sem plano'],['risco','Aplicável, risco assumido'],['nao','Não aplicável'],['pend','Aplicabilidade a definir']];
+function filtApl(n,k){const a=aplicOf(n);return k==='apl'?a==='Aplicável':k==='apl-com'?a==='Aplicável'&&n.planoAcao==='Sim':k==='apl-sem'?a==='Aplicável'&&n.planoAcao==='Não':k==='risco'?a==='Aplicável'&&n.planoAcao==='Risco assumido':k==='nao'?a==='Não aplicável':k==='pend'?!a:true}
+const FILT_CONS=[['reg','Exige envio ao regulador'],['pol','Exige atualizar política interna'],['reav','Para reavaliar']];
+function filtCons(n,k){return k==='reg'?n.envioRegulador==='Sim':k==='pol'?n.atualizaPolitica==='Sim':k==='reav'?reavPend(n).length>0:true}
+function filtNormas(){const f=S.nf,q=norm(f.q);return S.normas.filter(n=>(!f.orgao||n.orgao===f.orgao)&&(!f.status||(n.status||'Nova')===f.status)&&(!f.crit||n.criticidade===f.crit)&&(!f.apl||filtApl(n,f.apl))&&(!f.cons||filtCons(n,f.cons))&&(!q||norm([cite(n),n.ementa,n.tema,n.responsavel,n.area,n.numero].join(' ')).includes(q)))
   .sort((a,b)=>(b.dataPublicacao||'')>(a.dataPublicacao||'')?1:(b.dataPublicacao||'')<(a.dataPublicacao||'')?-1:0)}
 const SEL=()=>S.sel||(S.sel=new Set());
 /* ---------- Configurações (Admin): usuários, áreas e envio diário ---------- */
@@ -973,12 +988,13 @@ const PERFIL_TXT={'Admin':'Acesso total, inclusive usuários e exclusões','Anal
 const SIT_U={'Ativo':'ok','Aguardando primeiro acesso':'warn','Bloqueado':'crit','Desativado':'mute'};
 async function loadCfgU(){if(S.cfgULoading)return;S.cfgULoading=true;try{S.cfgU=await apiJson('/api/admin/usuarios')}catch(e){S.cfgU={usuarios:[],perfis:[],eu:'',erro:e.message}}S.cfgULoading=false;render()}
 async function loadCfgA(){if(S.cfgALoading)return;S.cfgALoading=true;try{S.cfgA=await apiJson('/api/admin/areas')}catch(e){S.cfgA=[];toast(e.message,'crit')}S.cfgALoading=false;render()}
+function delegTxt(u,l){if(!u.delegadoId||!u.delegacaoAte||u.delegacaoAte<today())return '';const x=l.find(y=>y.id===u.delegadoId);return `<div class="sub">Avisos para ${esc(x?x.nome:'—')} até ${esc(fmtD(u.delegacaoAte))}</div>`}
 function vUsuarios(){const d=S.cfgU;if(!d){loadCfgU();return `<div class="panel"><div class="empty">Carregando…</div></div>`}
   if(d.erro)return `<div class="banner warn"><div>${esc(d.erro)}</div></div>`;
   const f=S.cfgF||(S.cfgF={q:'',perfil:'',sit:''}),k=norm(f.q);
   const l=d.usuarios.filter(u=>(!k||norm(u.nome+' '+u.email).includes(k))&&(!f.perfil||u.perfil===f.perfil)&&(!f.sit||u.situacao===f.sit));
   const chips=a=>a.length?`<span class="tag">${esc(a[0])}</span>${a.length>1?` <span class="muted">+${a.length-1}</span>`:''}`:'<span class="muted">—</span>';
-  const rows=l.map(u=>`<tr data-act="usr-edit" data-id="${esc(u.id)}"><td><b>${esc(u.nome)}</b>${u.id===d.eu?' <span class="muted">(você)</span>':''}<div class="sub">${esc(u.email)}</div></td><td>${esc(u.perfil)}</td><td>${u.perfil==='Área responsável'?chips(u.areas):'<span class="muted">Todas</span>'}</td><td>${pill(u.situacao,SIT_U[u.situacao]||'info')}</td><td class="nowrap num">${u.ultimoAcesso?esc(fmtDT(u.ultimoAcesso)):'<span class="muted">Nunca</span>'}</td></tr>`).join('');
+  const rows=l.map(u=>`<tr data-act="usr-edit" data-id="${esc(u.id)}"><td><b>${esc(u.nome)}</b>${u.id===d.eu?' <span class="muted">(você)</span>':''}<div class="sub">${esc(u.email)}</div></td><td>${esc(u.perfil)}</td><td>${u.perfil==='Área responsável'?chips(u.areas):'<span class="muted">Todas</span>'}</td><td>${pill(u.situacao,SIT_U[u.situacao]||'info')}${delegTxt(u,d.usuarios)}</td><td class="nowrap num">${u.ultimoAcesso?esc(fmtDT(u.ultimoAcesso)):'<span class="muted">Nunca</span>'}</td></tr>`).join('');
   return `<div class="toolbar"><input id="uq" type="search" class="field" style="flex:1;min-width:220px" placeholder="Buscar por nome ou e-mail" value="${esc(f.q)}" aria-label="Buscar usuário">
     <select id="up" class="field" aria-label="Perfil"><option value="">Todos os perfis</option>${d.perfis.map(p=>`<option${p===f.perfil?' selected':''}>${esc(p)}</option>`).join('')}</select>
     <select id="usit" class="field" aria-label="Situação"><option value="">Todas as situações</option>${Object.keys(SIT_U).map(p=>`<option${p===f.sit?' selected':''}>${esc(p)}</option>`).join('')}</select>
@@ -998,6 +1014,9 @@ function dUsuario(d){const U=S.cfgU||{usuarios:[],perfis:[]};
     <div id="uAreasBox" class="uareas"${u.perfil==='Área responsável'?'':' hidden'}><span class="lbl">Áreas</span><div class="chipsel">${(S.areas||[]).map(a=>`<label><input type="checkbox" name="uArea" value="${esc(a)}"${ar.has(norm(a))?' checked':''}><span>${esc(a)}</span></label>`).join('')}</div>
       <label class="chk"><input type="checkbox" id="uOb"${u.verObrigacoes?' checked':''}> Vê obrigações regulatórias</label></div>
     ${eu?'<p class="muted" style="margin:0;font-size:13px">Este é o seu usuário. Para trocar a sua senha, use o menu da conta.</p>':''}
+    ${d.id?`<fieldset class="deleg"><legend>Ausência: encaminhar avisos para</legend>
+      <div class="g3"><label>Pessoa<select id="uDel"><option value="">Ninguém</option>${U.usuarios.filter(x=>x.id!==u.id&&x.ativo).map(x=>`<option value="${esc(x.id)}"${x.id===u.delegadoId?' selected':''}>${esc(x.nome)}</option>`).join('')}</select></label><label>De<input type="date" id="uDelDe" value="${esc(u.delegacaoDe||'')}"></label><label>Até<input type="date" id="uDelAte" value="${esc(u.delegacaoAte||'')}"></label></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn sm" data-act="usr-deleg" data-id="${esc(u.id)}">Salvar ausência</button>${u.delegadoId?`<button type="button" class="btn sm" data-act="usr-deleg-rem" data-id="${esc(u.id)}">Remover</button>`:''}</div></fieldset>`:''}
   </div></div>
   <footer><div class="l" style="display:flex;gap:8px;flex-wrap:wrap">${d.id&&!eu?`<button type="button" class="btn" data-act="usr-senha" data-id="${esc(d.id)}">Gerar nova senha</button><button type="button" class="btn" data-act="usr-ativo" data-id="${esc(d.id)}" data-on="${u.ativo?0:1}">${u.ativo?'Desativar':'Reativar'}</button>`:'<span></span>'}</div>
   <div class="r"><button type="button" class="btn" data-act="close">Cancelar</button>${eu?'':`<button class="btn pri" type="submit">${d.id?'Salvar alterações':'Cadastrar'}</button>`}</div></footer></form>`}
@@ -1068,13 +1087,52 @@ function vEnvios(){
     <p class="muted" style="font-size:13px;margin-top:10px">Envio automático de segunda a sexta, por volta das 08:30, com o título "Normativos Divulgados" e a data do dia. Leva só os normativos publicados no dia anterior (na segunda-feira, os de sexta a domingo); se não houver nenhum, nada é enviado. O botão de teste manda o mesmo conteúdo na hora.</p>
   </div>`}
 // Resumo por situação no topo de Normas (clicar filtra a lista)
+/* ---------- Reavaliação: normas alteradas ou revogadas por normas novas (lê as ementas) ---------- */
+const REF_RE=/(resolu[çc](?:ão|ões)\s+conjuntas?|resolu[çc](?:ão|ões)|instru[çc](?:ão|ões)\s+normativas?(?:\s+conjuntas?)?|cartas?[\s-]+circular(?:es)?|circular(?:es)?)\s*(bcb|cmn|cvm|bacen)?\s*,?\s*n[º°o.]*\s*s?\s*([\d.]+(?:\s*(?:,|e)\s*(?:n[º°o.]*\s*)?[\d.]+)*)/gi;
+const VERBO_RE=/\b(altera(?:m|r|ndo)?|revoga(?:m|r|ndo)?|d[áa]\s+nova\s+reda[çc][ãa]o|acrescenta(?:m)?|modifica(?:m)?)\b/gi;
+function tipoRef(t){t=norm(t);return /conjunta/.test(t)&&/resolu/.test(t)?'Resolução Conjunta':/resolu/.test(t)?'Resolução':/conjunta/.test(t)?'Instrução Normativa Conjunta':/instru/.test(t)?'Instrução Normativa':/carta/.test(t)?'Carta Circular':'Circular'}
+let REL_CACHE=null;
+function relacoes(){const k=S.normas.length+'|'+(S.normas[0]&&S.normas[0].id);if(REL_CACHE&&REL_CACHE.k===k&&REL_CACHE.ref===S.normas)return REL_CACHE;
+  const porChave=new Map(S.normas.map(n=>[n.chave||chave(n),n]));const alvo=new Map(),fonte=new Map();
+  for(const n of S.normas){const em=String(n.ementa||'');if(!em||!/altera|revoga|reda[çc]|acrescenta|modifica/i.test(em))continue;
+    const verbos=[...em.matchAll(VERBO_RE)].map(m=>({i:m.index,v:/revoga/i.test(m[1])?'revoga':'altera'}));if(!verbos.length)continue;
+    for(const m of em.matchAll(REF_RE)){const vb=verbos.filter(x=>x.i<m.index).pop();if(!vb||m.index-vb.i>260)continue;
+      const entre=em.slice(vb.i,m.index);if(/de que trata|prevista|nos termos|referid|conforme|de acordo/i.test(entre))continue;
+      const tipo=tipoRef(m[1]),tag=norm(m[2]||''),nums=m[3].split(/,|\se\s/).map(x=>x.replace(/[^\d]/g,'')).filter(Boolean);
+      const orgs=tag==='cvm'?['CVM']:tag==='cmn'?['CMN']:(tag==='bcb'||tag==='bacen')?['BACEN']:n.orgao==='CVM'?['CVM']:tipo==='Resolução'?['CMN','BACEN']:['BACEN'];
+      for(const num of nums)for(const o of orgs){const t=porChave.get(chave({orgao:o,tipo,numero:num}));if(!t||t.id===n.id)continue;
+        if(!(alvo.get(t.id)||[]).some(x=>x.id===n.id))(alvo.get(t.id)||alvo.set(t.id,[]).get(t.id)).push({id:n.id,v:vb.v});
+        if(!(fonte.get(n.id)||[]).some(x=>x.id===t.id))(fonte.get(n.id)||fonte.set(n.id,[]).get(n.id)).push({id:t.id,v:vb.v});break}}}
+  REL_CACHE={k,ref:S.normas,alvo,fonte};return REL_CACHE}
+const decidida=n=>!!aplicOf(n)||['Adequada','Revogada','Não aplicável','Aplicável'].includes(n.status);
+function reavPend(n){if(!decidida(n))return [];const l=relacoes().alvo.get(n.id)||[];if(!l.length)return [];const vistas=new Set(String(n.alteracoesVistas||'').split(';').filter(Boolean));
+  const base=n.analisadaEm||n.triadaEm||'';return l.filter(x=>{if(vistas.has(x.id))return false;const a=S.normas.find(y=>y.id===x.id);return a&&(!base||(a.dataPublicacao||(a.criadoEm||'').slice(0,10))>=base)})}
+function reavBanner(n){if(S.isArea||ro())return '';const p=reavPend(n);if(!p.length)return '';const rev=p.some(x=>x.v==='revoga');
+  const lk=p.map(x=>{const a=S.normas.find(y=>y.id===x.id);return a?`<button type="button" class="lnk" data-act="open-norma" data-id="${esc(a.id)}">${esc(cite(a))}</button> (${x.v==='revoga'?'revoga':'altera'}, ${esc(fmtD(a.dataPublicacao))})`:''}).join('; ');
+  return `<div class="banner warn reav"><div><b>${rev?'Esta norma foi revogada ou alterada depois da análise':'Esta norma foi alterada depois da análise'}</b><div>${lk}</div>
+    <div class="reav-b"><button type="button" class="btn sm pri" data-act="reav-abrir" data-id="${esc(n.id)}">Reavaliar</button><button type="button" class="btn sm" data-act="reav-ok" data-id="${esc(n.id)}">Sem impacto na análise</button>${rev?`<button type="button" class="btn sm" data-act="reav-revogar" data-id="${esc(n.id)}">Marcar como revogada</button>`:''}</div></div></div>`}
+function relBox(n){const R=relacoes(),a=R.alvo.get(n.id)||[],f=R.fonte.get(n.id)||[];if(!a.length&&!f.length)return '';
+  const it=(x,pref)=>{const m=S.normas.find(y=>y.id===x.id);return m?`<div class="it" data-act="open-norma" data-id="${esc(m.id)}"><div class="top"><b>${esc(cite(m))}</b><span class="muted num">${esc(fmtD(m.dataPublicacao))}</span></div><div class="meta">${pref(x.v)}</div></div>`:''};
+  return `<div class="box"><header><h3>Alterações</h3></header><div class="list">${a.map(x=>it(x,v=>v==='revoga'?'Revoga esta norma':'Altera esta norma')).join('')}${f.map(x=>it(x,v=>v==='revoga'?'Revogada por esta norma':'Alterada por esta norma')).join('')}</div></div>`}
+const histOf=n=>{try{const h=JSON.parse(n.historicoAnalises||'[]');return Array.isArray(h)?h:[]}catch{return []}};
+function histBox(n){const h=histOf(n);if(!h.length)return '';return `<details class="box hist"><summary>Análises anteriores (${h.length})</summary><div class="list">${h.slice().reverse().map(x=>`<div class="it" style="cursor:default"><div class="top"><b>${esc(x.resultado||'Reavaliação')}</b><span class="muted num">${esc(fmtDT(x.em))}</span></div><div class="meta">${esc(x.motivo||'')}${x.por?' · por '+esc(x.por):''}</div><div class="meta">Antes: ${esc([x.status,x.aplicabilidade,x.planoAcao?'Plano: '+x.planoAcao:'',x.prazoAcordado?'até '+fmtD(x.prazoAcordado):'',x.riscoResponsavel?'Risco assumido por '+x.riscoResponsavel:''].filter(Boolean).join(' · ')||'—')}</div>${x.observacoes?`<div class="meta">${esc(String(x.observacoes).slice(0,400))}</div>`:''}</div>`).join('')}</div></details>`}
+async function reavAcao(act,id){const n=S.normas.find(x=>x.id===id);if(!n)return;const p=reavPend(n);if(!p.length)return;
+  const motivo=(p.some(x=>x.v==='revoga')?'Revogada ou alterada por ':'Alterada por ')+p.map(x=>{const a=S.normas.find(y=>y.id===x.id);return a?cite(a):''}).filter(Boolean).join(', ');
+  const snap={em:new Date().toISOString(),por:(S.me&&S.me.name)||'',motivo,resultado:act==='reav-ok'?'Reavaliada: sem impacto':act==='reav-revogar'?'Marcada como revogada':'Reaberta para nova análise',
+    status:n.status||'',aplicabilidade:aplicOf(n),planoAcao:n.planoAcao||'',prazoAcordado:n.prazoAcordado||'',planoDescricao:n.planoDescricao||'',riscoResponsavel:n.riscoResponsavel||'',criticidade:n.criticidade||'',observacoes:n.observacoes||''};
+  const h=histOf(n);h.push(snap);const vistas=[...new Set(String(n.alteracoesVistas||'').split(';').filter(Boolean).concat(p.map(x=>x.id)))].join(';');
+  const upd={alteracoesVistas:vistas,historicoAnalises:JSON.stringify(h.slice(-30))};
+  if(act==='reav-abrir')Object.assign(upd,{status:'Em análise',aplicabilidade:'',analisadaEm:''});
+  if(act==='reav-revogar')Object.assign(upd,{status:'Revogada'});
+  try{await S.db.doc('normas/'+id).update({...upd,...stamp(false)});await log('Reavaliou','Norma',cite(n),snap.resultado+' · '+motivo);
+    toast(act==='reav-abrir'?'Norma reaberta para análise. A análise anterior ficou guardada no histórico.':act==='reav-revogar'?'Norma marcada como revogada.':'Registrado: alteração sem impacto na análise.');if(S.dlg&&S.dlg.id===id)drawDlg()}catch(e){onWriteErr(e)}}
 function resumoNormas(){const ld=!S.loaded.normas,c=st=>S.normas.filter(n=>(n.status||'Nova')===st).length,f=S.nf.status;
   const kp=(v,l,st)=>`<button class="kpi${f===st?' on':''}" data-act="goto" data-go="normas:${st}" aria-pressed="${f===st}"><span class="v">${ld?'–':v}</span><span class="l">${l}</span></button>`;
-  return `<div class="kpis kpis-n">${kp(c('Nova'),'Novas','Nova')}${kp(c('Em análise'),'Em análise','Em análise')}${kp(c('Aplicável'),'Aplicáveis, em adequação','Aplicável')}${kp(c('Adequada'),'Adequadas (finalizadas)','Adequada')}${kp(c('Não aplicável'),'Não aplicáveis','Não aplicável')}</div>`}
+  return `<div class="kpis kpis-n">${kp(c('Nova'),'Novas','Nova')}${kp(c('Em análise'),'Em análise','Em análise')}${kp(c('Aplicável'),'Aplicáveis, em adequação','Aplicável')}${kp(c('Adequada'),'Adequadas (finalizadas)','Adequada')}${kp(c('Não aplicável'),'Não aplicáveis','Não aplicável')}${(()=>{const r=ld?0:S.normas.filter(n=>reavPend(n).length).length;return r?`<button class="kpi kpi-reav${S.nf.cons==='reav'?' on':''}" data-act="nf-reav" aria-pressed="${S.nf.cons==='reav'}"><span class="v">${r}</span><span class="l">Para reavaliar</span></button>`:''})()}</div>`}
 function vNormas(){
   const list=filtNormas();const loading=!S.loaded.normas;const podeSel=!!(S.canWrite&&S.db);const sel=SEL();const nSel=list.filter(n=>sel.has(n.id)).length;const allSel=list.length>0&&nSel===list.length;
   const rows=list.map(n=>{const ac=S.acoes.filter(a=>a.normaId===n.id);const open=ac.filter(a=>!['Concluída','Cancelada'].includes(a.status)).length;const done=['Adequada','Não aplicável','Revogada'].includes(n.status);
-    return `<tr data-act="open-norma" data-id="${esc(n.id)}">${podeSel?`<td ${SELTD} data-act="sel-norma" data-id="${esc(n.id)}">${CB(sel.has(n.id))}</td>`:''}<td>${og(n.orgao)}</td><td><div class="cite">${esc(cite(n))}</div><div class="sub num">${esc(fmtD(n.dataPublicacao))}${n.tema?' · '+esc(n.tema):''}</div></td><td><div class="clip">${esc(n.ementa)}</div></td><td>${stPill(n.status)}</td><td><span class="crit crit-${esc(n.criticidade||'Média')}">${esc(rl(n.criticidade))}</span></td><td>${esc(n.responsavel||'—')}${n.area?`<div class="sub">${esc(n.area)}</div>`:''}</td><td class="nowrap num">${prazoTxt(n.prazoAdequacao,done)}</td><td class="num nowrap">${ac.length?`${open} aberta${open===1?'':'s'}<div class="sub">${ac.length} no total</div>`:'<span class="muted">—</span>'}</td></tr>`}).join('');
+    return `<tr data-act="open-norma" data-id="${esc(n.id)}">${podeSel?`<td ${SELTD} data-act="sel-norma" data-id="${esc(n.id)}">${CB(sel.has(n.id))}</td>`:''}<td>${og(n.orgao)}</td><td><div class="cite">${esc(cite(n))}</div><div class="sub num">${esc(fmtD(n.dataPublicacao))}${n.tema?' · '+esc(n.tema):''}</div></td><td><div class="clip">${esc(n.ementa)}</div></td><td>${stPill(n.status)}${reavPend(n).length?`<div style="margin-top:4px">${pill('Reavaliar','warn')}</div>`:''}</td><td><span class="crit crit-${esc(n.criticidade||'Média')}">${esc(rl(n.criticidade))}</span></td><td>${esc(n.responsavel||'—')}${n.area?`<div class="sub">${esc(n.area)}</div>`:''}</td><td class="nowrap num">${prazoTxt(n.prazoAdequacao,done)}</td><td class="num nowrap">${ac.length?`${open} aberta${open===1?'':'s'}<div class="sub">${ac.length} no total</div>`:'<span class="muted">—</span>'}</td></tr>`}).join('');
   const f=S.nf;
   return `<div class="head"><div><h1>Normas</h1></div>
     <div class="actions">${S.downloads&&window.XLSX?`<button class="btn" data-act="export-normas">Exportar Excel</button>`:''}${S.canWrite&&S.db?`<button class="btn" data-act="import">Importar planilha</button><button class="btn pri" data-act="new-norma">Nova norma</button>`:''}</div></div>
@@ -1083,8 +1141,9 @@ function vNormas(){
     <select id="no" aria-label="Órgão">${opts(ORGAOS,f.orgao,'Todos os órgãos')}</select>
     <select id="ns" aria-label="Status">${opts(ST_NORMA,f.status,'Todos os status')}</select>
     <select id="nc" aria-label="Risco">${optsRisco(f.crit,'Qualquer risco')}</select>
+    <select id="ncs" aria-label="Acompanhamento"><option value="">Qualquer acompanhamento</option>${FILT_CONS.map(([k,t])=>`<option value="${k}"${f.cons===k?' selected':''}>${t}</option>`).join('')}</select>
     <select id="na" aria-label="Aplicabilidade"><option value="">Qualquer aplicabilidade</option>${FILT_APL.map(([k,t])=>`<option value="${k}"${f.apl===k?' selected':''}>${t}</option>`).join('')}</select>
-    ${f.q||f.orgao||f.status||f.crit||f.apl?`<button class="btn sm" data-act="clear-nf">Limpar filtros</button>`:''}</div>
+    ${f.q||f.orgao||f.status||f.crit||f.apl||f.cons?`<button class="btn sm" data-act="clear-nf">Limpar filtros</button>`:''}</div>
   ${podeSel&&nSel?`<div role="region" aria-label="Ações em massa" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;margin:4px 0 8px;border:1px solid var(--line);border-radius:10px"><b style="margin-right:4px">${nSel} selecionada${nSel===1?'':'s'}</b><button class="btn sm" data-act="bulk-status" data-status="Aplicável">Marcar como Aplicável</button><button class="btn sm" data-act="lote-nao">Marcar como Não aplicável</button><button class="btn sm" data-act="lote-enc">Encaminhar para área</button><button class="btn sm" data-act="sel-clear">Limpar seleção</button></div>`:''}
   <div class="chips muted">Fontes oficiais: ${FONTES.map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${t}</a>`).join(' · ')}</div>
   ${list.length?`<div class="tblwrap"><table class="tbl"><thead><tr>${podeSel?`<th ${SELTD} data-act="sel-all" title="Selecionar todas as normas filtradas">${CB(allSel)}</th>`:''}<th>Órgão</th><th>Norma</th><th>Ementa</th><th>Status</th><th>Risco</th><th>Responsável</th><th>Prazo adequação</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -1230,7 +1289,7 @@ function gerarRel(){const v=id=>($('#'+id)||{}).value||'';const o={de:v('rDe'),a
   root.innerHTML=relatorioHTML(o);closeDlg();document.body.classList.add('printing');tituloAntes=document.title;document.title='Relatorio-normativo-'+o.ate;
   setTimeout(()=>window.print(),80)}
 addEventListener('afterprint',()=>{if(!document.body.classList.contains('printing'))return;document.body.classList.remove('printing');if(tituloAntes)document.title=tituloAntes});
-function openDlg(state){S.dlg=state;dlg.className=state.cls||(state.narrow?'narrow':'');drawDlg();if(!dlg.open)dlg.showModal()}
+function openDlg(state){if(state&&state.type==='norma'&&state.id)apiJson('/api/acessos',{method:'POST',body:JSON.stringify({tipo:'norma',ref:state.id})}).catch(()=>{});S.dlg=state;dlg.className=state.cls||(state.narrow?'narrow':'');drawDlg();if(!dlg.open)dlg.showModal()}
 function closeDlg(){S.dlg=null;S.importRows=null;if(dlg.open)dlg.close()}
 dlg.addEventListener('close',()=>{S.dlg=null});
 function areaSel(id,v){const l=[...(S.areas||[])];if(v&&!l.some(a=>norm(a)===norm(v)))l.push(v);
@@ -1244,6 +1303,11 @@ function refreshDialog(){const d=S.dlg;if(!d||!dlg.open)return;
   if(d.type==='obrig'&&d.id){const el=$('#obHist');if(el)el.innerHTML=obHist(S.obrig.find(o=>o.id===d.id))}}
 const ro=()=>!S.canWrite||!S.db;
 function delBtn(kind){return S.isAdmin&&S.db?`<button type="button" class="btn danger" data-act="del" data-kind="${kind}">Excluir</button>`:'<span></span>'}
+/* Quem abriu a norma ou as evidências (só o Compliance vê) */
+function acessosBox(tipo,ref,titulo){if(S.isArea)return '';const k=tipo+':'+ref;S.acessos=S.acessos||{};const l=S.acessos[k];
+  if(l===undefined){S.acessos[k]=null;apiJson('/api/acessos?tipo='+tipo+'&ref='+encodeURIComponent(ref)).then(r=>{S.acessos[k]=r;if(S.dlg&&S.dlg.id===ref)drawDlg()}).catch(()=>{S.acessos[k]=[]})}
+  const corpo=!l?'<div class="pad muted">Carregando…</div>':!l.length?'<div class="pad muted">Ninguém abriu ainda.</div>':l.slice(0,30).map(x=>`<div class="it" style="cursor:default"><div class="top"><b>${esc(x.nome)}</b><span class="muted num">${esc(fmtDT(x.em))}</span></div><div class="meta">${esc(x.perfil==='Área responsável'?(x.areas||[]).join(', ')||'Área':x.perfil)}${x.detalhe?' · '+esc(x.detalhe):''}</div></div>`).join('');
+  return `<div class="box"><header><h3>${titulo}</h3></header><div class="list">${corpo}</div></div>`}
 function facts(o){ensureNames([o.criadoPor,o.atualizadoPor,o.concluidaPor]);return `<dl class="facts">${o.concluidaPor?`<dt>Conclusão validada por</dt><dd>${esc(nameOf(o.concluidaPor))}${o.concluidaEm?' em '+esc(fmtD(o.concluidaEm)):''}</dd>`:''}${o.criadoEm?`<dt>Cadastrada</dt><dd>${esc(fmtDT(o.criadoEm))} por ${esc(nameOf(o.criadoPor))}</dd>`:''}${o.atualizadoEm?`<dt>Última alteração</dt><dd>${esc(fmtDT(o.atualizadoEm))} por ${esc(nameOf(o.atualizadoPor))}</dd>`:''}${o.origem?`<dt>Origem</dt><dd>${esc(o.origem)}</dd>`:''}</dl>`}
 
 // Área responsável: só leitura da norma, com o link oficial em destaque (sem campos internos do Compliance)
@@ -1255,7 +1319,7 @@ function dNormaArea(n,d){
   <div class="content area-first"><div class="nresumo">
     ${n.link?linkNorma(n):`<div class="banner warn">O Compliance ainda não informou o link oficial desta norma.</div>`}
     <div class="box"><header><h3>Sobre a norma</h3></header><div class="pad"><dl class="nfat">
-      ${f('Norma',esc(cite(n)))}${f('Tema',esc(n.tema||''))}${f('Publicação',n.dataPublicacao?esc(fmtD(n.dataPublicacao)):'')}${f('Início de vigência',n.vigencia?esc(fmtD(n.vigencia)):'')}${f('Prazo de adequação',n.prazoAdequacao?esc(fmtD(n.prazoAdequacao)):'')}${f('Plano acordado',n.planoAcao==='Sim'&&n.planoDescricao?esc(n.planoDescricao):'','full')}${f('Período do plano',n.planoAcao==='Sim'&&n.prazoAcordado?esc((n.planoInicio?fmtD(n.planoInicio)+' a ':'até ')+fmtD(n.prazoAcordado)):'')}
+      ${f('Norma',esc(cite(n)))}${f('Tema',esc(n.tema||''))}${f('Publicação',n.dataPublicacao?esc(fmtD(n.dataPublicacao)):'')}${f('Início de vigência',n.vigencia?esc(fmtD(n.vigencia)):'')}${f('Prazo de adequação',n.prazoAdequacao?esc(fmtD(n.prazoAdequacao)):'')}${f('Plano acordado',n.planoAcao==='Sim'&&n.planoDescricao?esc(n.planoDescricao):'','full')}${f('Risco assumido por',n.planoAcao==='Risco assumido'?esc(n.riscoResponsavel||''):'')}${f('Período do plano',n.planoAcao==='Sim'&&n.prazoAcordado?esc((n.planoInicio?fmtD(n.planoInicio)+' a ':'até ')+fmtD(n.prazoAcordado)):'')}
       ${f('Ementa',esc(n.ementa||''),'full')}</dl></div></div></div>
   <div class="side-col">${encBox(d.id)}<div class="box"><header><h3>Plano de ação</h3></header><div class="list" id="dlgAcoes">${normaAcoes(d.id)}</div></div>${comBox('n',d.id)}</div></div>
   <footer><span></span><div class="r"><button type="button" class="btn" data-act="close">Fechar</button></div></footer></form>`}
@@ -1263,7 +1327,7 @@ function dNorma(d){const n=d.id?S.normas.find(x=>x.id===d.id)||{}:{orgao:'BACEN'
   if(S.isArea&&d.id)return dNormaArea(n,d);
   const temas=[...new Set(S.normas.map(x=>x.tema).filter(Boolean))].sort();
   return `<form class="dlg" id="fNorma" data-form="norma"><header><div class="t">${d.id?`<div>${og(n.orgao)} ${stPill(n.status)}</div><h2>${esc(cite(n))}</h2>`:'<h2>Nova norma</h2>'}</div><button type="button" class="x" data-act="close" aria-label="Fechar">×</button></header>
-  <div class="content${S.isArea&&d.id?' area-first':''}"><div class="form">${d.id?sugBox(n):''}<fieldset ${ro()?'disabled':''}>
+  <div class="content${S.isArea&&d.id?' area-first':''}"><div class="form">${d.id?reavBanner(n)+sugBox(n):''}<fieldset ${ro()?'disabled':''}>
     <div class="g3"><label>Órgão<select id="nOrgao">${opts(ORGAOS,n.orgao)}</select></label><label>Tipo<select id="nTipo">${opts(TIPOS,n.tipo)}</select></label><label>Número<input id="nNumero" value="${esc(n.numero)}" placeholder="ex.: 4.595" required></label></div>
     <div class="g3"><label>Publicação<input type="date" id="nPub" value="${esc(n.dataPublicacao)}"></label><label>Início de vigência<input type="date" id="nVig" value="${esc(n.vigencia)}"></label><label>Prazo de adequação<input type="date" id="nPrazo" value="${esc(n.prazoAdequacao)}"></label></div>
     <label>Ementa<textarea id="nEmenta" rows="3" required placeholder="Resumo do que a norma dispõe">${esc(n.ementa)}</textarea></label>
@@ -1278,15 +1342,22 @@ function dNorma(d){const n=d.id?S.normas.find(x=>x.id===d.id)||{}:{orgao:'BACEN'
     <label><span id="lObs">${obsLabel(aplicOf(n))}</span><textarea id="nObs" rows="5" placeholder="Por que a norma se aplica (ou não), impactos, revogações relacionadas">${esc(n.observacoes)}</textarea></label>
     </div>
     <div class="aplbox"><h3>Aplicabilidade</h3>
-    <div class="g2"><label>A norma é aplicável?<select id="nAplic"><option value="">A definir</option>${opts(APLIC,aplicOf(n))}</select></label><label id="lPlano"${aplicOf(n)==='Aplicável'?'':' hidden'}>Tem plano de ação?<select id="nPlano"><option value="">Selecione</option>${opts(['Sim','Não'],n.planoAcao||'')}</select></label></div>
+    <div class="g2"><label>A norma é aplicável?<select id="nAplic"><option value="">A definir</option>${opts(APLIC,aplicOf(n))}</select></label><label id="lPlano"${aplicOf(n)==='Aplicável'?'':' hidden'}>Tem plano de ação?<select id="nPlano"><option value="">Selecione</option>${opts(PLANO_OPS,n.planoAcao||'')}</select></label></div>
     <div id="nPlanoBox" class="dec"${aplicOf(n)==='Aplicável'&&n.planoAcao==='Sim'?'':' hidden'}>
     <div class="g2"><label>Data de início<input type="date" id="nPlanoIni" value="${esc(n.planoInicio)}"></label><label>Data fim<input type="date" id="nPrazoAc" value="${esc(n.prazoAcordado)}"></label></div>
     <label>Plano acordado com a área<textarea id="nPlanoDesc" rows="3" maxlength="4000" placeholder="O que foi combinado com a área para se adequar">${esc(n.planoDescricao)}</textarea></label></div>
+    <div id="nRiscoBox" class="dec"${aplicOf(n)==='Aplicável'&&n.planoAcao==='Risco assumido'?'':' hidden'}>
+    <label>Quem assume o risco<input id="nRiscoResp" maxlength="160" value="${esc(n.riscoResponsavel)}" placeholder="Nome e cargo do gestor"></label>
+    <label>Por que não haverá adequação<textarea id="nRiscoJust" rows="3" maxlength="4000">${esc(n.riscoJustificativa)}</textarea></label></div>
+    <div id="lCons" class="g2"${aplicOf(n)==='Aplicável'?'':' hidden'}><label>Exige envio ao regulador?<select id="nEnvioReg"><option value="">—</option>${opts(['Sim','Não'],n.envioRegulador||'')}</select></label><label>Exige atualizar política interna?<select id="nAtuPol"><option value="">—</option>${opts(['Sim','Não'],n.atualizaPolitica||'')}</select></label></div>
     </div>
   </fieldset></div>
   <div class="side-col">${d.id?`${linkNorma(n)}${S.acoes.some(a=>a.normaId===d.id)?`<div class="box"><header><h3>Plano de ação</h3>${!ro()?`<button type="button" class="btn sm" data-act="new-acao" data-norma="${esc(d.id)}">Nova ação</button>`:''}</header><div class="list" id="dlgAcoes">${normaAcoes(d.id)}</div></div>`:''}
     ${S.isArea?'':encBox(d.id)}
     ${comBox('n',d.id)}
+    ${relBox(n)}
+    ${acessosBox('norma',d.id,'Quem abriu a norma')}
+    ${histBox(n)}
     ${facts(n)}`
     :`<div class="box"><div class="pad">Depois de salvar, registre aqui o plano de ação da norma.</div></div><div class="chips muted">Consultar: ${FONTES.map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${t}</a>`).join(' · ')}</div>`}</div></div>
   <footer>${d.id?delBtn('norma'):'<span></span>'}<div class="r"><button type="button" class="btn" data-act="close">${ro()?'Fechar':'Cancelar'}</button>${ro()?'':`<button class="btn pri" type="submit">Salvar norma</button>`}</div></footer></form>`}
@@ -1308,6 +1379,7 @@ function dAcao(d){const a=d.id?S.acoes.find(x=>x.id===d.id)||{}:{status:'Aberta'
   <div class="side-col">${S.isArea&&d.id?normaInfo(a.normaId):''}<div class="box"><header><h3>Evidências</h3></header><div class="list" id="evList">${evList(a)}</div></div>
     ${d.id?(S.assets&&(!ro()||S.isArea)?`<label class="drop" for="evFile"><span>Anexar evidência</span><span style="font-size:12px">PDF, imagens, CSV ou TXT, até 20 MB. Converta Word e Excel para PDF.</span><input type="file" id="evFile" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.csv,.txt,.md,.json"></label>`:`<div class="muted" style="font-size:12.5px">${ro()?'':'O envio de arquivos não está disponível para o seu acesso. Peça a um administrador.'}</div>`):`<div class="muted" style="font-size:12.5px">Salve a ação para anexar evidências.</div>`}
     ${d.id?comBox('a',d.id):''}
+    ${d.id&&(a.evidencias||[]).length?acessosBox('evidencia',d.id,'Quem abriu as evidências'):''}
     ${d.id?facts(a):''}</div></div>
   <footer>${d.id?delBtn('acao'):'<span></span>'}<div class="r">${d.from?`<button type="button" class="btn" data-act="back">Voltar à norma</button>`:''}<button type="button" class="btn" data-act="close">${ro()?'Fechar':'Cancelar'}</button>${ro()?'':`<button class="btn pri" type="submit">Salvar ação</button>`}</div></footer></form>`}
 function normaInfo(id){const n=id&&S.normas.find(x=>x.id===id);if(!n)return '';
@@ -1351,11 +1423,11 @@ function dImport(){const rows=S.importRows;
 /* ---------- Gravações ---------- */
 const val=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
 const stamp=isNew=>{const t=new Date().toISOString();return isNew?{criadoEm:t,criadoPor:S.meId||null,atualizadoEm:t,atualizadoPor:S.meId||null}:{atualizadoEm:t,atualizadoPor:S.meId||null}};
-const NL={orgao:'Órgão',tipo:'Tipo',numero:'Número',dataPublicacao:'Publicação',vigencia:'Vigência',prazoAdequacao:'Prazo',ementa:'Ementa',tema:'Tema',link:'Link',status:'Status',criticidade:'Risco',responsavel:'Responsável',area:'Áreas',observacoes:'Análise',aplicabilidade:'Aplicabilidade',planoAcao:'Plano de ação',planoInicio:'Início do plano',prazoAcordado:'Fim do plano',planoDescricao:'Plano acordado'};
+const NL={orgao:'Órgão',tipo:'Tipo',numero:'Número',dataPublicacao:'Publicação',vigencia:'Vigência',prazoAdequacao:'Prazo',ementa:'Ementa',tema:'Tema',link:'Link',status:'Status',criticidade:'Risco',responsavel:'Responsável',area:'Áreas',observacoes:'Análise',aplicabilidade:'Aplicabilidade',planoAcao:'Plano de ação',planoInicio:'Início do plano',prazoAcordado:'Fim do plano',planoDescricao:'Plano acordado',riscoResponsavel:'Risco assumido por',riscoJustificativa:'Justificativa do risco',envioRegulador:'Envio ao regulador',atualizaPolitica:'Atualizar política interna'};
 const AL={normaId:'Norma',descricao:'Ação',gap:'Gap',responsavel:'Responsável',area:'Área',prazo:'Prazo',status:'Status',observacoes:'Comentários'};
 const OL={titulo:'Obrigação',orgao:'Órgão',periodicidade:'Periodicidade',proximoVencimento:'Vencimento',canal:'Canal',normaId:'Norma',responsavel:'Responsável',area:'Área',descricao:'Descrição'};
 
-async function saveNorma(){const d=S.dlg;const data={orgao:val('nOrgao'),tipo:val('nTipo'),numero:val('nNumero'),dataPublicacao:val('nPub'),vigencia:val('nVig'),prazoAdequacao:val('nPrazo'),ementa:val('nEmenta'),tema:val('nTema'),link:val('nLink'),status:val('nStatus'),criticidade:val('nCrit'),criteriosRisco:[...document.querySelectorAll('.crRisco:checked')].map(x=>x.value).join(';'),responsavel:val('nResp'),area:val('nArea'),observacoes:val('nObs'),aplicabilidade:val('nAplic'),planoAcao:val('nPlano'),planoInicio:val('nPlanoIni'),prazoAcordado:val('nPrazoAc'),planoDescricao:val('nPlanoDesc')};
+async function saveNorma(){const d=S.dlg;const data={orgao:val('nOrgao'),tipo:val('nTipo'),numero:val('nNumero'),dataPublicacao:val('nPub'),vigencia:val('nVig'),prazoAdequacao:val('nPrazo'),ementa:val('nEmenta'),tema:val('nTema'),link:val('nLink'),status:val('nStatus'),criticidade:val('nCrit'),criteriosRisco:[...document.querySelectorAll('.crRisco:checked')].map(x=>x.value).join(';'),responsavel:val('nResp'),area:val('nArea'),observacoes:val('nObs'),aplicabilidade:val('nAplic'),planoAcao:val('nPlano'),planoInicio:val('nPlanoIni'),prazoAcordado:val('nPrazoAc'),planoDescricao:val('nPlanoDesc'),riscoResponsavel:val('nRiscoResp'),riscoJustificativa:val('nRiscoJust'),envioRegulador:val('nEnvioReg'),atualizaPolitica:val('nAtuPol')};
   if(!data.numero||!data.ementa){toast('Preencha o número e a ementa da norma.','crit');return}
   const erro=(m,id)=>{toast(m,'crit');const e=$('#'+id);if(e)e.focus()};const ap=data.aplicabilidade;
   if(data.status==='Adequada'&&ap==='Não aplicável')return erro('Uma norma não aplicável não pode ficar como Adequada.','nStatus');
@@ -1366,8 +1438,10 @@ async function saveNorma(){const d=S.dlg;const data={orgao:val('nOrgao'),tipo:va
   if(data.aplicabilidade==='Aplicável'){if(!data.planoAcao)return erro('Informe se a norma tem plano de ação.','nPlano');
     if(data.planoAcao==='Sim'){if(!data.planoInicio)return erro('Informe a data de início do plano.','nPlanoIni');if(!data.prazoAcordado)return erro('Informe a data fim do plano.','nPrazoAc');
       if(data.prazoAcordado<data.planoInicio)return erro('A data fim não pode ser anterior à data de início.','nPrazoAc');if(!data.planoDescricao)return erro('Descreva o plano acordado com a área.','nPlanoDesc')}
-    else{data.planoInicio='';data.prazoAcordado='';data.planoDescricao=''}}
-  else{data.planoAcao='';data.planoInicio='';data.prazoAcordado='';data.planoDescricao=''}
+    else{data.planoInicio='';data.prazoAcordado='';data.planoDescricao=''}
+    if(data.planoAcao==='Risco assumido'){if(!data.riscoResponsavel)return erro('Informe quem assume o risco.','nRiscoResp');if(!data.riscoJustificativa)return erro('Explique por que não haverá adequação.','nRiscoJust')}
+    else{data.riscoResponsavel='';data.riscoJustificativa=''}}
+  else{data.planoAcao='';data.planoInicio='';data.prazoAcordado='';data.planoDescricao='';data.riscoResponsavel='';data.riscoJustificativa='';data.envioRegulador='';data.atualizaPolitica=''}
   data.chave=chave(data);const dup=S.normas.find(n=>n.chave===data.chave&&n.id!==d.id);if(dup){toast(cite(dup)+' já está cadastrada.','crit');return}
   try{if(d.id){const old=S.normas.find(n=>n.id===d.id)||{};const df=diff(old,data,NL);if(!df){toast('Nenhuma alteração para salvar.');return}
       if(data.status!=='Nova'&&!old.triadaEm&&(old.status||'Nova')==='Nova')data.triadaEm=today();
@@ -1472,7 +1546,7 @@ async function runImport(){const rows=(S.importRows||[]).filter(r=>!r._dup&&!r._
   catch(e){S.busy=false;onWriteErr(e);if(ok)toast(ok+' normas foram importadas antes do erro.','crit');S.importRows=null;drawDlg()}}
 async function saveXlsx(rows,sheet,filename){if(!S.downloads||!window.XLSX)return;const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheet);
   const out=XLSX.write(wb,{type:'array',bookType:'xlsx'});try{await S.downloads.save({filename,data:new Uint8Array(out)})}catch(e){if(e&&e.code!=='declined')toast('Não foi possível gerar o arquivo.','crit')}}
-function exportNormas(){const rows=filtNormas().map(n=>({'Órgão':n.orgao,'Tipo':n.tipo,'Número':n.numero,'Norma':cite(n),'Data publicação':fmtD(n.dataPublicacao),'Vigência':n.vigencia?fmtD(n.vigencia):'','Ementa':n.ementa,'Tema':n.tema||'','Status':n.status||'Nova','Risco':rl(n.criticidade),'Responsável':n.responsavel||'','Área':n.area||'','Prazo adequação':n.prazoAdequacao?fmtD(n.prazoAdequacao):'','Aplicabilidade':aplicOf(n),'Plano de ação':n.planoAcao||'','Início do plano':n.planoInicio?fmtD(n.planoInicio):'','Fim do plano':n.prazoAcordado?fmtD(n.prazoAcordado):'','Plano acordado':n.planoDescricao||'','Ações abertas':S.acoes.filter(a=>a.normaId===n.id&&!['Concluída','Cancelada'].includes(a.status)).length,'Link':n.link||'','Observações':n.observacoes||''}));
+function exportNormas(){const rows=filtNormas().map(n=>({'Órgão':n.orgao,'Tipo':n.tipo,'Número':n.numero,'Norma':cite(n),'Data publicação':fmtD(n.dataPublicacao),'Vigência':n.vigencia?fmtD(n.vigencia):'','Ementa':n.ementa,'Tema':n.tema||'','Status':n.status||'Nova','Risco':rl(n.criticidade),'Responsável':n.responsavel||'','Área':n.area||'','Prazo adequação':n.prazoAdequacao?fmtD(n.prazoAdequacao):'','Aplicabilidade':aplicOf(n),'Plano de ação':n.planoAcao||'','Início do plano':n.planoInicio?fmtD(n.planoInicio):'','Fim do plano':n.prazoAcordado?fmtD(n.prazoAcordado):'','Plano acordado':n.planoDescricao||'','Risco assumido por':n.riscoResponsavel||'','Justificativa do risco':n.riscoJustificativa||'','Envio ao regulador':n.envioRegulador||'','Atualizar política interna':n.atualizaPolitica||'','Ações abertas':S.acoes.filter(a=>a.normaId===n.id&&!['Concluída','Cancelada'].includes(a.status)).length,'Link':n.link||'','Observações':n.observacoes||''}));
   saveXlsx(rows,'Normas','normas-'+today()+'.xlsx')}
 function exportAcoes(){const l=filtAcoes();if(!l.length){toast('Nenhuma ação corresponde aos filtros.','crit');return}const rows=l.map(({a,st,n})=>{return{'Norma':n?cite(n):'','Órgão':n?n.orgao:'','Ação':a.descricao,'Gap':a.gap||'','Responsável':a.responsavel||'','Área':a.area||'','Prazo':a.prazo?fmtD(a.prazo):'','Status':st,'Concluída em':a.concluidaEm?fmtD(a.concluidaEm):'','Evidências':(a.evidencias||[]).map(e=>e.nome).join('; ')}});
   saveXlsx(rows,'Planos de ação','planos-de-acao-'+today()+'.xlsx')}
@@ -1513,9 +1587,15 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
   if(act==='goto'){const[r,f]=t.dataset.go.split(':');if(r==='normas'){S.nf={q:'',orgao:t.dataset.orgao||'',status:f||'',crit:''}}if(r==='acoes'){S.af={q:'',status:f||'',area:'',orgao:'',prazo:'',de:'',ate:''}}location.hash=r;render();return}
   if(act==='new-norma')return openDlg({type:'norma'});
   if(act==='open-norma')return openDlg({type:'norma',id});
+  if(act==='nf-reav'){S.nf={q:'',orgao:'',status:'',crit:'',apl:'',cons:S.nf.cons==='reav'?'':'reav'};return render()}
+  if(act==='usr-deleg'||act==='usr-deleg-rem'){const body=act==='usr-deleg-rem'?{remover:true}:{delegadoId:val('uDel'),de:val('uDelDe'),ate:val('uDelAte')};
+    if(act==='usr-deleg'&&(!body.delegadoId||!body.de||!body.ate)){toast('Escolha a pessoa e o período.','crit');return}
+    t.disabled=true;return apiJson('/api/admin/usuarios/'+encodeURIComponent(id)+'/delegacao',{method:'POST',body:JSON.stringify(body)}).then(async()=>{toast(body.remover?'Ausência removida.':'Ausência salva. Os avisos do período também vão para a pessoa escolhida.');S.cfgU=null;await loadCfgU();if(S.dlg&&S.dlg.type==='usuario')drawDlg();render()}).catch(e=>toast(e.message,'crit')).finally(()=>{t.disabled=false})}
+  if(act==='reav-ok'||act==='reav-abrir'||act==='reav-revogar')return reavAcao(act,id);
   if(act==='usar-retorno'){const e=(S.enc||[]).find(x=>x.id===id);if(!e||!$('#nStatus'))return;
     const set=(i,v)=>{const el=$('#'+i);if(el)el.value=v};
     if(e.aplicavel===false){set('nAplic','Não aplicável');if(e.resposta&&!val('nObs'))set('nObs',`Retorno da área ${e.area}: ${e.resposta}`)}
+    else if(e.impacto==='risco'){set('nAplic','Aplicável');set('nPlano','Risco assumido');if(!val('nRiscoResp'))set('nRiscoResp',e.riscoResponsavel||'');if(!val('nRiscoJust'))set('nRiscoJust',e.planoSugerido||'')}
     else{set('nAplic','Aplicável');const comPlano=e.impacto!=='ajuste';set('nPlano',comPlano?'Sim':'Não');
       if(comPlano){if(e.dataSugerida)set('nPrazoAc',e.dataSugerida);if(!val('nPlanoIni'))set('nPlanoIni',today());if(e.planoSugerido&&!val('nPlanoDesc'))set('nPlanoDesc',e.planoSugerido)}
       else if(e.planoSugerido&&!val('nObs'))set('nObs',`Retorno da área ${e.area} (o que muda): ${e.planoSugerido}`);
@@ -1533,7 +1613,7 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
   if(act==='pdf-acoes')return pdfAcoes();
   if(act==='ac-graf'){S.afGraf=S.afGraf===false;return render()}
   if(act==='template')return template();
-  if(act==='clear-nf'){S.nf={q:'',orgao:'',status:'',crit:'',apl:''};return render()}
+  if(act==='clear-nf'){S.nf={q:'',orgao:'',status:'',crit:'',apl:'',cons:''};return render()}
   if(act==='clear-af'){S.af={q:'',status:'',area:'',orgao:'',prazo:'',de:'',ate:''};return render()}
   if(act==='com-add')return addCom(t);
   if(act==='enc-send')return sendEnc(t);
@@ -1546,7 +1626,7 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
 main.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(t){e.preventDefault();handleAct(t,e)}});
 dlg.addEventListener('click',e=>{if(e.target===dlg)return closeDlg();const t=e.target.closest('[data-act]');if(t&&t.tagName!=='A'){e.preventDefault();handleAct(t,e)}});
 dlg.addEventListener('submit',e=>{e.preventDefault();if(!S.db)return;const f=e.target.dataset.form;(({norma:saveNorma,acao:saveAcao,obrig:saveObrig,envio:saveEnvio,import:runImport,relatorio:gerarRel,usuario:saveUsuario,areaRen:saveAreaRen,lote:runLote})[f]||(()=>{}))()});
-document.addEventListener('change',e=>{const n=e.target.name||'';if(!n.startsWith('apl-'))return;const id=n.slice(4),v=e.target.value;const g=x=>document.getElementById(x+'-'+id);if(g('sim'))g('sim').hidden=v!=='sim';if(g('aj'))g('aj').hidden=v!=='ajuste';if(g('lj'))g('lj').textContent=v==='nao'?'Justificativa (obrigatória)':'Comentários (opcional)'});
+document.addEventListener('change',e=>{const n=e.target.name||'';if(!n.startsWith('apl-'))return;const id=n.slice(4),v=e.target.value;const g=x=>document.getElementById(x+'-'+id);if(g('sim'))g('sim').hidden=v!=='sim';if(g('aj'))g('aj').hidden=v!=='ajuste';if(g('risco'))g('risco').hidden=v!=='risco';if(g('estudo'))g('estudo').hidden=v!=='estudo';if(g('lj'))g('lj').textContent=v==='nao'?'Justificativa (obrigatória)':v==='estudo'?'O que está sendo avaliado (obrigatório)':'Comentários (opcional)'});
 dlg.addEventListener('change',e=>{if(e.target.name==='uPerfil'){const b=$('#uAreasBox');if(b)b.hidden=e.target.value!=='Área responsável'}});
 dlg.addEventListener('change',e=>{if(e.target.classList&&e.target.classList.contains('crRisco'))syncRisco('matriz');else if(e.target.id==='nCrit')syncRisco('select');else if(e.target.id==='nStatus')decSync('status');else if(e.target.id==='nAplic')decSync('aplic');else if(e.target.id==='nPlano')decSync()});
 dlg.addEventListener('change',e=>{if(e.target.id==='evFile'&&e.target.files.length){uploadEv([...e.target.files]);e.target.value=''}if(e.target.id==='impFile'&&e.target.files[0]){readImport(e.target.files[0]);e.target.value=''}});
@@ -1554,7 +1634,7 @@ main.addEventListener('input',e=>{if(e.target.id==='destNovo')S.destNovo=e.targe
 main.addEventListener('input',e=>{const rg=e.target.dataset&&e.target.dataset.rg;if(rg&&S.regrasEd&&(rg==='palavras'||rg==='tema')){S.regrasEd[+e.target.dataset.i][rg]=e.target.value;return}});
 main.addEventListener('change',e=>{const rg=e.target.dataset&&e.target.dataset.rg;if(!rg||!S.regrasEd)return;const r=S.regrasEd[+e.target.dataset.i];if(rg==='risco')r.risco=e.target.value;if(rg==='area'){const v=e.target.value;r.areas=(r.areas||[]).filter(x=>norm(x)!==norm(v));if(e.target.checked)r.areas.push(v)}});
 main.addEventListener('input',e=>{const id=e.target.id;if(id==='nq'){S.nf.q=e.target.value;render()}if(id==='aq'){S.af.q=e.target.value;render()}if(id==='uq'){S.cfgF.q=e.target.value;render()}});
-main.addEventListener('change',e=>{const id=e.target.id,v=e.target.value;if(id==='no')S.nf.orgao=v;else if(id==='ns')S.nf.status=v;else if(id==='nc')S.nf.crit=v;else if(id==='na')S.nf.apl=v;else if(id==='as')S.af.status=v;else if(id==='aa')S.af.area=v;else if(id==='ao')S.af.orgao=v;else if(id==='ap')S.af.prazo=v;else if(id==='ade')S.af.de=v;else if(id==='aate')S.af.ate=v;else if(id==='auf')S.auf.tipo=v;else if(id==='pf')S.pf=v;else if(id==='up')S.cfgF.perfil=v;else if(id==='usit')S.cfgF.sit=v;else return;render()});
+main.addEventListener('change',e=>{const id=e.target.id,v=e.target.value;if(id==='no')S.nf.orgao=v;else if(id==='ns')S.nf.status=v;else if(id==='nc')S.nf.crit=v;else if(id==='na')S.nf.apl=v;else if(id==='ncs')S.nf.cons=v;else if(id==='as')S.af.status=v;else if(id==='aa')S.af.area=v;else if(id==='ao')S.af.orgao=v;else if(id==='ap')S.af.prazo=v;else if(id==='ade')S.af.de=v;else if(id==='aate')S.af.ate=v;else if(id==='auf')S.auf.tipo=v;else if(id==='pf')S.pf=v;else if(id==='up')S.cfgF.perfil=v;else if(id==='usit')S.cfgF.sit=v;else return;render()});
 const tipEl=$('#tip');
 main.addEventListener('mousemove',e=>{const t=e.target.closest('[data-tip]');if(!t){tipEl.hidden=true;return}tipEl.textContent=t.dataset.tip;tipEl.hidden=false;
   const w=tipEl.offsetWidth,h=tipEl.offsetHeight;let x=e.clientX+14,y=e.clientY-h-10;if(x+w>innerWidth-8)x=e.clientX-w-14;if(y<8)y=e.clientY+16;tipEl.style.left=x+'px';tipEl.style.top=y+'px'});
