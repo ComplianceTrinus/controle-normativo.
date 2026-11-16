@@ -6,6 +6,8 @@ const { chave, numeroComPonto, dataSP, limpa, buscar } = require('./util');
 const MAPA = {
   'Resolução BCB': { orgao: 'BACEN', tipo: 'Resolução', sigla: 'bcb-res' },
   'Resolução CMN': { orgao: 'CMN', tipo: 'Resolução', sigla: 'cmn-res' },
+  // Resoluções do CMN anteriores à numeração "Resolução CMN" (série antiga, usada na carga histórica)
+  'Resolução': { orgao: 'CMN', tipo: 'Resolução', sigla: 'cmn-res' },
   'Resolução Conjunta': { orgao: 'BACEN', tipo: 'Resolução Conjunta', sigla: 'bcb-rc' },
   'Instrução Normativa BCB': { orgao: 'BACEN', tipo: 'Instrução Normativa', sigla: 'bcb-in' },
   'Circular': { orgao: 'BACEN', tipo: 'Circular', sigla: 'bcb-circ' },
