@@ -125,6 +125,8 @@ app.use('/api', (req, res, next) => {
   next();
 });
 app.use('/api', express.json({ limit: '1mb' }));
+// Sugestão de análise pelo Microsoft 365 Copilot (só funciona depois que a TI configurar o Entra)
+app.use(require('./copilot').router);
 
 const usuario = req => req.session.usuario;
 const escrita = auth.exigirPerfil('Admin', 'Analista');
