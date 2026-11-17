@@ -390,7 +390,8 @@ h2{font-size:16px;font-weight:700}
 @media (min-width:981px){.dlg .content.area-first{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}}
 .dlg .content.area-first .side-col{order:-1}
 .nresumo{display:flex;flex-direction:column;gap:14px;min-width:0}
-.kpis-n{grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:14px}
+.kpis-n{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:14px}
+.kpi-ret .v{color:var(--warn)}
 .kpis-n .kpi{padding:14px 16px}
 .kpis-n .kpi .v{font-size:28px}
 .kpis-n .kpi.on{outline:2px solid var(--accent);outline-offset:2px}
@@ -963,8 +964,10 @@ async function saveCfg(){const t=parseInt(val('cfgTri'),10),a=parseInt(val('cfgA
 /* ---------- Normas ---------- */
 const FILT_APL=[['apl','Aplicável'],['apl-com','Aplicável com plano'],['apl-sem','Aplicável sem plano'],['risco','Aplicável, risco assumido'],['nao','Não aplicável'],['pend','Aplicabilidade a definir']];
 function filtApl(n,k){const a=aplicOf(n);return k==='apl'?a==='Aplicável':k==='apl-com'?a==='Aplicável'&&n.planoAcao==='Sim':k==='apl-sem'?a==='Aplicável'&&n.planoAcao==='Não':k==='risco'?a==='Aplicável'&&n.planoAcao==='Risco assumido':k==='nao'?a==='Não aplicável':k==='pend'?!a:true}
-const FILT_CONS=[['reg','Exige envio ao regulador'],['pol','Exige atualizar política interna'],['reav','Para reavaliar']];
-function filtCons(n,k){return k==='reg'?n.envioRegulador==='Sim':k==='pol'?n.atualizaPolitica==='Sim':k==='reav'?reavPend(n).length>0:true}
+const FILT_CONS=[['reg','Exige envio ao regulador'],['pol','Exige atualizar política interna'],['reav','Para reavaliar'],['ret','Retornos a validar']];
+function filtCons(n,k){return k==='reg'?n.envioRegulador==='Sim':k==='pol'?n.atualizaPolitica==='Sim':k==='reav'?reavPend(n).length>0:k==='ret'?retPend(n):true}
+// Retorno a validar: a área respondeu e a norma ainda não foi salva pelo Compliance depois dessa resposta
+const retPend=n=>{const t=Date.parse(n.atualizadoEm||'')||0;return (S.enc||[]).some(e=>e.normaId===n.id&&e.respondidoEm&&Date.parse(e.respondidoEm)>t)};
 function filtNormas(){const f=S.nf,q=norm(f.q);return S.normas.filter(n=>(!f.orgao||n.orgao===f.orgao)&&(!f.status||(n.status||'Nova')===f.status)&&(!f.crit||n.criticidade===f.crit)&&(!f.apl||filtApl(n,f.apl))&&(!f.cons||filtCons(n,f.cons))&&(!q||norm([cite(n),n.ementa,n.tema,n.responsavel,n.area,n.numero].join(' ')).includes(q)))
   .sort((a,b)=>(b.dataPublicacao||'')>(a.dataPublicacao||'')?1:(b.dataPublicacao||'')<(a.dataPublicacao||'')?-1:0)}
 const SEL=()=>S.sel||(S.sel=new Set());
@@ -1148,7 +1151,7 @@ async function reavAcao(act,id){const n=S.normas.find(x=>x.id===id);if(!n)return
     toast(act==='reav-abrir'?'Norma reaberta para análise. A análise anterior ficou guardada no histórico.':act==='reav-revogar'?'Norma marcada como revogada.':'Registrado: alteração sem impacto na análise.');if(S.dlg&&S.dlg.id===id)drawDlg()}catch(e){onWriteErr(e)}}
 function resumoNormas(){const ld=!S.loaded.normas,c=st=>S.normas.filter(n=>(n.status||'Nova')===st).length,f=S.nf.status;
   const kp=(v,l,st)=>`<button class="kpi${f===st?' on':''}" data-act="goto" data-go="normas:${st}" aria-pressed="${f===st}"><span class="v">${ld?'–':v}</span><span class="l">${l}</span></button>`;
-  return `<div class="kpis kpis-n">${kp(c('Nova'),'Novas','Nova')}${kp(c('Em análise'),'Em análise','Em análise')}${kp(c('Aplicável'),'Aplicáveis, em adequação','Aplicável')}${kp(c('Adequada'),'Adequadas (finalizadas)','Adequada')}${kp(c('Não aplicável'),'Não aplicáveis','Não aplicável')}${(()=>{const r=ld?0:S.normas.filter(n=>reavPend(n).length).length;return r?`<button class="kpi kpi-reav${S.nf.cons==='reav'?' on':''}" data-act="nf-reav" aria-pressed="${S.nf.cons==='reav'}"><span class="v">${r}</span><span class="l">Para reavaliar</span></button>`:''})()}</div>`}
+  return `<div class="kpis kpis-n">${kp(c('Nova'),'Novas','Nova')}${kp(c('Em análise'),'Em análise','Em análise')}${S.isArea?'':(()=>{const r=ld?0:S.normas.filter(retPend).length,on=S.nf.cons==='ret';return `<button class="kpi${r?' kpi-ret':''}${on?' on':''}" data-act="nf-ret" aria-pressed="${on}"><span class="v">${ld||S.enc===undefined?'–':r}</span><span class="l">Retornos a validar</span></button>`})()}${kp(c('Aplicável'),'Aplicáveis, em adequação','Aplicável')}${kp(c('Adequada'),'Adequadas (finalizadas)','Adequada')}${kp(c('Não aplicável'),'Não aplicáveis','Não aplicável')}${(()=>{const r=ld?0:S.normas.filter(n=>reavPend(n).length).length;return r?`<button class="kpi kpi-reav${S.nf.cons==='reav'?' on':''}" data-act="nf-reav" aria-pressed="${S.nf.cons==='reav'}"><span class="v">${r}</span><span class="l">Para reavaliar</span></button>`:''})()}</div>`}
 function vNormas(){
   const list=filtNormas();const loading=!S.loaded.normas;const podeSel=!!(S.canWrite&&S.db);const sel=SEL();const nSel=list.filter(n=>sel.has(n.id)).length;const allSel=list.length>0&&nSel===list.length;
   const rows=list.map(n=>{const ac=S.acoes.filter(a=>a.normaId===n.id);const open=ac.filter(a=>!['Concluída','Cancelada'].includes(a.status)).length;const done=['Adequada','Não aplicável','Revogada'].includes(n.status);
@@ -1610,6 +1613,7 @@ function handleAct(t,e){const act=t.dataset.act,id=t.dataset.id;
   if(act==='new-norma')return openDlg({type:'norma'});
   if(act==='open-norma')return openDlg({type:'norma',id});
   if(act==='nf-reav'){S.nf={q:'',orgao:'',status:'',crit:'',apl:'',cons:S.nf.cons==='reav'?'':'reav'};return render()}
+  if(act==='nf-ret'){S.nf={q:'',orgao:'',status:'',crit:'',apl:'',cons:S.nf.cons==='ret'?'':'ret'};return render()}
   if(act==='usr-deleg'||act==='usr-deleg-rem'){const body=act==='usr-deleg-rem'?{remover:true}:{delegadoId:val('uDel'),de:val('uDelDe'),ate:val('uDelAte')};
     if(act==='usr-deleg'&&(!body.delegadoId||!body.de||!body.ate)){toast('Escolha a pessoa e o período.','crit');return}
     t.disabled=true;return apiJson('/api/admin/usuarios/'+encodeURIComponent(id)+'/delegacao',{method:'POST',body:JSON.stringify(body)}).then(async()=>{toast(body.remover?'Ausência removida.':'Ausência salva. Os avisos do período também vão para a pessoa escolhida.');S.cfgU=null;await loadCfgU();if(S.dlg&&S.dlg.type==='usuario')drawDlg();render()}).catch(e=>toast(e.message,'crit')).finally(()=>{t.disabled=false})}
