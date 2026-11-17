@@ -253,3 +253,37 @@ DO $$ BEGIN
     AND NOT EXISTS (SELECT 1 FROM normas o WHERE o.id <> n.id AND o.chave = regexp_replace(n.chave, '[^|]*$', x.d));
 EXCEPTION WHEN others THEN RAISE NOTICE 'Correção de número não aplicada: %', SQLERRM;
 END $$;
+-- Reinício pedido pelo Compliance em 17/11/2026 (roda uma única vez; marcado na tabela sistema):
+-- zera a análise de todas as normas, apaga os encaminhamentos/retornos e as ações ligadas a normas (com evidências)
+-- e exclui duas contas. Antes, guarda cópia de tudo em tabelas bkp_20261117_*.
+DO $$
+DECLARE n_normas int; n_acoes int; n_enc int; n_usu int;
+BEGIN
+  IF EXISTS (SELECT 1 FROM sistema WHERE id = 'reinicio-normas-20261117') THEN RETURN; END IF;
+  CREATE TABLE IF NOT EXISTS bkp_20261117_normas AS SELECT * FROM normas;
+  CREATE TABLE IF NOT EXISTS bkp_20261117_acoes AS SELECT * FROM acoes WHERE norma_id IS NOT NULL;
+  CREATE TABLE IF NOT EXISTS bkp_20261117_evidencias AS SELECT * FROM evidencias WHERE acao_id IN (SELECT id FROM acoes WHERE norma_id IS NOT NULL);
+  CREATE TABLE IF NOT EXISTS bkp_20261117_encaminhamentos AS SELECT * FROM encaminhamentos;
+  CREATE TABLE IF NOT EXISTS bkp_20261117_usuarios AS SELECT * FROM usuarios
+    WHERE (lower(email) = 'robsoncavalcante30@gmail.com' AND perfil <> 'Admin') OR lower(email) = 'leonardo.pinheiro@trinusco.com.br';
+
+  DELETE FROM acoes WHERE norma_id IS NOT NULL;                 -- as evidências saem junto (ON DELETE CASCADE)
+  GET DIAGNOSTICS n_acoes = ROW_COUNT;
+  DELETE FROM encaminhamentos;
+  GET DIAGNOSTICS n_enc = ROW_COUNT;
+  UPDATE normas SET status = 'Nova', aplicabilidade = NULL, criticidade = 'Média', criterios_risco = NULL,
+    responsavel = NULL, area = NULL, prazo_adequacao = NULL, plano_acao = NULL, plano_inicio = NULL, prazo_acordado = NULL,
+    plano_descricao = NULL, risco_responsavel = NULL, risco_justificativa = NULL, envio_regulador = NULL, atualiza_politica = NULL,
+    observacoes = NULL, alteracoes_vistas = NULL, historico_analises = NULL, triada_em = NULL, analisada_em = NULL;
+  GET DIAGNOSTICS n_normas = ROW_COUNT;
+  UPDATE usuarios SET delegado_id = NULL, delegacao_de = NULL, delegacao_ate = NULL
+    WHERE delegado_id IN (SELECT id FROM bkp_20261117_usuarios);
+  DELETE FROM usuarios WHERE id IN (SELECT id FROM bkp_20261117_usuarios);
+  GET DIAGNOSTICS n_usu = ROW_COUNT;
+
+  INSERT INTO auditoria (id, por, acao, tipo, ref, detalhe) VALUES (md5(random()::text || clock_timestamp()::text), NULL, 'Reiniciou', 'Norma', 'Todas as normas',
+    format('Pedido do Compliance: análise zerada em %s normas; %s ações e %s encaminhamentos apagados; %s contas excluídas (cópia em bkp_20261117_*)', n_normas, n_acoes, n_enc, n_usu));
+  INSERT INTO sistema (id, dados, atualizado_em) VALUES ('reinicio-normas-20261117',
+    jsonb_build_object('normas', n_normas, 'acoes', n_acoes, 'encaminhamentos', n_enc, 'usuarios', n_usu), now());
+EXCEPTION WHEN others THEN RAISE NOTICE 'Reinício das normas não aplicado: %', SQLERRM;
+END $$;
