@@ -3,7 +3,9 @@
    (db, user, assets, downloads), agora apoiada na API REST deste servidor. */
 (function () {
   'use strict';
-  var INTERVALO = 15000; // atualização automática das listas (ms)
+  // A cada 30 s (só com a página visível) consulta a versão de cada lista e recarrega apenas a que mudou.
+  // Antes recarregava todas as listas a cada 15 s, o que estourou a cota do banco.
+  var INTERVALO = 30000;
   var CAB = { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' };
 
   function erro(code, message) { return { code: code, message: message }; }
@@ -23,18 +25,24 @@
     return j;
   }
 
-  // ---- assinaturas com atualização periódica ----
+  // ---- assinaturas: carregam a lista e recarregam quando a versão dela muda no servidor ----
   var assinaturas = new Map();
+  function grupoDe(chave) {
+    var m = chave.match(/^c:\/api\/c\/([a-z]+)/); if (m) return m[1];
+    m = chave.match(/^d:sistema\/(.+)$/); if (m) return 'sis:' + m[1];
+    m = chave.match(/^d:([a-z]+)\//); if (m) return m[1];
+    return null;
+  }
   function assinar(chave, buscar, prox, falha) {
     var a = assinaturas.get(chave);
-    if (!a) { a = { buscar: buscar, ouvintes: new Set(), timer: null }; assinaturas.set(chave, a); }
+    if (!a) { a = { buscar: buscar, ouvintes: new Set() }; assinaturas.set(chave, a); }
     var o = { prox: prox, falha: falha };
     a.ouvintes.add(o);
     atualizar(chave);
-    if (!a.timer) a.timer = setInterval(function () { atualizar(chave); }, INTERVALO);
+    iniciarVigia();
     return function () {
       a.ouvintes.delete(o);
-      if (!a.ouvintes.size) { clearInterval(a.timer); assinaturas.delete(chave); }
+      if (!a.ouvintes.size) assinaturas.delete(chave);
     };
   }
   async function atualizar(chave) {
@@ -44,7 +52,32 @@
     catch (e) { if (e && e.code !== 'unavailable') a.ouvintes.forEach(function (o) { o.falha && o.falha(e); }); }
   }
   function atualizarTudo() { var ps = []; assinaturas.forEach(function (_, k) { ps.push(atualizar(k)); }); return Promise.all(ps); }
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) atualizarTudo(); });
+
+  var versoes = null, vigia = null, conferindo = false;
+  // ja: grupos que acabaram de ser recarregados (depois de uma gravação desta página)
+  async function conferirVersoes(ja) {
+    if (document.hidden || conferindo) return;
+    conferindo = true;
+    try {
+      var v = await chamar('GET', '/api/versoes');
+      if (versoes) {
+        var mudou = Object.keys(v).filter(function (k) { return v[k] !== versoes[k] && !(ja && ja.indexOf(k) >= 0); });
+        if (mudou.length) {
+          assinaturas.forEach(function (_, k) { var g = grupoDe(k); if (g === null || mudou.indexOf(g) >= 0) atualizar(k); });
+          if (mudou.indexOf('enc') >= 0) document.dispatchEvent(new CustomEvent('cn:enc'));
+        }
+      }
+      versoes = v;
+    } catch (e) { /* tenta de novo na próxima rodada */ }
+    finally { conferindo = false; }
+  }
+  function iniciarVigia() { if (!vigia) { vigia = setInterval(conferirVersoes, INTERVALO); setTimeout(conferirVersoes, 2000); } }
+  async function aposGravar(grupo) {
+    var ps = []; assinaturas.forEach(function (_, k) { if (grupoDe(k) === grupo) ps.push(atualizar(k)); });
+    await Promise.all(ps);
+    conferirVersoes([grupo]);
+  }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) conferirVersoes(); });
 
   function snapLista(linhas) {
     return {
@@ -60,6 +93,7 @@
   function refDoc(caminho) {
     var p = caminho.split('/'); var col = p[0]; var id = p[1];
     var base = col === 'sistema' ? '/api/sistema/' + encodeURIComponent(id) : '/api/c/' + col + '/' + encodeURIComponent(id);
+    var grupo = col === 'sistema' ? 'sis:' + id : col;
     return {
       id: id, path: caminho,
       get: async function () {
@@ -70,9 +104,9 @@
       },
       // espera a lista recarregar antes de devolver, para a tela já mostrar o dado salvo;
       // opcoes.aoGravar roda assim que o servidor confirma, antes do recarregamento (aviso imediato)
-      set: async function (d, op) { await chamar('PUT', base, d); if (op && op.aoGravar) op.aoGravar(); await atualizarTudo(); },
-      update: async function (d, op) { await chamar('PATCH', base, d); if (op && op.aoGravar) op.aoGravar(); await atualizarTudo(); },
-      delete: async function () { await chamar('DELETE', base); await atualizarTudo(); },
+      set: async function (d, op) { await chamar('PUT', base, d); if (op && op.aoGravar) op.aoGravar(); await aposGravar(grupo); },
+      update: async function (d, op) { await chamar('PATCH', base, d); if (op && op.aoGravar) op.aoGravar(); await aposGravar(grupo); },
+      delete: async function () { await chamar('DELETE', base); await aposGravar(grupo); },
       onSnapshot: function (prox, falha) {
         return assinar('d:' + caminho, async function () {
           if (col !== 'sistema') return (await refDoc(caminho).get());
