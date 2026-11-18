@@ -287,3 +287,5 @@ BEGIN
     jsonb_build_object('normas', n_normas, 'acoes', n_acoes, 'encaminhamentos', n_enc, 'usuarios', n_usu), now());
 EXCEPTION WHEN others THEN RAISE NOTICE 'Reinício das normas não aplicado: %', SQLERRM;
 END $$;
+-- As cópias do reinício de 17/11/2026 não são mais necessárias (ocupavam espaço no banco); a cópia de segurança agora é baixada em Configurações
+DROP TABLE IF EXISTS bkp_20261117_normas, bkp_20261117_acoes, bkp_20261117_evidencias, bkp_20261117_encaminhamentos, bkp_20261117_usuarios;
