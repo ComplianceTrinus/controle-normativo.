@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <script src="/vendor/xlsx.full.min.js"></script>
-<script src="/js/api.js?v=20261116a"></script>
+<script src="/js/api.js?v=20261118a"></script>
 <style>
 /* Layout: padrão trinus.co — trilho lateral azul com logo e menu, área clara com cards brancos e tabelas */
 :root{
@@ -974,8 +974,9 @@ const SEL=()=>S.sel||(S.sel=new Set());
 /* ---------- Configurações (Admin): usuários, áreas e envio diário ---------- */
 function vConfig(){const t=S.cfgTab||'usuarios';
   return `<div class="head"><div><h1>Configurações</h1></div></div>
-  <nav class="abas" aria-label="Configurações">${[['usuarios','Usuários'],['areas','Áreas'],['regras','Regras de triagem'],['envio','Envio diário'],['lixeira','Lixeira']].map(([k,l])=>`<a href="#config" data-act="cfg-tab" data-tab="${k}"${k===t?' aria-current="page"':''}>${l}</a>`).join('')}</nav>
-  ${t==='usuarios'?vUsuarios():t==='areas'?vAreasCfg():t==='lixeira'?vLixeira():t==='regras'?vRegras():vEnvios()}`}
+  <nav class="abas" aria-label="Configurações">${[['usuarios','Usuários'],['areas','Áreas'],['regras','Regras de triagem'],['envio','Envio diário'],['lixeira','Lixeira'],['backup','Cópia de segurança']].map(([k,l])=>`<a href="#config" data-act="cfg-tab" data-tab="${k}"${k===t?' aria-current="page"':''}>${l}</a>`).join('')}</nav>
+  ${t==='usuarios'?vUsuarios():t==='areas'?vAreasCfg():t==='lixeira'?vLixeira():t==='regras'?vRegras():t==='backup'?vBackup():vEnvios()}`}
+function vBackup(){return `<div class="box"><div class="pad" style="display:flex;flex-direction:column;gap:12px;align-items:flex-start;max-width:640px"><p style="margin:0">Arquivo com todos os dados do sistema: normas, ações, obrigações, encaminhamentos, comentários, usuários e auditoria. Senhas e arquivos das evidências não entram.</p><a class="btn pri" href="/api/admin/backup">Baixar cópia de segurança</a></div></div>`}
 // Regras de triagem: palavras-chave na ementa/tema sugerem tema, áreas e risco. Ficam em sistema/config (regrasTriagem).
 const regras=()=>(S.cfg&&Array.isArray(S.cfg.regrasTriagem))?S.cfg.regrasTriagem:[];
 function sugerir(n){const txt=norm((n.ementa||'')+' '+(n.tema||''));let tema='',risco='';const areas=[];
@@ -1684,7 +1685,7 @@ render();
   S.role=S.isAdmin?'Admin':S.isArea?'Área responsável':S.canWrite?'Analista':'Leitura';
   if(!db){S.dbState='off';S.canWrite=false;S.role=S.role||'—';render();return}
   S.dbState='ready';
-  loadEnc();if(S.isArea)setInterval(loadEnc,60000);
+  loadEnc();document.addEventListener('cn:enc',()=>loadEnc());
   apiJson('/api/areas').then(l=>{S.areas=Array.isArray(l)?l:[];if(S.dlg)drawDlgKeep()}).catch(()=>{S.areas=[]});
   const sub=(q,key)=>q.onSnapshot(snap=>{S[key]=snap.docs.map(d=>({id:d.id,...d.data()}));S.loaded[key]=true;render()},err=>{S.loaded[key]=true;toast('Não foi possível carregar os dados ('+key+'). Recarregue a página.','crit');render()});
   sub(db.collection('normas'),'normas');sub(db.collection('acoes'),'acoes');sub(db.collection('obrigacoes'),'obrig');
