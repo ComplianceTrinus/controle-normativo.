@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const zlib = require('zlib');
 const express = require('express');
 const session = require('express-session');
 const PgStore = require('connect-pg-simple')(session);
@@ -167,6 +168,23 @@ function tratarErro(res, err) {
 
 app.get('/api/me', (req, res) => res.json({ ...usuario(req), modoLogin: config.authMode }));
 
+// Versão de cada lista: a página consulta isto (resposta pequena) e só recarrega a lista que mudou, poupando o banco
+app.get('/api/versoes', async (req, res) => {
+  try {
+    const r = await q(`SELECT
+      (SELECT concat_ws('|', count(*), max(atualizado_em), max(excluido_em)) FROM normas) AS normas,
+      concat_ws('|', (SELECT count(*) FROM acoes), (SELECT max(atualizado_em) FROM acoes), (SELECT max(excluido_em) FROM acoes),
+                     (SELECT count(*) FROM evidencias), (SELECT max(greatest(enviado_em, excluida_em)) FROM evidencias)) AS acoes,
+      concat_ws('|', (SELECT count(*) FROM obrigacoes), (SELECT max(atualizado_em) FROM obrigacoes), (SELECT max(excluido_em) FROM obrigacoes),
+                     (SELECT count(*) FROM obrigacao_envios)) AS obrigacoes,
+      (SELECT concat_ws('|', count(*), max(greatest(em, respondido_em, estudo_em))) FROM encaminhamentos) AS enc,
+      (SELECT max(em)::text FROM auditoria) AS auditoria,
+      (SELECT atualizado_em::text FROM sistema WHERE id = 'captura') AS "sis:captura",
+      (SELECT atualizado_em::text FROM sistema WHERE id = 'config') AS "sis:config"`);
+    res.set('Cache-Control', 'no-store').json(r.rows[0]);
+  } catch (e) { tratarErro(res, e); }
+});
+
 app.get('/api/usuarios', async (req, res) => {
   const ids = String(req.query.ids || '').split(',').filter(Boolean).slice(0, 200);
   if (!ids.length) return res.json({});
@@ -317,6 +335,29 @@ app.get('/api/acessos', async (req, res) => {
 });
 
 // Lista de áreas (escolha nas ações e obrigações)
+// Cópia de segurança para guardar fora do sistema: todos os dados, sem senhas e sem o conteúdo dos arquivos de evidência
+app.get('/api/admin/backup', admin, async (req, res) => {
+  try {
+    const tab = async sql => (await q(sql)).rows.map(l => l.r);
+    const b = {
+      geradoEm: new Date().toISOString(),
+      normas: await tab('SELECT to_jsonb(t) AS r FROM normas t ORDER BY id'),
+      acoes: await tab('SELECT to_jsonb(t) AS r FROM acoes t ORDER BY id'),
+      evidencias: await tab("SELECT to_jsonb(t) - 'conteudo' AS r FROM evidencias t ORDER BY id"),
+      obrigacoes: await tab('SELECT to_jsonb(t) AS r FROM obrigacoes t ORDER BY id'),
+      obrigacaoEnvios: await tab('SELECT to_jsonb(t) AS r FROM obrigacao_envios t ORDER BY id'),
+      encaminhamentos: await tab('SELECT to_jsonb(t) AS r FROM encaminhamentos t ORDER BY id'),
+      comentarios: await tab('SELECT to_jsonb(t) AS r FROM comentarios t ORDER BY id'),
+      usuarios: await tab("SELECT to_jsonb(t) - 'senha_hash' AS r FROM usuarios t ORDER BY id"),
+      sistema: await tab("SELECT to_jsonb(t) AS r FROM sistema t WHERE id <> 'segredo-sessao' ORDER BY id"),
+      auditoria: await tab('SELECT to_jsonb(t) AS r FROM auditoria t ORDER BY em'),
+    };
+    const gz = zlib.gzipSync(Buffer.from(JSON.stringify(b)));
+    await dados.registrarAuditoria({ acao: 'Baixou', tipo: 'Configuração', ref: 'Cópia de segurança', detalhe: `${b.normas.length} normas, ${b.acoes.length} ações, ${b.obrigacoes.length} obrigações, ${b.auditoria.length} registros de auditoria` }, usuario(req).id);
+    res.set({ 'Content-Type': 'application/json; charset=utf-8', 'Content-Encoding': 'gzip', 'Cache-Control': 'no-store',
+      'Content-Disposition': `attachment; filename="controle-normativo-backup-${diaSP()}.json"` }).send(gz);
+  } catch (e) { tratarErro(res, e); }
+});
 app.use('/api/admin', admin, contas.apiAdmin);
 app.get('/api/areas', async (req, res) => {
   try { res.json(await dados.listarAreas()); } catch (e) { tratarErro(res, e); }
